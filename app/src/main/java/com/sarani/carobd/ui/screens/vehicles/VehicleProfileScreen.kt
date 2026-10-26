@@ -141,7 +141,7 @@ fun VehicleProfileScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(state.profiles, key = { it.id }) { profile ->
-                    val isSelected = profile.id == state.selectedProfile.id
+                    val isSelected = state.selectedProfile?.id == profile.id
                     VehicleProfileCard(
                         profile = profile,
                         isSelected = isSelected,

@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 
 data class VehicleProfileState(
     val profiles: List<VehicleProfile> = IranianEcuRegistry.PRESET_VEHICLES,
-    val selectedProfile: VehicleProfile = IranianEcuRegistry.PRESET_VEHICLES.first(),
+    val selectedProfile: VehicleProfile? = null,
     val isAutoScanning: Boolean = false,
     val autoScanStatusMessage: String? = null,
     val detectedProtocol: EcuProtocol? = null

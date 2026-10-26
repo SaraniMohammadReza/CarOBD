@@ -81,13 +81,13 @@ fun MaintenanceScreen(
             ) {
                 Column {
                     Text(
-                        text = "اطلاعات فنی و سرویس‌های ${state.activeProfile.modelNameFa}",
+                        text = "اطلاعات فنی و سرویس‌های ${state.activeProfile?.modelNameFa ?: "خودروی انتخاب‌شده"}",
                         color = TextPrimary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "موتور: ${state.specSheet.engineCode}",
+                        text = "موتور: ${state.specSheet?.engineCode ?: "—"}",
                         color = NeonCyan,
                         fontSize = 12.sp
                     )
@@ -151,7 +151,7 @@ fun MaintenanceScreen(
                 }
             } else {
                 // Tab 2: Vehicle Technical Spec Sheet
-                TechnicalSpecsView(specs = state.specSheet)
+                state.specSheet?.let { TechnicalSpecsView(specs = it) }
             }
         }
     }

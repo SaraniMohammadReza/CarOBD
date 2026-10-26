@@ -47,6 +47,7 @@ import java.util.UUID
  */
 class ObdRepositoryImpl(
     private val context: Context,
+    private val activeVehicleRepository: ActiveVehicleRepository,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + Job())
 ) : ObdRepository {
 
@@ -58,16 +59,25 @@ class ObdRepositoryImpl(
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
     override val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
-    private val _activeVehicleProfile = MutableStateFlow(
-        com.sarani.carobd.core.protocol.iranian.IranianEcuRegistry.PRESET_VEHICLES.first()
-    )
-    override val activeVehicleProfile: StateFlow<VehicleProfile> = _activeVehicleProfile.asStateFlow()
+    // §B3: single persisted source of truth — restored from ActiveVehicleRepository (DataStore).
+    // Never a fabricated PRESET_VEHICLES.first() default; null until the user selects a vehicle.
+    private val _activeVehicleProfile = MutableStateFlow<VehicleProfile?>(null)
+    override val activeVehicleProfile: StateFlow<VehicleProfile?> = _activeVehicleProfile.asStateFlow()
 
     private val _liveTelemetry = MutableStateFlow(LiveTelemetry())
     override val liveTelemetry: StateFlow<LiveTelemetry> = _liveTelemetry.asStateFlow()
 
     private var pollingJob: Job? = null
     private var relayerJob: Job? = null
+
+    init {
+        // §B3: restore the persisted active vehicle from the single source of truth on startup.
+        scope.launch {
+            activeVehicleRepository.activeVehicle.collect { profile ->
+                _activeVehicleProfile.value = profile
+            }
+        }
+    }
 
     override suspend fun connect(type: ConnectionType, target: String): Result<Unit> = withContext(Dispatchers.IO) {
         stopTelemetryLoop()
@@ -127,7 +137,7 @@ class ObdRepositoryImpl(
             // Start Trip tracking
             currentTripComputer = TripComputer(
                 tripId = UUID.randomUUID().toString(),
-                vehicleId = _activeVehicleProfile.value.id
+                vehicleId = _activeVehicleProfile.value?.id ?: "unselected"
             )
 
             startTelemetryLoop()
@@ -168,6 +178,7 @@ class ObdRepositoryImpl(
 
     override suspend fun setVehicleProfile(profile: VehicleProfile) {
         _activeVehicleProfile.value = profile
+        activeVehicleRepository.selectVehicle(profile)
         // If profile defines custom target ECU header, apply it to the active adapter
         val adapter = activeAdapter
         if (adapter != null) {
@@ -249,7 +260,7 @@ class ObdRepositoryImpl(
         if (dtcList.isNotEmpty()) {
             database.saveDtcScan(
                 sessionId = UUID.randomUUID().toString(),
-                vehicleId = _activeVehicleProfile.value.id,
+                vehicleId = _activeVehicleProfile.value?.id ?: "unselected",
                 codes = dtcList
             )
         }
@@ -282,7 +293,7 @@ class ObdRepositoryImpl(
 
         val flowStream = flow {
             var current = _liveTelemetry.value
-            val engineName = _activeVehicleProfile.value.engineName
+            val engineName = _activeVehicleProfile.value?.engineName ?: "Unknown"
             val displacement = when {
                 engineName.contains("XU7", ignoreCase = true) -> 1.761
                 engineName.contains("EF7", ignoreCase = true) -> 1.645

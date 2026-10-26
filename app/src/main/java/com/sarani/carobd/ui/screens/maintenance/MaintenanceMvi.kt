@@ -15,8 +15,8 @@ import com.sarani.carobd.ui.mvi.UiState
 import kotlinx.coroutines.launch
 
 data class MaintenanceState(
-    val activeProfile: VehicleProfile = IranianEcuRegistry.PRESET_VEHICLES.first(),
-    val specSheet: VehicleSpecSheet = IranianCarSpecsDatabase.getSpecSheet(IranianEcuRegistry.PRESET_VEHICLES.first().id),
+    val activeProfile: VehicleProfile? = null,
+    val specSheet: VehicleSpecSheet? = null,
     val currentOdometerKm: Int = 115000,
     val reminders: List<ServiceReminderItem> = emptyList()
 ) : UiState
@@ -87,7 +87,7 @@ class MaintenanceViewModel(
     init {
         viewModelScope.launch {
             observeTelemetryUseCase.activeProfile.collect { profile ->
-                val specs = IranianCarSpecsDatabase.getSpecSheet(profile.id)
+                val specs = profile?.let { IranianCarSpecsDatabase.getSpecSheet(it.id) }
                 setState { copy(activeProfile = profile, specSheet = specs) }
             }
         }

@@ -52,6 +52,7 @@ class AppPreferencesManager(private val context: Context) {
         private val KEY_ODOMETER = intPreferencesKey("odometer_km")
         private val KEY_FUEL_PRICE = floatPreferencesKey("fuel_price")
         private val KEY_IS_MOTORCYCLE = booleanPreferencesKey("is_motorcycle")
+        private val KEY_ACTIVE_VEHICLE_ID = stringPreferencesKey("active_vehicle_id")
     }
 
     val isOnboardingDone: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -81,6 +82,12 @@ class AppPreferencesManager(private val context: Context) {
         )
     }
 
+    /** PERSISTED active vehicle id (§B3 single source of truth). Null when none selected. */
+    val activeVehicleId: Flow<String?> = context.dataStore.data.map { prefs ->
+        val id = prefs[KEY_ACTIVE_VEHICLE_ID]
+        id?.takeIf { it.isNotBlank() }
+    }
+
     suspend fun setOnboardingDone(done: Boolean) {
         context.dataStore.edit { it[KEY_ONBOARDING_DONE] = done }
     }
@@ -105,6 +112,14 @@ class AppPreferencesManager(private val context: Context) {
             it[KEY_IS_MOTORCYCLE] = setup.isMotorcycle
             it[KEY_ONBOARDING_DONE] = true
         }
+    }
+
+    suspend fun setActiveVehicleId(id: String) {
+        context.dataStore.edit { it[KEY_ACTIVE_VEHICLE_ID] = id }
+    }
+
+    suspend fun clearActiveVehicleId() {
+        context.dataStore.edit { it.remove(KEY_ACTIVE_VEHICLE_ID) }
     }
 
     // Default widget layout

@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface ObdRepository {
     val connectionState: StateFlow<ConnectionState>
-    val activeVehicleProfile: StateFlow<VehicleProfile>
+    val activeVehicleProfile: StateFlow<VehicleProfile?>
     val liveTelemetry: StateFlow<LiveTelemetry>
 
     suspend fun connect(type: ConnectionType, target: String): Result<Unit>

@@ -182,7 +182,8 @@ open class Elm327Adapter(
                     adapterType = probeResult.quality.name,
                     protocolName = _currentProtocol?.displayName ?: "OBD-II Standard",
                     elmVersion = probeResult.firmwareVersion,
-                    batteryVoltage = probeResult.voltage
+                    batteryVoltage = probeResult.voltage,
+                    isSimulator = transport.transportType == com.sarani.carobd.core.model.TransportType.SIMULATOR
                 )
 
                 AdapterInitializationResult(

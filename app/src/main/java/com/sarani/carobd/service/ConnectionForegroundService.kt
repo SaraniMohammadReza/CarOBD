@@ -114,7 +114,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
             }.collect { (conn, tele, profile) ->
                 when (conn) {
                     is ConnectionState.Connected -> {
-                        val title = "${profile.modelNameFa} • ${conn.deviceName}"
+                        val title = "${profile?.modelNameFa ?: "خودرو"} • ${conn.deviceName}"
                         val content = if (tele.speedKmh > 0 || tele.rpm > 0) {
                             "سرعت: ${tele.speedKmh} km/h | دور موتور: ${tele.rpm} RPM | آب: ${tele.coolantTempCelsius}°C"
                         } else {

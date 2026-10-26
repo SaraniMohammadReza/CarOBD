@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 data class DashboardState(
     val telemetry: LiveTelemetry = LiveTelemetry(),
     val connectionState: ConnectionState = ConnectionState.Disconnected,
-    val activeProfile: VehicleProfile = IranianEcuRegistry.PRESET_VEHICLES.first(),
+    val activeProfile: VehicleProfile? = null,
     val isHudMode: Boolean = false,
     val isChartMode: Boolean = false,
     val selectedConnectionType: ConnectionType = ConnectionType.VIRTUAL_SIMULATOR,

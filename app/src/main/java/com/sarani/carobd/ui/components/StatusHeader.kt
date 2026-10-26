@@ -45,7 +45,7 @@ import com.sarani.carobd.ui.theme.TextPrimary
 @Composable
 fun StatusHeader(
     connectionState: ConnectionState,
-    activeProfile: VehicleProfile,
+    activeProfile: VehicleProfile?,
     batteryVoltage: Float,
     onConnectClicked: () -> Unit,
     onDisconnectClicked: () -> Unit,
@@ -119,14 +119,14 @@ fun StatusHeader(
                 // Vehicle & ECU Info
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = activeProfile.modelNameFa,
+                        text = activeProfile?.modelNameFa ?: "—",
                         color = TextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )
                     Text(
-                        text = "${activeProfile.ecuName} • ${activeProfile.ecuProtocol.standard.displayName}",
+                        text = activeProfile?.let { "${it.ecuName} • ${it.ecuProtocol.standard.displayName}" } ?: "—",
                         color = TextMuted,
                         fontSize = 11.sp,
                         maxLines = 1
