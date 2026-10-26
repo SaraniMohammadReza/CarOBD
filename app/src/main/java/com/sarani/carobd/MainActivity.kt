@@ -52,6 +52,9 @@ import com.sarani.carobd.ui.theme.DarkBg
 import com.sarani.carobd.ui.theme.DarkCardBg
 import com.sarani.carobd.ui.theme.NeonCyan
 import com.sarani.carobd.ui.theme.TextMuted
+import androidx.lifecycle.lifecycleScope
+import com.sarani.carobd.core.storage.LocaleHelper
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
@@ -72,9 +75,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent {
-            CarObdTheme {
-                MainAppScaffold(appPreferencesManager = appPreferencesManager)
+        lifecycleScope.launch {
+            // Restore persisted locale before first composition (§Phase C). Single cached
+            // DataStore read — no runBlocking / heavy IO on startup.
+            try {
+                val lang = appPreferencesManager.language.first()
+                LocaleHelper.apply(this@MainActivity, lang)
+            } catch (_: Exception) {
+                /* non-fatal: keep system locale */
+            }
+            setContent {
+                CarObdTheme(appPreferencesManager = appPreferencesManager) {
+                    MainAppScaffold(appPreferencesManager = appPreferencesManager)
+                }
             }
         }
     }
@@ -168,6 +181,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
             }
             composable(AppDestination.Settings.route) {
                 SettingsScreen(
+                    appPreferencesManager = appPreferencesManager,
                     onNavigateToAdapterInspector = {
                         navController.navigate("adapter_inspector")
                     },

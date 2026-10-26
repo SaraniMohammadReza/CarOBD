@@ -38,20 +38,28 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import android.app.Activity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sarani.carobd.R
+import com.sarani.carobd.core.storage.AppLanguage
+import com.sarani.carobd.core.storage.AppPreferencesManager
 import com.sarani.carobd.core.storage.AppThemeMode
+import com.sarani.carobd.core.storage.LocaleHelper
 import com.sarani.carobd.core.storage.UnitSystem
+import kotlinx.coroutines.launch
 import com.sarani.carobd.ui.theme.DarkBg
 import com.sarani.carobd.ui.theme.DarkCardBg
 import com.sarani.carobd.ui.theme.DarkCardBorder
@@ -63,13 +71,19 @@ import com.sarani.carobd.ui.theme.TextPrimary
 
 @Composable
 fun SettingsScreen(
+    appPreferencesManager: AppPreferencesManager,
     onNavigateToAdapterInspector: () -> Unit = {},
     onResetOnboarding: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var selectedTheme by remember { mutableStateOf(AppThemeMode.AMOLED_BLACK) }
-    var selectedUnit by remember { mutableStateOf(UnitSystem.METRIC) }
-    var isPersian by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+    val activity = LocalContext.current as Activity
+    // Real persisted settings (§Phase C): pickers read/write the DataStore via
+    // AppPreferencesManager — no local-only remember state for theme/unit/language.
+    val themeMode by appPreferencesManager.themeMode.collectAsState(AppThemeMode.AMOLED_BLACK)
+    val unitSystem by appPreferencesManager.unitSystem.collectAsState(UnitSystem.METRIC)
+    val language by appPreferencesManager.language.collectAsState(AppLanguage.PERSIAN)
+    val isPersian = language == AppLanguage.PERSIAN
     var selectedRate by remember { mutableStateOf("15 Hz (Ultra Fast)") }
 
     Box(
@@ -112,13 +126,13 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { selectedTheme = mode }
+                                .clickable { scope.launch { appPreferencesManager.setThemeMode(mode) } }
                                 .padding(vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(mode.titleFa, color = if (selectedTheme == mode) NeonCyan else TextMuted, fontSize = 12.sp)
-                            if (selectedTheme == mode) {
+                            Text(mode.titleFa, color = if (themeMode == mode) NeonCyan else TextMuted, fontSize = 12.sp)
+                            if (themeMode == mode) {
                                 Text("فعال", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -147,13 +161,13 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { selectedUnit = unit }
+                                .clickable { scope.launch { appPreferencesManager.setUnitSystem(unit) } }
                                 .padding(vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(unit.titleFa, color = if (selectedUnit == unit) NeonCyan else TextMuted, fontSize = 12.sp)
-                            if (selectedUnit == unit) {
+                            Text(unit.titleFa, color = if (unitSystem == unit) NeonCyan else TextMuted, fontSize = 12.sp)
+                            if (unitSystem == unit) {
                                 Text("انتخاب شده", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
@@ -211,7 +225,11 @@ fun SettingsScreen(
 
                     Switch(
                         checked = isPersian,
-                        onCheckedChange = { isPersian = it },
+                        onCheckedChange = { nextIsPersian ->
+                            val lang = if (nextIsPersian) AppLanguage.PERSIAN else AppLanguage.ENGLISH
+                            scope.launch { appPreferencesManager.setLanguage(lang) }
+                            LocaleHelper.applyAndRecreate(activity, lang)
+                        },
                         colors = SwitchDefaults.colors(checkedThumbColor = NeonCyan)
                     )
                 }

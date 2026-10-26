@@ -27,6 +27,15 @@ enum class UnitSystem(val titleFa: String) {
     IMPERIAL("سیستم ایمپریال (مایل/ساعت، فارنهایت، PSI)")
 }
 
+/**
+ * Persisted application language. The tag is the canonical source for locale
+ * switching; [LocaleHelper] applies it at runtime. Restart-safe via DataStore (§Phase C).
+ */
+enum class AppLanguage(val tag: String, val titleFa: String) {
+    PERSIAN("fa", "فارسی"),
+    ENGLISH("en", "English")
+}
+
 data class UserVehicleSetup(
     val make: String = "ایران خودرو",
     val model: String = "پژو ۲۰۶ تیپ ۵",
@@ -44,6 +53,7 @@ class AppPreferencesManager(private val context: Context) {
         private val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_UNIT_SYSTEM = stringPreferencesKey("unit_system")
+        private val KEY_LANGUAGE = stringPreferencesKey("language")
         private val KEY_VEHICLE_MAKE = stringPreferencesKey("vehicle_make")
         private val KEY_VEHICLE_MODEL = stringPreferencesKey("vehicle_model")
         private val KEY_FUEL_TYPE = stringPreferencesKey("fuel_type")
@@ -67,6 +77,11 @@ class AppPreferencesManager(private val context: Context) {
     val unitSystem: Flow<UnitSystem> = context.dataStore.data.map { prefs ->
         val name = prefs[KEY_UNIT_SYSTEM] ?: UnitSystem.METRIC.name
         try { UnitSystem.valueOf(name) } catch (_: Exception) { UnitSystem.METRIC }
+    }
+
+    val language: Flow<AppLanguage> = context.dataStore.data.map { prefs ->
+        val name = prefs[KEY_LANGUAGE] ?: AppLanguage.PERSIAN.name
+        try { AppLanguage.valueOf(name) } catch (_: Exception) { AppLanguage.PERSIAN }
     }
 
     val userVehicleSetup: Flow<UserVehicleSetup> = context.dataStore.data.map { prefs ->
@@ -98,6 +113,10 @@ class AppPreferencesManager(private val context: Context) {
 
     suspend fun setUnitSystem(system: UnitSystem) {
         context.dataStore.edit { it[KEY_UNIT_SYSTEM] = system.name }
+    }
+
+    suspend fun setLanguage(language: AppLanguage) {
+        context.dataStore.edit { it[KEY_LANGUAGE] = language.name }
     }
 
     suspend fun saveVehicleSetup(setup: UserVehicleSetup) {
