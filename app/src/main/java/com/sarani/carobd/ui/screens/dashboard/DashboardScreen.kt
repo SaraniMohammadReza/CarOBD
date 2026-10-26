@@ -1,0 +1,360 @@
+package com.sarani.carobd.ui.screens.dashboard
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocalGasStation
+import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.sarani.carobd.R
+import com.sarani.carobd.core.database.SensorCatalog
+import com.sarani.carobd.core.model.ConnectionType
+import com.sarani.carobd.core.model.DashboardWidgetConfig
+import com.sarani.carobd.core.model.LiveTelemetry
+import com.sarani.carobd.core.model.WidgetSize
+import com.sarani.carobd.core.model.WidgetType
+import com.sarani.carobd.ui.components.BluetoothDeviceDialog
+import com.sarani.carobd.ui.components.CarConnectionVisualizer
+import com.sarani.carobd.ui.components.CircularGauge
+import com.sarani.carobd.ui.components.DigitalMetricCard
+import com.sarani.carobd.ui.components.HorizontalBarGauge
+import com.sarani.carobd.ui.components.LiveSensorChart
+import com.sarani.carobd.ui.components.SensorPickerModal
+import com.sarani.carobd.ui.components.StatusHeader
+import com.sarani.carobd.ui.components.VehicleOnboardingModal
+import com.sarani.carobd.ui.theme.DarkBg
+import com.sarani.carobd.ui.theme.DarkCardBg
+import com.sarani.carobd.ui.theme.DarkCardBorder
+import com.sarani.carobd.ui.theme.NeonAmber
+import com.sarani.carobd.ui.theme.NeonCyan
+import com.sarani.carobd.ui.theme.NeonGreen
+import com.sarani.carobd.ui.theme.NeonRed
+import com.sarani.carobd.ui.theme.TextMuted
+import com.sarani.carobd.ui.theme.TextPrimary
+
+@Composable
+fun DashboardScreen(
+    viewModel: DashboardViewModel,
+    modifier: Modifier = Modifier
+) {
+    val state by viewModel.uiState.collectAsState()
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(DarkBg)
+            .graphicsLayer {
+                if (state.isHudMode) {
+                    scaleX = -1f
+                }
+            }
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // 1. Status Header
+            item {
+                StatusHeader(
+                    connectionState = state.connectionState,
+                    activeProfile = state.activeProfile,
+                    batteryVoltage = state.telemetry.batteryVoltage,
+                    onConnectClicked = { viewModel.onIntent(DashboardIntent.ToggleConnection) },
+                    onDisconnectClicked = { viewModel.onIntent(DashboardIntent.ToggleConnection) }
+                )
+            }
+
+            // 2. Animated Car Silhouette & Headlight Visualizer
+            item {
+                CarConnectionVisualizer(connectionState = state.connectionState)
+            }
+
+            // 3. Fuel Economy & Driving Range Prediction Banner
+            item {
+                FuelEconomyBanner(
+                    instantL100km = state.fuelEconomy.instantLitersPer100Km,
+                    remainingRangeKm = state.fuelEconomy.remainingRangeKm,
+                    costPerKm = state.fuelEconomy.fuelCostPerKmTomans,
+                    vehicleName = state.userVehicleSetup.model
+                )
+            }
+
+            // 4. Quick Actions Bar: Connectors, HUD, Charts, and Add Widget Button
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(modifier = Modifier.weight(1f)) {
+                        FilterChip(
+                            selected = state.selectedConnectionType == ConnectionType.VIRTUAL_SIMULATOR,
+                            onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.VIRTUAL_SIMULATOR)) },
+                            label = { Text("شبیه‌ساز (Simulator)", fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                selectedLabelColor = NeonCyan
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        FilterChip(
+                            selected = state.selectedConnectionType == ConnectionType.BLUETOOTH_CLASSIC,
+                            onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.BLUETOOTH_CLASSIC)) },
+                            label = { Text("بلوتوث (BT)", fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                selectedLabelColor = NeonCyan
+                            )
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // Add Custom Widget Button
+                        IconButton(
+                            onClick = { viewModel.onIntent(DashboardIntent.OpenSensorPicker) },
+                            modifier = Modifier.background(DarkCardBg, RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Gauge", tint = NeonCyan)
+                        }
+
+                        // HUD Mirror mode toggle
+                        IconButton(
+                            onClick = { viewModel.onIntent(DashboardIntent.ToggleHudMode) },
+                            modifier = Modifier.background(DarkCardBg, RoundedCornerShape(10.dp))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Visibility,
+                                contentDescription = "HUD",
+                                tint = if (state.isHudMode) NeonAmber else TextMuted
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 5. Dynamically Rendered Customized Widgets
+            items(state.widgets, key = { it.id }) { widgetConfig ->
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    RenderCustomWidget(
+                        config = widgetConfig,
+                        telemetry = state.telemetry,
+                        rpmHistory = state.rpmHistory,
+                        speedHistory = state.speedHistory,
+                        o2History = state.o2History
+                    )
+
+                    // Small remove widget button in top corner
+                    IconButton(
+                        onClick = { viewModel.onIntent(DashboardIntent.RemoveWidget(widgetConfig.id)) },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(26.dp)
+                            .padding(4.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextMuted.copy(alpha = 0.6f))
+                    }
+                }
+            }
+        }
+
+        // Modals & Overlays
+        if (state.showOnboarding) {
+            VehicleOnboardingModal(
+                onSetupSaved = { viewModel.onIntent(DashboardIntent.SaveOnboarding(it)) }
+            )
+        }
+
+        if (state.showSensorPicker) {
+            SensorPickerModal(
+                onWidgetAdded = { viewModel.onIntent(DashboardIntent.AddWidget(it)) },
+                onDismiss = { viewModel.onIntent(DashboardIntent.CloseSensorPicker) }
+            )
+        }
+
+        if (state.showBluetoothDialog) {
+            BluetoothDeviceDialog(
+                devices = state.discoveredDevices,
+                isScanning = state.isScanningBt,
+                onDeviceSelected = { viewModel.onIntent(DashboardIntent.ConnectToDevice(it)) },
+                onRefreshScan = { viewModel.onIntent(DashboardIntent.TriggerBtScan) },
+                onDismiss = { viewModel.onIntent(DashboardIntent.CloseBluetoothDialog) }
+            )
+        }
+    }
+}
+
+@Composable
+fun FuelEconomyBanner(
+    instantL100km: Float,
+    remainingRangeKm: Int,
+    costPerKm: Float,
+    vehicleName: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(DarkCardBg, RoundedCornerShape(14.dp))
+            .border(1.dp, DarkCardBorder, RoundedCornerShape(14.dp))
+            .padding(14.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("مصرف سوخت و پیمایش ($vehicleName)", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Text(
+                    text = String.format(java.util.Locale.US, "%.1f L/100km", instantL100km),
+                    color = NeonAmber,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Route, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("پیمایش باقی‌مانده با سوخت فعلی:", color = TextMuted, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("$remainingRangeKm km", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("هزینه هر کیلومتر:", color = TextMuted, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("${costPerKm.toInt()} ت", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RenderCustomWidget(
+    config: DashboardWidgetConfig,
+    telemetry: LiveTelemetry,
+    rpmHistory: List<Float>,
+    speedHistory: List<Float>,
+    o2History: List<Float>
+) {
+    val sensor = SensorCatalog.findById(config.sensorId)
+
+    // Extract sensor value dynamically from telemetry
+    val sensorValue = when (sensor.id) {
+        "rpm" -> telemetry.rpm.toFloat()
+        "speed" -> telemetry.speedKmh.toFloat()
+        "coolant_temp" -> telemetry.coolantTempCelsius.toFloat()
+        "throttle_pos" -> telemetry.throttlePositionPercent
+        "module_voltage" -> telemetry.batteryVoltage
+        "engine_load" -> telemetry.engineLoadPercent
+        "fuel_level" -> telemetry.fuelLevelPercent
+        "intake_temp" -> telemetry.intakeAirTempCelsius.toFloat()
+        "maf" -> telemetry.mafGramsPerSec
+        "map" -> telemetry.intakeManifoldPressureKpa.toFloat()
+        "o2_b1s1" -> telemetry.oxygenSensor1Volt
+        "o2_b1s2" -> telemetry.oxygenSensor2Volt
+        "stepper_steps" -> telemetry.stepperMotorSteps.toFloat()
+        "knock_retard" -> telemetry.knockRetardDegrees
+        "cng_tank_press" -> telemetry.cngPressureBar
+        else -> 0f
+    }
+
+    when (config.widgetType) {
+        WidgetType.CIRCULAR_GAUGE -> {
+            CircularGauge(
+                value = sensorValue,
+                minValue = sensor.minValue,
+                maxValue = sensor.maxValue,
+                title = sensor.nameFa,
+                unit = sensor.unitMetric,
+                primaryColor = NeonCyan,
+                warningColor = NeonRed
+            )
+        }
+        WidgetType.DIGITAL_CARD -> {
+            DigitalMetricCard(
+                title = sensor.nameFa,
+                value = if (sensorValue >= 10f) "${sensorValue.toInt()}" else String.format(java.util.Locale.US, "%.2f", sensorValue),
+                unit = sensor.unitMetric,
+                accentColor = NeonCyan
+            )
+        }
+        WidgetType.BAR_GAUGE -> {
+            HorizontalBarGauge(
+                title = sensor.nameFa,
+                value = sensorValue,
+                minValue = sensor.minValue,
+                maxValue = sensor.maxValue,
+                unit = sensor.unitMetric,
+                accentColor = NeonAmber
+            )
+        }
+        WidgetType.OSCILLOSCOPE_GRAPH -> {
+            val history = when (sensor.id) {
+                "rpm" -> rpmHistory
+                "speed" -> speedHistory
+                else -> o2History
+            }
+            LiveSensorChart(
+                title = "${sensor.nameFa} (${sensor.nameEn})",
+                history = history,
+                unit = sensor.unitMetric,
+                accentColor = NeonCyan
+            )
+        }
+    }
+}

@@ -1,0 +1,74 @@
+<resources>
+    <string name="app_name">CarOBD Pro</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_diagnostics">Diagnostics</string>
+    <string name="nav_maintenance">Maintenance</string>
+    <string name="nav_trip">Trip Logs</string>
+    <string name="nav_ecu_profiles">ECU &amp; Cars</string>
+    <string name="nav_terminal">Terminal</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Dashboard Strings -->
+    <string name="gauge_rpm">Engine RPM</string>
+    <string name="gauge_speed">Vehicle Speed</string>
+    <string name="gauge_coolant">Coolant Temp</string>
+    <string name="gauge_voltage">Battery Volts</string>
+    <string name="gauge_throttle">Throttle Pos</string>
+    <string name="gauge_fuel">Fuel Level</string>
+    <string name="gauge_intake">Intake Air Temp</string>
+    <string name="gauge_load">Engine Load</string>
+    <string name="unit_rpm">RPM</string>
+    <string name="unit_kmh">km/h</string>
+    <string name="unit_celsius">°C</string>
+    <string name="unit_volt">V</string>
+    <string name="unit_percent">%</string>
+    <string name="hud_mode">HUD Mode</string>
+    <string name="hud_mode_desc">Mirror display for windshield projection</string>
+
+    <!-- Diagnostics Strings -->
+    <string name="dtc_title">ECU Diagnostics</string>
+    <string name="dtc_scan_button">Scan Trouble Codes (DTC)</string>
+    <string name="dtc_clear_button">Clear Trouble Codes (MIL Off)</string>
+    <string name="dtc_scanning">Scanning ECU Trouble Codes...</string>
+    <string name="dtc_no_codes">No trouble codes found! ECU status: Normal</string>
+    <string name="dtc_codes_found">%d Trouble Code(s) Detected</string>
+    <string name="dtc_clear_confirm_title">Clear Diagnostic Codes?</string>
+    <string name="dtc_clear_confirm_msg">This will turn off the Check Engine Light (MIL) and reset ECU readiness monitors. Are you sure?</string>
+    <string name="dtc_severity_high">Critical</string>
+    <string name="dtc_severity_medium">Moderate</string>
+    <string name="dtc_severity_low">Info / Pending</string>
+
+    <!-- Connection Strings -->
+    <string name="status_connected">Connected</string>
+    <string name="status_connecting">Connecting...</string>
+    <string name="status_initializing">Initializing ECU Protocol...</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_error">Connection Error</string>
+    <string name="btn_connect">Connect</string>
+    <string name="btn_disconnect">Disconnect</string>
+    <string name="select_adapter">Select OBD Adapter</string>
+    <string name="mode_simulator">Virtual Car Simulator (No Hardware)</string>
+    <string name="mode_bluetooth">Bluetooth ELM327 (Classic SPP)</string>
+    <string name="mode_ble">Bluetooth Low Energy (BLE)</string>
+    <string name="mode_wifi">Wi-Fi OBD2 (192.168.0.10:35000)</string>
+
+    <!-- Vehicle / ECU Profiles -->
+    <string name="ecu_profile_title">Iranian &amp; Global ECU Profiles</string>
+    <string name="active_ecu">Active ECU:</string>
+    <string name="apply_profile">Apply Profile</string>
+    <string name="ecu_protocol">Protocol:</string>
+
+    <!-- Terminal -->
+    <string name="terminal_title">ELM327 Direct Terminal</string>
+    <string name="terminal_input_hint">Enter AT command or PID (e.g. ATZ, 0100)...</string>
+    <string name="terminal_send">Send</string>
+    <string name="terminal_clear">Clear Logs</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Application Settings</string>
+    <string name="settings_language">Language / زبان</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_refresh_rate">Telemetry Refresh Rate</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+</resources>

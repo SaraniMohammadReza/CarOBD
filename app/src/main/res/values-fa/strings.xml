@@ -1,0 +1,74 @@
+<resources>
+    <string name="app_name">کار او‌بی‌دی پرو (CarOBD Pro)</string>
+    <string name="nav_dashboard">داشبورد</string>
+    <string name="nav_diagnostics">عیب‌یابی</string>
+    <string name="nav_maintenance">سرویس‌ها</string>
+    <string name="nav_trip">ثبت سفر</string>
+    <string name="nav_ecu_profiles">ایسیو و خودرو</string>
+    <string name="nav_terminal">ترمینال</string>
+    <string name="nav_settings">تنظیمات</string>
+
+    <!-- Dashboard Strings -->
+    <string name="gauge_rpm">دور موتور</string>
+    <string name="gauge_speed">سرعت خودرو</string>
+    <string name="gauge_coolant">دمای آب (خنک‌کننده)</string>
+    <string name="gauge_voltage">ولتاژ دینام / باتری</string>
+    <string name="gauge_throttle">زاویه دریچه گاز</string>
+    <string name="gauge_fuel">سطح سوخت باک</string>
+    <string name="gauge_intake">دمای هوای ورودی</string>
+    <string name="gauge_load">لود موتور</string>
+    <string name="unit_rpm">دور بر دقیقه</string>
+    <string name="unit_kmh">کیلومتر/ساعت</string>
+    <string name="unit_celsius">درجه سانتی‌گراد</string>
+    <string name="unit_volt">ولت</string>
+    <string name="unit_percent">درصد</string>
+    <string name="hud_mode">حالت HUD شیشه جلو</string>
+    <string name="hud_mode_desc">تصویر معکوس برای بازتاب روی شیشه جلو در شب</string>
+
+    <!-- Diagnostics Strings -->
+    <string name="dtc_title">عیب‌یابی تخصصی ECU</string>
+    <string name="dtc_scan_button">اسکن کدهای خطای ECU (DTC)</string>
+    <string name="dtc_clear_button">پاک‌کردن خطاها و خاموش‌کردن چراغ چک</string>
+    <string name="dtc_scanning">در حال اسکن حافظه خطاهای ECU...</string>
+    <string name="dtc_no_codes">هیچ کد خطایی یافت نشد! وضعیت ECU کاملاً نرمال است.</string>
+    <string name="dtc_codes_found">%d کد خطا شناسایی شد</string>
+    <string name="dtc_clear_confirm_title">آیا از پاک کردن خطاها اطمینان دارید؟</string>
+    <string name="dtc_clear_confirm_msg">این عملیات خطاهای ذخیره شده در ECU را ریست کرده و چراغ چک را خاموش می‌کند. ادامه می‌دهید؟</string>
+    <string name="dtc_severity_high">بحرانی / نیازمند تعمیر فوری</string>
+    <string name="dtc_severity_medium">متوسط / پایش عملکرد</string>
+    <string name="dtc_severity_low">اطلاعی / خطای موقت</string>
+
+    <!-- Connection Strings -->
+    <string name="status_connected">متصل به دیاگ</string>
+    <string name="status_connecting">در حال برقراری ارتباط...</string>
+    <string name="status_initializing">هماهنگ‌سازی پروتکل ECU...</string>
+    <string name="status_disconnected">ارتباط قطع است</string>
+    <string name="status_error">خطا در اتصال</string>
+    <string name="btn_connect">اتصال</string>
+    <string name="btn_disconnect">قطع اتصال</string>
+    <string name="select_adapter">انتخاب دستگاه یا روش اتصال</string>
+    <string name="mode_simulator">شبیه‌ساز مجازی خودرو (تست بدون سخت‌افزار)</string>
+    <string name="mode_bluetooth">بلوتوث ELM327 (Classic SPP)</string>
+    <string name="mode_ble">بلوتوث کم‌مصرف (BLE)</string>
+    <string name="mode_wifi">وای‌فای OBD2 (192.168.0.10:35000)</string>
+
+    <!-- Vehicle / ECU Profiles -->
+    <string name="ecu_profile_title">پروفایل ECU خودروهای ایرانی و بین‌المللی</string>
+    <string name="active_ecu">ECU فعال:</string>
+    <string name="apply_profile">اعمال تنظیمات ECU</string>
+    <string name="ecu_protocol">پروتکل:</string>
+
+    <!-- Terminal -->
+    <string name="terminal_title">ترمینال مستقیم کدهای ELM327</string>
+    <string name="terminal_input_hint">دستور AT یا PID مورد نظر را وارد کنید (مثال: ATZ یا 0100)...</string>
+    <string name="terminal_send">ارسال</string>
+    <string name="terminal_clear">پاکسازی صفحه</string>
+
+    <!-- Settings -->
+    <string name="settings_title">تنظیمات نرم‌افزار</string>
+    <string name="settings_language">زبان برنامه / Language</string>
+    <string name="settings_theme">پوسته ظاهری</string>
+    <string name="settings_refresh_rate">نرخ بروزرسانی داده‌های تله‌متری</string>
+    <string name="cancel">انصراف</string>
+    <string name="confirm">تأیید</string>
+</resources>
