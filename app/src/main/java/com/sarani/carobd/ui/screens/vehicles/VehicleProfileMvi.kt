@@ -63,31 +63,63 @@ class VehicleProfileViewModel(
 
     private fun performAutoScan() {
         viewModelScope.launch {
+            val conn = repository.connectionState.value
+            if (conn !is com.sarani.carobd.core.model.ConnectionState.Connected) {
+                setState {
+                    copy(
+                        isAutoScanning = false,
+                        autoScanStatusMessage = "اتصال به دیاگ برقرار نیست. ابتدا آداپتور OBD-II را متصل نمایید.",
+                        detectedProtocol = null
+                    )
+                }
+                setEffect { VehicleProfileEffect.ShowToast("ابتدا آداپتور OBD-II را متصل نمایید.") }
+                return@launch
+            }
+
             setState {
                 copy(
                     isAutoScanning = true,
-                    autoScanStatusMessage = "در حال اتصال و تست پروتکل‌های خودرو...",
+                    autoScanStatusMessage = "در حال ارسال فرمان شناسایی پروتکل به آداپتور...",
                     detectedProtocol = null
                 )
             }
 
-            // Sequential simulated/live test through all protocols
-            val candidates = IranianEcuRegistry.ALL_PROTOCOLS
-            for ((index, proto) in candidates.withIndex()) {
-                setState {
-                    copy(autoScanStatusMessage = "تست پروتکل [${index + 1}/${candidates.size}]: ${proto.nameFa}...")
-                }
-                delay(650)
+            // Real probe via AT DPN (Describe Protocol by Number)
+            val dpnResult = repository.sendRawCommand("AT DPN")
+            val rawDpn = dpnResult.getOrNull()?.replace(">", "")?.trim() ?: ""
+            val protocolNum = rawDpn.removePrefix("A").trim()
+
+            val matchedStandard = when (protocolNum) {
+                "6" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_15765_4_CAN_11_500
+                "7" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_15765_4_CAN_29_500
+                "5" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_14230_4_KWP_FAST
+                "4" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_14230_4_KWP_5BAUD
+                "3" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_9141_2
+                "1" -> com.sarani.carobd.core.model.ProtocolStandard.SAE_J1850_PWM
+                "2" -> com.sarani.carobd.core.model.ProtocolStandard.SAE_J1850_VPW
+                else -> null
             }
 
-            // Lock onto best detected protocol (e.g. Siemens or Bosch depending on profile)
-            val matched = uiState.value.selectedProfile.ecuProtocol
-            setState {
-                copy(
-                    isAutoScanning = false,
-                    detectedProtocol = matched,
-                    autoScanStatusMessage = "پروتکل با موفقیت شناسایی و قفل شد: ${matched.nameFa}"
-                )
+            val matchedProtocol = if (matchedStandard != null) {
+                IranianEcuRegistry.ALL_PROTOCOLS.find { it.standard == matchedStandard }
+            } else null
+
+            if (matchedProtocol != null) {
+                setState {
+                    copy(
+                        isAutoScanning = false,
+                        detectedProtocol = matchedProtocol,
+                        autoScanStatusMessage = "پروتکل سخت‌افزاری فعال ایسیو: ${matchedProtocol.nameFa} (${matchedProtocol.standard.displayName})"
+                    )
+                }
+            } else {
+                setState {
+                    copy(
+                        isAutoScanning = false,
+                        detectedProtocol = null,
+                        autoScanStatusMessage = if (rawDpn.isNotBlank()) "پاسخ آداپتور: $rawDpn (پروتکل استاندارد قفل نشده)" else "ایسیو پاسخ نداد (UNABLE TO CONNECT)"
+                    )
+                }
             }
         }
     }

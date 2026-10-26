@@ -1,5 +1,6 @@
 package com.sarani.carobd.core.di
 
+import com.sarani.carobd.core.connectivity.BluetoothDeviceScanner
 import com.sarani.carobd.core.logger.TripLogger
 import com.sarani.carobd.core.storage.AppPreferencesManager
 import com.sarani.carobd.data.db.CarObdDatabaseHelper
@@ -23,9 +24,10 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
-    // Repositories, Loggers & Storage
+    // Repositories, Loggers, Scanners & Storage
     single<ObdRepository> { ObdRepositoryImpl(androidContext()) }
     single { CarObdDatabaseHelper(androidContext()) }
+    single { BluetoothDeviceScanner(androidContext()) }
     single { TripLogger() }
     single { AppPreferencesManager(androidContext()) }
 
@@ -39,7 +41,7 @@ val appModule = module {
     factory { SetVehicleProfileUseCase(get()) }
 
     // ViewModels
-    viewModel { DashboardViewModel(get(), get(), get(), get()) }
+    viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
     viewModel { DiagnosticsViewModel(get(), get()) }
     viewModel { VehicleProfileViewModel(get(), get(), get()) }
     viewModel { TerminalViewModel(get()) }

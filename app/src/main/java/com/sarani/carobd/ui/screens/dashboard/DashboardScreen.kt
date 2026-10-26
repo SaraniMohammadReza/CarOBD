@@ -326,9 +326,16 @@ fun RenderCustomWidget(
             )
         }
         WidgetType.DIGITAL_CARD -> {
+            val displayValue = if (sensorValue == 0f && !telemetry.isMeasured(sensor.pid)) {
+                "—"
+            } else if (sensorValue >= 10f) {
+                "${sensorValue.toInt()}"
+            } else {
+                String.format(java.util.Locale.US, "%.2f", sensorValue)
+            }
             DigitalMetricCard(
                 title = sensor.nameFa,
-                value = if (sensorValue >= 10f) "${sensorValue.toInt()}" else String.format(java.util.Locale.US, "%.2f", sensorValue),
+                value = displayValue,
                 unit = sensor.unitMetric,
                 accentColor = NeonCyan
             )

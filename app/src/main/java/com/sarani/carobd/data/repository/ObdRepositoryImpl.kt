@@ -143,6 +143,7 @@ class ObdRepositoryImpl(
         activeAdapter?.disconnect()
         activeAdapter = null
         _connectionState.value = ConnectionState.Disconnected
+        _liveTelemetry.value = LiveTelemetry()
     }
 
     override suspend fun setVehicleProfile(profile: VehicleProfile) {
@@ -267,10 +268,27 @@ class ObdRepositoryImpl(
                 else -> 1.587 // TU5
             }
 
+            var cycleCount = 0
             while (currentCoroutineContext().isActive && _connectionState.value is ConnectionState.Connected) {
                 val adapter = activeAdapter ?: break
 
                 try {
+                    val measured = current.measuredPids.toMutableSet()
+
+                    // Periodic battery voltage reading (every 15 cycles ~ 2-3 sec)
+                    if (cycleCount % 15 == 0) {
+                        val voltResp = adapter.executeCommand("ATRV", 500L)
+                        if (voltResp is AdapterResponse.Success) {
+                            val vStr = voltResp.rawResponse.replace("V", "", ignoreCase = true).trim()
+                            val v = vStr.toFloatOrNull()
+                            if (v != null && v > 0f) {
+                                measured.add("ATRV")
+                                current = current.copy(batteryVoltage = v)
+                            }
+                        }
+                    }
+                    cycleCount++
+
                     // 1. Query RPM (PID 0C)
                     val rpmResp = adapter.executeCommand("010C", 600L)
                     if (rpmResp is AdapterResponse.Success) {
@@ -278,6 +296,7 @@ class ObdRepositoryImpl(
                         if (bytes.size >= 4 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x0C) {
                             val a = bytes[2].toInt() and 0xFF
                             val b = bytes[3].toInt() and 0xFF
+                            measured.add("0C")
                             current = current.copy(rpm = PidCodec.decodeEngineRpm(a, b).toInt())
                         }
                     }
@@ -288,6 +307,7 @@ class ObdRepositoryImpl(
                         val bytes = PidCodec.cleanResponseHex(speedResp.rawResponse)
                         if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x0D) {
                             val a = bytes[2].toInt() and 0xFF
+                            measured.add("0D")
                             current = current.copy(speedKmh = PidCodec.decodeVehicleSpeed(a).toInt())
                         }
                     }
@@ -298,6 +318,7 @@ class ObdRepositoryImpl(
                         val bytes = PidCodec.cleanResponseHex(throttleResp.rawResponse)
                         if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x11) {
                             val a = bytes[2].toInt() and 0xFF
+                            measured.add("11")
                             current = current.copy(throttlePositionPercent = PidCodec.decodeThrottlePosition(a).toFloat())
                         }
                     }
@@ -308,6 +329,7 @@ class ObdRepositoryImpl(
                         val bytes = PidCodec.cleanResponseHex(coolantResp.rawResponse)
                         if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x05) {
                             val a = bytes[2].toInt() and 0xFF
+                            measured.add("05")
                             current = current.copy(coolantTempCelsius = PidCodec.decodeStandardTemperature(a).toInt())
                         }
                     }
@@ -318,6 +340,7 @@ class ObdRepositoryImpl(
                         val bytes = PidCodec.cleanResponseHex(loadResp.rawResponse)
                         if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x04) {
                             val a = bytes[2].toInt() and 0xFF
+                            measured.add("04")
                             current = current.copy(engineLoadPercent = PidCodec.decodeEngineLoad(a).toFloat())
                         }
                     }
@@ -328,6 +351,7 @@ class ObdRepositoryImpl(
                         val bytes = PidCodec.cleanResponseHex(mapResp.rawResponse)
                         if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x0B) {
                             val a = bytes[2].toInt() and 0xFF
+                            measured.add("0B")
                             current = current.copy(intakeManifoldPressureKpa = PidCodec.decodeMapPressure(a).toInt())
                         }
                     }
@@ -349,7 +373,10 @@ class ObdRepositoryImpl(
                         timestampMs = System.currentTimeMillis()
                     )
 
-                    current = current.copy(timestamp = System.currentTimeMillis())
+                    current = current.copy(
+                        measuredPids = measured,
+                        timestamp = System.currentTimeMillis()
+                    )
                     _liveTelemetry.value = current
                     emit(current)
 

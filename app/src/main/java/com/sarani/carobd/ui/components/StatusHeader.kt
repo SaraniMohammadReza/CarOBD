@@ -98,7 +98,7 @@ fun StatusHeader(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = String.format(java.util.Locale.US, "%.1f V", batteryVoltage),
+                        text = if (batteryVoltage > 0f) String.format(java.util.Locale.US, "%.1f V", batteryVoltage) else "—",
                         color = TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold

@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
@@ -30,6 +32,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sarani.carobd.core.database.MotorcycleAndChineseSpecs
+import com.sarani.carobd.core.model.ConnectionState
+import com.sarani.carobd.core.model.LiveTelemetry
+import com.sarani.carobd.domain.usecase.ObserveTelemetryUseCase
 import com.sarani.carobd.ui.theme.DarkBg
 import com.sarani.carobd.ui.theme.DarkCardBg
 import com.sarani.carobd.ui.theme.DarkCardBorder
@@ -50,12 +56,16 @@ import com.sarani.carobd.ui.theme.NeonGreen
 import com.sarani.carobd.ui.theme.NeonRed
 import com.sarani.carobd.ui.theme.TextMuted
 import com.sarani.carobd.ui.theme.TextPrimary
+import org.koin.compose.koinInject
 
 @Composable
 fun AdapterInspectorScreen(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    observeTelemetryUseCase: ObserveTelemetryUseCase = koinInject()
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val connectionState by observeTelemetryUseCase.connectionState.collectAsState()
+    val telemetry by observeTelemetryUseCase.telemetry.collectAsState()
 
     Box(
         modifier = modifier
@@ -109,7 +119,7 @@ fun AdapterInspectorScreen(
             Spacer(modifier = Modifier.height(14.dp))
 
             when (selectedTab) {
-                0 -> AdapterHealthView()
+                0 -> AdapterHealthView(connectionState = connectionState, telemetry = telemetry)
                 1 -> TroubleshootingGuideView()
                 2 -> MotorcyclePinoutView()
             }
@@ -118,28 +128,53 @@ fun AdapterInspectorScreen(
 }
 
 @Composable
-fun AdapterHealthView() {
+fun AdapterHealthView(
+    connectionState: ConnectionState,
+    telemetry: LiveTelemetry
+) {
+    val isConnected = connectionState is ConnectionState.Connected
+    val connectedInfo = connectionState as? ConnectionState.Connected
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
+            val borderColor = if (isConnected) NeonGreen.copy(alpha = 0.5f) else DarkCardBorder
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(DarkCardBg, RoundedCornerShape(12.dp))
-                    .border(1.dp, NeonGreen.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .border(1.dp, borderColor, RoundedCornerShape(12.dp))
                     .padding(14.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(20.dp))
+                        Icon(
+                            imageVector = if (isConnected) Icons.Default.CheckCircle else Icons.Default.LinkOff,
+                            contentDescription = null,
+                            tint = if (isConnected) NeonGreen else TextMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("چیپست ELM327 نسخه ۱.۵ اورجینال (PIC18F25K80)", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (isConnected) {
+                                "دانگل متصل: ${connectedInfo?.deviceName ?: "ELM327"}"
+                            } else {
+                                "هیچ دانگل دیاگی متصل نیست"
+                            },
+                            color = TextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "این دانگل از تمام دستورات اختصاصی AT SH، AT WM و پروتکل KWP2000 خودروهای ایرانی (زیمنس، ساژم، بوش ME7.4.4 و SSAT) پشتیبانی کامل می‌کند.",
+                        text = if (isConnected) {
+                            "نسخه گزارش شده فریمور دانگل: ${connectedInfo?.elmVersion ?: "—"}. جهت ارتباط مطمئن با ایسیوهای ایرانی (زیمنس، ساژم، بوش ME7.4.x و SSAT) پروتکل و هدر باید به درستی پیکربندی شوند."
+                        } else {
+                            "برای پایش واقعی پارامترهای سخت‌افزاری، ولتاژ پورت OBD و اصالت چیپست، ابتدا از صفحه داشبورد به دانگل بلوتوث، وای‌فای یا کابل متصل شوید."
+                        },
                         color = TextMuted,
                         fontSize = 12.sp,
                         lineHeight = 18.sp
@@ -158,11 +193,28 @@ fun AdapterHealthView() {
             ) {
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("پارامترهای عملکردی لایه سخت‌افزار:", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    HealthRow("پروتکل ارتباطی فعال:", "ISO 14230-4 KWP Fast Init (10.4 kbaud)")
-                    HealthRow("تاخیر پاسخگویی دانگل (Latency):", "28 میلی‌ثانیه (بسیار سریع)")
-                    HealthRow("ولتاژ پین ۱۶ پورت OBD:", "12.7 ولت (سالم)")
-                    HealthRow("نرخ تبادل فریم‌ها:", "14.2 فریم بر ثانیه")
-                    HealthRow("نوع اتصال فیزیکی:", "Bluetooth Classic SPP / 2.4GHz")
+                    HealthRow(
+                        label = "وضعیت اتصال:",
+                        value = if (isConnected) "متصل (Connected)" else "قطع (Disconnected)"
+                    )
+                    HealthRow(
+                        label = "پروتکل ارتباطی فعال:",
+                        value = if (isConnected) (connectedInfo?.protocolName ?: "—") else "—"
+                    )
+                    HealthRow(
+                        label = "نسخه شناسایی شده فریمور ELM:",
+                        value = if (isConnected) (connectedInfo?.elmVersion ?: "—") else "—"
+                    )
+                    HealthRow(
+                        label = "ولتاژ پین ۱۶ پورت OBD:",
+                        value = if (isConnected && telemetry.batteryVoltage > 0f) {
+                            String.format(java.util.Locale.US, "%.1f ولت", telemetry.batteryVoltage)
+                        } else "—"
+                    )
+                    HealthRow(
+                        label = "تاخیر پاسخگویی (Round-Trip Latency):",
+                        value = if (isConnected) "پایش فعال در حلقه تله‌متری" else "—"
+                    )
                 }
             }
         }
@@ -179,11 +231,11 @@ fun AdapterHealthView() {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("هشدار درباره دانگل‌های تقلبی ELM327 نسخه ۲.۱:", color = NeonAmber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("راهنمای تشخیص دانگل‌های تقلبی ELM327 نسخه ۲.۱:", color = NeonAmber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "دانگل‌های بسیار ارزان نسخه ۲.۱ فاقد میکروکنترلر واقعی بوده و دستورات تنظیم هدر ایسیوهای ایرانی را اجرا نمی‌کنند و به پراید یا پژو وصل نخواهند شد. همیشه از دانگل‌های دارای بورد دوطبقه و چیپ PIC18F25K80 استفاده کنید.",
+                        text = "دانگل‌های بسیار ارزان نسخه ۲.۱ تقلبی فاقد کنترلر اصلی PIC18F25K80 بوده و دستورات تنظیم هدر (AT SH) و دستورات بیدارباش (AT WM) ایسیوهای ایرانی را اجرا نمی‌کنند و به خودروهای پراید، تیبا و پژو با پروتکل KWP متصل نمی‌شوند. همیشه از دانگل‌های v1.5 دارای بورد دوطبقه و کریستال ۴ مگاهرتز استفاده فرمایید.",
                         color = TextMuted,
                         fontSize = 11.sp,
                         lineHeight = 17.sp
@@ -198,9 +250,9 @@ fun AdapterHealthView() {
 fun TroubleshootingGuideView() {
     val issues = listOf(
         Pair("چراغ پاور دانگل روشن نمی‌شود", "فیوز فندکی یا فیوز سوکت دیاگ سوخته است. در خودروهای پژو فیوز F4 و در پراید فیوز فندکی داخل جعبه فیوز کالسکه را بررسی کنید."),
-        Pair("خطای UNABLE TO CONNECT یا BUS INIT: ERROR", "سوییچ خودرو باز نیست (باید روی حالت ON باشد تا ایسیو برق‌دار شود)، یا پروتکل هدر خودرو به اشتباه انتخاب شده است. از تب «ایسیو» دکمه اسکن خودکار را بزنید."),
-        Pair("کد پین جفت‌شدن بلوتوث چیست؟", "کد پیش‌فرض دانگل‌های بلوتوث معمولاً ۱۲۳۴ یا ۰۰۰۰ است. در صورت عدم اتصال، دانگل را از تنظیمات بلوتوث گوشی Unpair کرده و دوباره جفت کنید."),
-        Pair("قطع شدن مداوم اتصال در حین رانندگی", "سوکت OBD-II خودرو شل است یا پین شماره ۱۶ (مثبت دائم) گشاد شده است. با انبردست پایه‌های پین ۷ و ۱۶ را کمی جمع کنید.")
+        Pair("خطای UNABLE TO CONNECT یا BUS INIT: ERROR", "سوییچ خودرو باز نیست (باید روی حالت ON باشد تا ایسیو برق‌دار شود)، یا پروتکل هدر خودرو به اشتباه انتخاب شده است. از تب «خودرو» پروتکل هدر مناسب ایسیو را تنظیم فرمایید."),
+        Pair("کد پین جفت‌شدن بلوتوث چیست؟", "کد پیش‌فرض دانگل‌های بلوتوث معمولاً ۱۲۳۴ یا ۰۰۰۰ است. در صورت عدم اتصال، دانگل را از تنظیمات بلوتوث اندروید Unpair کرده و مجدداً جفت کنید."),
+        Pair("قطع شدن مداوم اتصال در حین رانندگی", "سوکت دیاگ خودرو ممکن است به مرور زمان دچار لقی یا سولفاته شدن کنتاکت‌ها شده باشد. توصیه می‌شود از اسپری خشک کنتاکت‌شور برقی برای پاکسازی استفاده کنید و از وارد کردن اجسام فلزی یا انبردست به پین‌های برق‌دار (پین ۱۶ مثبت دائم ۱۲ ولت) جداً خودداری فرمایید تا از بروز اتصال کوتاه و سوختن فیوز یا آسیب به ایسیو جلوگیری شود.")
     )
 
     LazyColumn(

@@ -66,7 +66,8 @@ class DashboardViewModel(
     private val observeTelemetryUseCase: ObserveTelemetryUseCase,
     private val connectUseCase: ConnectUseCase,
     private val disconnectUseCase: DisconnectUseCase,
-    private val appPreferencesManager: AppPreferencesManager
+    private val appPreferencesManager: AppPreferencesManager,
+    private val bluetoothScanner: com.sarani.carobd.core.connectivity.BluetoothDeviceScanner
 ) : MviViewModel<DashboardState, DashboardIntent, DashboardEffect>(
     DashboardState(widgets = appPreferencesManager.getDefaultWidgets())
 ) {
@@ -155,15 +156,11 @@ class DashboardViewModel(
                 setState { copy(widgets = widgets.filter { it.id != intent.widgetId }) }
             }
             is DashboardIntent.OpenBluetoothDialog -> {
+                val paired = bluetoothScanner.getPairedDevices()
                 setState {
                     copy(
                         showBluetoothDialog = true,
-                        discoveredDevices = listOf(
-                            DiscoveredBluetoothDevice("OBDII ELM327 v1.5", "00:1D:A5:68:98:8B", isBonded = true, isObdCandidate = true),
-                            DiscoveredBluetoothDevice("Viecar Bluetooth 4.0", "AA:BB:CC:11:22:33", isBonded = true, isObdCandidate = true),
-                            DiscoveredBluetoothDevice("Vgate iCar Pro", "00:11:22:33:44:55", isBonded = false, isObdCandidate = true),
-                            DiscoveredBluetoothDevice("Galaxy Buds Pro", "12:34:56:78:9A:BC", isBonded = true, isObdCandidate = false)
-                        )
+                        discoveredDevices = paired
                     )
                 }
             }
@@ -179,8 +176,15 @@ class DashboardViewModel(
             is DashboardIntent.TriggerBtScan -> {
                 setState { copy(isScanningBt = true) }
                 viewModelScope.launch {
-                    kotlinx.coroutines.delay(1200)
-                    setState { copy(isScanningBt = false) }
+                    try {
+                        bluetoothScanner.scanNearbyDevices().collect { devices ->
+                            setState { copy(discoveredDevices = devices) }
+                        }
+                    } catch (e: Exception) {
+                        setEffect { DashboardEffect.ShowMessage("خطا در اسکن بلوتوث: ${e.message}") }
+                    } finally {
+                        setState { copy(isScanningBt = false) }
+                    }
                 }
             }
             is DashboardIntent.SaveOnboarding -> {
