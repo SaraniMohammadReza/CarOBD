@@ -15,7 +15,8 @@ data class DiagnosticsState(
     val isScanning: Boolean = false,
     val isClearing: Boolean = false,
     val showConfirmDialog: Boolean = false,
-    val lastScanMessage: String? = null
+    val lastScanMessage: String? = null,
+    val scanCompletedSuccessfully: Boolean = false
 ) : UiState
 
 sealed interface DiagnosticsIntent : UiIntent {
@@ -45,7 +46,7 @@ class DiagnosticsViewModel(
 
     private fun performScan() {
         viewModelScope.launch {
-            setState { copy(isScanning = true, lastScanMessage = null) }
+            setState { copy(isScanning = true, lastScanMessage = null, scanCompletedSuccessfully = false) }
             val result = scanDtcUseCase()
             result.fold(
                 onSuccess = { codes ->
@@ -53,7 +54,8 @@ class DiagnosticsViewModel(
                         copy(
                             isScanning = false,
                             troubleCodes = codes,
-                            lastScanMessage = if (codes.isEmpty()) "کد خطایی یافت نشد" else "${codes.size} کد خطا شناسایی شد"
+                            lastScanMessage = if (codes.isEmpty()) "کد خطایی یافت نشد" else "${codes.size} کد خطا شناسایی شد",
+                            scanCompletedSuccessfully = true
                         )
                     }
                 },
@@ -61,7 +63,8 @@ class DiagnosticsViewModel(
                     setState {
                         copy(
                             isScanning = false,
-                            lastScanMessage = "خطا در اسکن: ${err.message}"
+                            lastScanMessage = "خطا در اسکن: ${err.message}",
+                            scanCompletedSuccessfully = false
                         )
                     }
                 }
@@ -71,7 +74,7 @@ class DiagnosticsViewModel(
 
     private fun performClear() {
         viewModelScope.launch {
-            setState { copy(showConfirmDialog = false, isClearing = true) }
+            setState { copy(showConfirmDialog = false, isClearing = true, scanCompletedSuccessfully = false) }
             val result = clearDtcUseCase()
             result.fold(
                 onSuccess = {
@@ -79,7 +82,8 @@ class DiagnosticsViewModel(
                         copy(
                             isClearing = false,
                             troubleCodes = emptyList(),
-                            lastScanMessage = "کدهای خطا با موفقیت پاک شدند (MIL ریست شد)"
+                            lastScanMessage = "کدهای خطا با موفقیت پاک شدند (MIL ریست شد)",
+                            scanCompletedSuccessfully = false
                         )
                     }
                 },
@@ -87,7 +91,8 @@ class DiagnosticsViewModel(
                     setState {
                         copy(
                             isClearing = false,
-                            lastScanMessage = "خطا در پاک کردن خطاها: ${err.message}"
+                            lastScanMessage = "خطا در پاک کردن خطاها: ${err.message}",
+                            scanCompletedSuccessfully = false
                         )
                     }
                 }

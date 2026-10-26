@@ -4,12 +4,14 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import com.sarani.carobd.core.adapter.ObdAdapter
 import com.sarani.carobd.core.adapter.command.AdapterResponse
+import com.sarani.carobd.core.adapter.command.DtcScanValidator
 import com.sarani.carobd.core.adapter.elm327.Elm327Adapter
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ConnectionType
 import com.sarani.carobd.core.model.DiagnosticCode
 import com.sarani.carobd.core.model.DtcCategory
 import com.sarani.carobd.core.model.LiveTelemetry
+import com.sarani.carobd.core.model.NotConnectedException
 import com.sarani.carobd.core.model.VehicleProfile
 import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
 import com.sarani.carobd.core.protocol.dtc.DtcParser
@@ -171,12 +173,16 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = withContext(Dispatchers.IO) {
-        val adapter = activeAdapter ?: return@withContext Result.failure(Exception("Adapter not connected"))
+        val adapter = activeAdapter ?: return@withContext Result.failure(NotConnectedException("آداپتور متصل نیست"))
 
         val dtcList = mutableListOf<DiagnosticCode>()
 
         // 1. Request Mode 03 (Stored DTCs)
         val mode03Resp = adapter.executeCommand("03", 4000L)
+        // Truthful gate (§28): Mode 03 is the canonical "ECU is answering" signal. A
+        // non-success / absent response means the ECU is unreachable and MUST surface as
+        // NotConnected — never as an empty "no codes found" result.
+        DtcScanValidator.notConnectedError(mode03Resp)?.let { return@withContext Result.failure(it) }
         if (mode03Resp is AdapterResponse.Success) {
             val cleanHex = PidCodec.cleanResponseHex(mode03Resp.rawResponse)
             val stored = DtcParser.parseMode03Payload(cleanHex, com.sarani.carobd.core.model.DtcCategory.STORED)

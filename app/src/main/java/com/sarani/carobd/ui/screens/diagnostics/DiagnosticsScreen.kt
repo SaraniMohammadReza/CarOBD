@@ -120,6 +120,10 @@ fun DiagnosticsScreen(
 
             // Results List
             if (state.troubleCodes.isEmpty()) {
+                // Truthful empty state (§28): a green "no codes" confirmation is shown
+                // ONLY after a completed, successful scan that returned zero codes.
+                // Idle and failed scans must NOT look successful.
+                val noCodesConfirmed = state.scanCompletedSuccessfully
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -130,13 +134,13 @@ fun DiagnosticsScreen(
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = NeonGreen,
+                            tint = if (noCodesConfirmed) NeonGreen else TextMuted,
                             modifier = Modifier.size(64.dp)
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         Text(
-                            text = stringResource(R.string.dtc_no_codes),
-                            color = TextPrimary,
+                            text = if (noCodesConfirmed) stringResource(R.string.dtc_no_codes) else "در انتظار اسکن یا اتصال برقرار نشده",
+                            color = if (noCodesConfirmed) TextPrimary else TextMuted,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
