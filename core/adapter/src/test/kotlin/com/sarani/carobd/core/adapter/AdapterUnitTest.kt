@@ -131,6 +131,61 @@ class AdapterUnitTest {
         val success = pidResp as AdapterResponse.Success
         assertEquals("41 0C 1A F8", success.cleanedLines[0])
     }
+
+    @Test
+    fun testElm327AdapterFailsOnNoDataFromEcu() = runBlocking {
+        val mockTransport = MockObdTransport()
+        val adapter = Elm327Adapter(mockTransport)
+
+        mockTransport.queueResponse("ATZ", "ELM327 v1.5\r\r>")
+        mockTransport.queueResponse("ATE0", "OK\r\r>")
+        mockTransport.queueResponse("ATL0", "OK\r\r>")
+        mockTransport.queueResponse("ATS0", "OK\r\r>")
+        mockTransport.queueResponse("ATAT1", "OK\r\r>")
+        mockTransport.queueResponse("ATI", "ELM327 v1.5\r\r>")
+        mockTransport.queueResponse("AT@1", "OBDII to RS232 Interpreter\r\r>")
+        mockTransport.queueResponse("ATRV", "13.8V\r\r>")
+        mockTransport.queueResponse("ATCAF1", "OK\r\r>")
+        mockTransport.queueResponse("ATCSM0", "OK\r\r>")
+        mockTransport.queueResponse("STI", "?\r\r>")
+        mockTransport.queueResponse("ATSP0", "OK\r\r>")
+        mockTransport.queueResponse("0100", "NO DATA\r\r>")
+
+        val initResult = adapter.initialize()
+
+        assertFalse("Init must fail when ECU returns NO DATA", initResult.isSuccess)
+        val state = adapter.state.value
+        assertTrue("State must be a Failure", state is ConnectionState.Failure)
+        assertEquals("ECU_HANDSHAKE", (state as ConnectionState.Failure).stage)
+    }
+
+    @Test
+    fun testElm327AdapterFailsOnMalformed0100() = runBlocking {
+        val mockTransport = MockObdTransport()
+        val adapter = Elm327Adapter(mockTransport)
+
+        mockTransport.queueResponse("ATZ", "ELM327 v1.5\r\r>")
+        mockTransport.queueResponse("ATE0", "OK\r\r>")
+        mockTransport.queueResponse("ATL0", "OK\r\r>")
+        mockTransport.queueResponse("ATS0", "OK\r\r>")
+        mockTransport.queueResponse("ATAT1", "OK\r\r>")
+        mockTransport.queueResponse("ATI", "ELM327 v1.5\r\r>")
+        mockTransport.queueResponse("AT@1", "OBDII to RS232 Interpreter\r\r>")
+        mockTransport.queueResponse("ATRV", "13.8V\r\r>")
+        mockTransport.queueResponse("ATCAF1", "OK\r\r>")
+        mockTransport.queueResponse("ATCSM0", "OK\r\r>")
+        mockTransport.queueResponse("STI", "?\r\r>")
+        mockTransport.queueResponse("ATSP0", "OK\r\r>")
+        // 0100 returning an RPM frame is not a valid Mode 01 PID 00 response
+        mockTransport.queueResponse("0100", "41 0C 1A F8\r\r>")
+
+        val initResult = adapter.initialize()
+
+        assertFalse("Init must fail when 0100 is not a valid PID 00 frame", initResult.isSuccess)
+        val state = adapter.state.value
+        assertTrue("State must be a Failure", state is ConnectionState.Failure)
+        assertEquals("ECU_HANDSHAKE", (state as ConnectionState.Failure).stage)
+    }
 }
 
 class MockObdTransport : ObdTransport {

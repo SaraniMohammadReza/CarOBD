@@ -7,6 +7,7 @@ import com.sarani.carobd.core.adapter.command.AdapterResponse
 import com.sarani.carobd.core.adapter.transport.ObdTransport
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ProtocolStandard
+import com.sarani.carobd.core.protocol.obd2.PidCodec
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -119,24 +120,54 @@ open class Elm327Adapter(
                     executeInternal("ATSP0", 1500L)
                 }
 
-                // 8. Issue first query (0100) to trigger vehicle handshake
+                // 8. Issue first query (0100) to trigger vehicle handshake.
+                // Require real, service-correlated ECU evidence: only a valid Mode 01 PID 00
+                // response (0x41 0x00 followed by >=4 supported-PID data bytes) may advance
+                // to Connected. Any adapter/ECU error, timeout, or malformed frame must fail
+                // initialization; receiving the prompt alone is not proof of communication.
                 val init0100 = executeInternal("0100", 4000L)
-                if (init0100 is AdapterResponse.Error && init0100.error is AdapterError.UnableToConnect) {
-                    _state.value = ConnectionState.Failure(
-                        stage = "PROTOCOL_HANDSHAKE",
-                        humanMessageFa = "اتصال به شبکه خودرو ناموفق بود (سوئیچ خودرو را بررسی کنید)",
-                        technicalMessage = "ECU did not acknowledge connection (UNABLE TO CONNECT)",
-                        isRecoverable = true
-                    )
-                    return AdapterInitializationResult(
-                        isSuccess = false,
-                        firmwareVersion = probeResult.firmwareVersion,
-                        detectedProtocol = null,
-                        batteryVoltage = probeResult.voltage,
-                        capabilities = probeResult.capabilities,
-                        quality = probeResult.quality,
-                        errorMessage = "Vehicle ECU did not acknowledge connection (UNABLE TO CONNECT)"
-                    )
+                when {
+                    init0100 is AdapterResponse.Error -> {
+                        val err = init0100.error
+                        _state.value = ConnectionState.Failure(
+                            stage = "ECU_HANDSHAKE",
+                            humanMessageFa = "ارتباط با کامپیوتر خودرو برقرار نشد",
+                            technicalMessage = "0100 failed: ${err.messageEn}",
+                            isRecoverable = err !is AdapterError.NoData && err !is AdapterError.UnknownCommand,
+                            rawResponse = init0100.rawResponse
+                        )
+                        return AdapterInitializationResult(
+                            isSuccess = false,
+                            firmwareVersion = probeResult.firmwareVersion,
+                            detectedProtocol = null,
+                            batteryVoltage = probeResult.voltage,
+                            capabilities = probeResult.capabilities,
+                            quality = probeResult.quality,
+                            errorMessage = "Vehicle ECU did not respond to 0100 (${err.messageEn})"
+                        )
+                    }
+                    init0100 is AdapterResponse.Success -> {
+                        val pid00 = PidCodec.cleanResponseHex(init0100.rawResponse)
+                        val validResponse = PidCodec.verifyResponseHeader(pid00, 0x41, 0x00) && pid00.size >= 6
+                        if (!validResponse) {
+                            _state.value = ConnectionState.Failure(
+                                stage = "ECU_HANDSHAKE",
+                                humanMessageFa = "پاسخٔ ECU برای 0100 معتبر نیست",
+                                technicalMessage = "0100 response was not a valid Mode 01 PID 00 frame: ${init0100.rawResponse}",
+                                isRecoverable = false,
+                                rawResponse = init0100.rawResponse
+                            )
+                            return AdapterInitializationResult(
+                                isSuccess = false,
+                                firmwareVersion = probeResult.firmwareVersion,
+                                detectedProtocol = null,
+                                batteryVoltage = probeResult.voltage,
+                                capabilities = probeResult.capabilities,
+                                quality = probeResult.quality,
+                                errorMessage = "Vehicle ECU 0100 response was malformed"
+                            )
+                        }
+                    }
                 }
 
                 // 9. Read back detected protocol using ATDPN
