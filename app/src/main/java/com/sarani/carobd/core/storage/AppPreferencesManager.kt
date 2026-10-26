@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sarani.carobd.core.model.DashboardWidgetConfig
 import com.sarani.carobd.core.model.WidgetSize
@@ -63,6 +64,7 @@ class AppPreferencesManager(private val context: Context) {
         private val KEY_FUEL_PRICE = floatPreferencesKey("fuel_price")
         private val KEY_IS_MOTORCYCLE = booleanPreferencesKey("is_motorcycle")
         private val KEY_ACTIVE_VEHICLE_ID = stringPreferencesKey("active_vehicle_id")
+        private val KEY_SERVICE_LAST_CHANGED = stringSetPreferencesKey("service_last_changed")
     }
 
     val isOnboardingDone: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -139,6 +141,28 @@ class AppPreferencesManager(private val context: Context) {
 
     suspend fun clearActiveVehicleId() {
         context.dataStore.edit { it.remove(KEY_ACTIVE_VEHICLE_ID) }
+    }
+
+    /** Per-service last-changed odometer (§Phase C maintenance persistence). */
+    val serviceLastChangedKm: Flow<Map<String, Int>> = context.dataStore.data.map { prefs ->
+        prefs[KEY_SERVICE_LAST_CHANGED]?.associate { entry ->
+            val k = entry.substringBefore(":")
+            val v = entry.substringAfter(":").toIntOrNull() ?: 0
+            k to v
+        } ?: emptyMap()
+    }
+
+    suspend fun setServiceLastChangedKm(id: String, km: Int) {
+        context.dataStore.edit { prefs ->
+            val current = (prefs[KEY_SERVICE_LAST_CHANGED] ?: emptySet()).toMutableSet()
+            current.removeAll { it.substringBefore(':') == id }
+            current.add("$id:$km")
+            prefs[KEY_SERVICE_LAST_CHANGED] = current
+        }
+    }
+
+    suspend fun setOdometerKm(km: Int) {
+        context.dataStore.edit { it[KEY_ODOMETER] = km }
     }
 
     // Default widget layout

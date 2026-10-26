@@ -6,18 +6,19 @@ import com.sarani.carobd.core.model.ServiceReminderItem
 import com.sarani.carobd.core.model.ServiceType
 import com.sarani.carobd.core.model.VehicleProfile
 import com.sarani.carobd.core.model.VehicleSpecSheet
-import com.sarani.carobd.core.protocol.iranian.IranianEcuRegistry
+import com.sarani.carobd.core.storage.AppPreferencesManager
 import com.sarani.carobd.domain.usecase.ObserveTelemetryUseCase
 import com.sarani.carobd.ui.mvi.MviViewModel
 import com.sarani.carobd.ui.mvi.UiEffect
 import com.sarani.carobd.ui.mvi.UiIntent
 import com.sarani.carobd.ui.mvi.UiState
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 data class MaintenanceState(
     val activeProfile: VehicleProfile? = null,
     val specSheet: VehicleSpecSheet? = null,
-    val currentOdometerKm: Int = 115000,
+    val currentOdometerKm: Int = 0,
     val reminders: List<ServiceReminderItem> = emptyList()
 ) : UiState
 
@@ -28,86 +29,84 @@ sealed interface MaintenanceIntent : UiIntent {
 
 sealed interface MaintenanceEffect : UiEffect
 
+/**
+ * Generic last-service defaults (§Phase C §18: clearly-labeled generic fallbacks).
+ * Persisted values override these per active vehicle. Timing-belt interval is
+ * vehicle-specific via [VehicleSpecSheet] when a catalog profile is selected;
+ * otherwise the service-type catalog default is used — never a silent Peugeot/TU5.
+ */
+private val DEFAULT_LAST_CHANGED_KM = mapOf(
+    "oil" to 111500,
+    "filter" to 111500,
+    "timing_belt" to 70000,
+    "plugs" to 95000,
+    "brake_pads" to 90000,
+    "gearbox" to 85000
+)
+
 class MaintenanceViewModel(
-    private val observeTelemetryUseCase: ObserveTelemetryUseCase
-) : MviViewModel<MaintenanceState, MaintenanceIntent, MaintenanceEffect>(
-    MaintenanceState(
-        reminders = listOf(
-            ServiceReminderItem(
-                id = "oil",
-                type = ServiceType.ENGINE_OIL,
-                lastChangedKm = 111500,
-                intervalKm = 6000,
-                currentKm = 115000,
-                notes = "روغن ۱۰W-40 نیمه سنتتیک"
-            ),
-            ServiceReminderItem(
-                id = "filter",
-                type = ServiceType.OIL_FILTER,
-                lastChangedKm = 111500,
-                intervalKm = 6000,
-                currentKm = 115000
-            ),
-            ServiceReminderItem(
-                id = "timing_belt",
-                type = ServiceType.TIMING_BELT,
-                lastChangedKm = 70000,
-                intervalKm = 60000,
-                currentKm = 115000,
-                notes = "تسمه تایم گیتس پاور گریپ"
-            ),
-            ServiceReminderItem(
-                id = "plugs",
-                type = ServiceType.SPARK_PLUGS,
-                lastChangedKm = 95000,
-                intervalKm = 30000,
-                currentKm = 115000,
-                notes = "شمع بوش دو پلاتین"
-            ),
-            ServiceReminderItem(
-                id = "brake_pads",
-                type = ServiceType.BRAKE_PADS,
-                lastChangedKm = 90000,
-                intervalKm = 35000,
-                currentKm = 115000,
-                notes = "لنت تکستار اصلی"
-            ),
-            ServiceReminderItem(
-                id = "gearbox",
-                type = ServiceType.GEARBOX_OIL,
-                lastChangedKm = 85000,
-                intervalKm = 40000,
-                currentKm = 115000,
-                notes = "واسکازین ۷۵W-۸۰"
-            )
-        )
-    )
-) {
+    private val observeTelemetryUseCase: ObserveTelemetryUseCase,
+    private val appPreferencesManager: AppPreferencesManager
+) : MviViewModel<MaintenanceState, MaintenanceIntent, MaintenanceEffect>(MaintenanceState()) {
 
     init {
+        // Single persisted source: active vehicle profile + user odometer + per-service last changed.
+        // Rebuilds reminders whenever any of these changes so selecting a different vehicle
+        // (e.g. Dena) immediately repopulates the correct odometer/intervals (§B3 single source).
         viewModelScope.launch {
-            observeTelemetryUseCase.activeProfile.collect { profile ->
+            combine(
+                observeTelemetryUseCase.activeProfile,
+                appPreferencesManager.userVehicleSetup,
+                appPreferencesManager.serviceLastChangedKm
+            ) { profile, setup, lastChanged ->
                 val specs = profile?.let { IranianCarSpecsDatabase.getSpecSheet(it.id) }
-                setState { copy(activeProfile = profile, specSheet = specs) }
-            }
+                MaintenanceState(
+                    activeProfile = profile,
+                    specSheet = specs,
+                    currentOdometerKm = setup.odometerKm,
+                    reminders = buildReminders(setup.odometerKm, specs, lastChanged)
+                )
+            }.collect { newState -> setState { newState } }
         }
     }
 
+    private fun buildReminders(
+        currentKm: Int,
+        specSheet: VehicleSpecSheet?,
+        lastChanged: Map<String, Int>
+    ): List<ServiceReminderItem> = listOf(
+        item("oil", ServiceType.ENGINE_OIL, ServiceType.ENGINE_OIL.defaultIntervalKm, currentKm, "روغن ۱۰W-40 نیمه‌سنتتیک", lastChanged),
+        item("filter", ServiceType.OIL_FILTER, ServiceType.OIL_FILTER.defaultIntervalKm, currentKm, "", lastChanged),
+        item("timing_belt", ServiceType.TIMING_BELT, specSheet?.timingBeltIntervalKm ?: ServiceType.TIMING_BELT.defaultIntervalKm, currentKm, "تسمه تایم", lastChanged),
+        item("plugs", ServiceType.SPARK_PLUGS, ServiceType.SPARK_PLUGS.defaultIntervalKm, currentKm, "شمع دو پلاتین", lastChanged),
+        item("brake_pads", ServiceType.BRAKE_PADS, ServiceType.BRAKE_PADS.defaultIntervalKm, currentKm, "لنت تکستار اصلی", lastChanged),
+        item("gearbox", ServiceType.GEARBOX_OIL, ServiceType.GEARBOX_OIL.defaultIntervalKm, currentKm, "واسکازین ۷۵W-۸۰", lastChanged)
+    )
+
+    private fun item(
+        id: String,
+        type: ServiceType,
+        intervalKm: Int,
+        currentKm: Int,
+        notes: String,
+        lastChanged: Map<String, Int>
+    ) = ServiceReminderItem(
+        id = id,
+        type = type,
+        lastChangedKm = lastChanged[id] ?: DEFAULT_LAST_CHANGED_KM[id] ?: 0,
+        intervalKm = intervalKm,
+        currentKm = currentKm,
+        notes = notes
+    )
+
     override fun onIntent(intent: MaintenanceIntent) {
         when (intent) {
-            is MaintenanceIntent.ResetService -> {
-                val updated = uiState.value.reminders.map { item ->
-                    if (item.id == intent.serviceId) {
-                        item.copy(lastChangedKm = uiState.value.currentOdometerKm)
-                    } else item
-                }
-                setState { copy(reminders = updated) }
+            is MaintenanceIntent.ResetService -> viewModelScope.launch {
+                // Persist last-service so it survives restart (§18 reminder-state persistence).
+                appPreferencesManager.setServiceLastChangedKm(intent.serviceId, uiState.value.currentOdometerKm)
             }
-            is MaintenanceIntent.UpdateOdometer -> {
-                val updated = uiState.value.reminders.map { item ->
-                    item.copy(currentKm = intent.km)
-                }
-                setState { copy(currentOdometerKm = intent.km, reminders = updated) }
+            is MaintenanceIntent.UpdateOdometer -> viewModelScope.launch {
+                appPreferencesManager.setOdometerKm(intent.km)
             }
         }
     }
