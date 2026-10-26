@@ -25,24 +25,6 @@ data class ServiceRecord(
     val notes: String = ""
 )
 
-data class ServiceReminderItem(
-    val id: String,
-    val vehicleId: String,
-    val type: ServiceType,
-    val lastChangedKm: Int,
-    val intervalKm: Int,
-    val currentKm: Int,
-    val notes: String = ""
-) {
-    val nextDueKm: Int = lastChangedKm + intervalKm
-    val remainingKm: Int = nextDueKm - currentKm
-    val isOverdue: Boolean = remainingKm <= 0
-    val progressPercent: Float = if (intervalKm > 0) {
-        val used = currentKm - lastChangedKm
-        (1f - (used.toFloat() / intervalKm.toFloat())).coerceIn(0f, 1f)
-    } else 1f
-}
-
 data class VehicleSpecSheet(
     val vehicleId: String,
     val engineCode: String,
