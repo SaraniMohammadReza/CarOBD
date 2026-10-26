@@ -188,9 +188,9 @@ fun DiagnosticsScreen(
 @Composable
 fun DtcCard(dtc: DiagnosticCode) {
     val severityColor = when (dtc.severity) {
-        DtcSeverity.HIGH -> NeonRed
-        DtcSeverity.MEDIUM -> NeonAmber
-        DtcSeverity.LOW -> NeonCyan
+        DtcSeverity.CRITICAL -> NeonRed
+        DtcSeverity.MODERATE -> NeonAmber
+        DtcSeverity.INFORMATIONAL -> NeonCyan
     }
 
     Box(
