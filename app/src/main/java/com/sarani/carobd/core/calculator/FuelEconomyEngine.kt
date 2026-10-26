@@ -1,22 +1,21 @@
 package com.sarani.carobd.core.calculator
 
 import com.sarani.carobd.core.model.LiveTelemetry
+import com.sarani.carobd.core.telemetry.fuel.FuelEconomyCalculator
 
 data class FuelEconomyMetrics(
     val instantLitersPer100Km: Float = 0f,
     val instantLitersPerHour: Float = 0f,
     val instantKmPerLiter: Float = 0f,
-    val tripAverageLitersPer100Km: Float = 7.8f,
-    val remainingRangeKm: Int = 450,
-    val fuelCostPerKmTomans: Float = 240f
+    val tripAverageLitersPer100Km: Float = 0f,
+    val remainingRangeKm: Int = 0,
+    val fuelCostPerKmTomans: Float = 0f
 )
 
 object FuelEconomyEngine {
 
     /**
-     * Calculates instant and average fuel metrics using air/fuel mass calculations.
-     * Stoichiometric ratio for gasoline: 14.7 grams air per 1 gram fuel.
-     * Density of gasoline: ~740 grams / liter.
+     * Calculates instant and average fuel metrics using physical formulas from FuelEconomyCalculator.
      */
     fun calculate(
         telemetry: LiveTelemetry,
@@ -29,21 +28,23 @@ object FuelEconomyEngine {
         val maf = telemetry.mafGramsPerSec
         val fuelLevel = telemetry.fuelLevelPercent
 
-        // If MAF is zero, estimate from MAP & RPM & Engine Displacement (e.g. 1.6L)
-        val airGramsPerSec = if (maf > 0.5f) {
-            maf
-        } else {
-            // Speed-Density formula: (RPM * MAP / 2) * (Displacement / 60) * VE / (R * T)
-            val estGrams = (rpm.toFloat() * telemetry.intakeManifoldPressureKpa.toFloat() * 1.6f) / 12000f
-            estGrams.coerceIn(1.5f, 180f)
+        if (rpm <= 0 && speed <= 0) {
+            return FuelEconomyMetrics()
         }
 
-        // Fuel grams per sec = air / 14.7 (adjusted by lambda if available)
-        val fuelGramsPerSec = airGramsPerSec / 14.7f
-        val fuelLitersPerSec = fuelGramsPerSec / 740f
-        val fuelLitersPerHour = fuelLitersPerSec * 3600f
+        val fuelLitersPerHour = if (maf > 0.1f) {
+            FuelEconomyCalculator.calculateFuelRateFromMaf(maf.toDouble()).toFloat()
+        } else {
+            FuelEconomyCalculator.calculateFuelRateFromSpeedDensity(
+                mapKpa = telemetry.intakeManifoldPressureKpa.toDouble(),
+                iatCelsius = telemetry.intakeAirTempCelsius.toDouble(),
+                rpm = rpm.toDouble(),
+                displacementLiters = 1.6,
+                volumetricEfficiency = 0.80
+            ).toFloat()
+        }
 
-        val instantL100km = if (speed > 5) {
+        val instantL100km = if (speed > 3) {
             (fuelLitersPerHour / speed.toFloat()) * 100f
         } else {
             0f
@@ -58,9 +59,12 @@ object FuelEconomyEngine {
         // Remaining range: (current fuel in liters / average consumption) * 100
         val remainingFuelLiters = (fuelLevel / 100f) * tankCapacityLiters
         val avgConsumption = averageTripLitersPer100km.coerceAtLeast(4.0f)
-        val estRangeKm = ((remainingFuelLiters / avgConsumption) * 100f).toInt().coerceIn(0, 1200)
+        val estRangeKm = if (fuelLevel > 0f) {
+            ((remainingFuelLiters / avgConsumption) * 100f).toInt().coerceIn(0, 1200)
+        } else {
+            0
+        }
 
-        // Cost per km
         val costPerKm = (avgConsumption / 100f) * fuelPricePerLiterTomans
 
         return FuelEconomyMetrics(

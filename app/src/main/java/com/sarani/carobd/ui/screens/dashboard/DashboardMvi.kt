@@ -133,7 +133,7 @@ class DashboardViewModel(
             }
             is DashboardIntent.SetConnectionType -> {
                 setState { copy(selectedConnectionType = intent.type) }
-                if (intent.type == ConnectionType.BLUETOOTH_CLASSIC) {
+                if (intent.type == ConnectionType.BLUETOOTH_CLASSIC || intent.type == ConnectionType.BLUETOOTH_LE) {
                     onIntent(DashboardIntent.OpenBluetoothDialog)
                 }
             }

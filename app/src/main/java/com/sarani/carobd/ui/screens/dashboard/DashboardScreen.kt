@@ -108,6 +108,30 @@ fun DashboardScreen(
                 CarConnectionVisualizer(connectionState = state.connectionState)
             }
 
+            // 2.1 Simulator Warning Banner (Strict Truthfulness Enforcement)
+            if (state.selectedConnectionType == ConnectionType.VIRTUAL_SIMULATOR) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(NeonAmber.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
+                            .border(1.dp, NeonAmber.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "حالت تست شبیه‌ساز مجازی فعال است • داده‌ها واقعی خودرو نیستند",
+                                color = NeonAmber,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
             // 3. Fuel Economy & Driving Range Prediction Banner
             item {
                 FuelEconomyBanner(
@@ -125,27 +149,68 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(modifier = Modifier.weight(1f)) {
-                        FilterChip(
-                            selected = state.selectedConnectionType == ConnectionType.VIRTUAL_SIMULATOR,
-                            onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.VIRTUAL_SIMULATOR)) },
-                            label = { Text("شبیه‌ساز (Simulator)", fontSize = 11.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
-                                selectedLabelColor = NeonCyan
+                    androidx.compose.foundation.lazy.LazyRow(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = state.selectedConnectionType == ConnectionType.BLUETOOTH_CLASSIC,
+                                onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.BLUETOOTH_CLASSIC)) },
+                                label = { Text("بلوتوث (BT)", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                    selectedLabelColor = NeonCyan
+                                )
                             )
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        FilterChip(
-                            selected = state.selectedConnectionType == ConnectionType.BLUETOOTH_CLASSIC,
-                            onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.BLUETOOTH_CLASSIC)) },
-                            label = { Text("بلوتوث (BT)", fontSize = 11.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
-                                selectedLabelColor = NeonCyan
+                        }
+                        item {
+                            FilterChip(
+                                selected = state.selectedConnectionType == ConnectionType.BLUETOOTH_LE,
+                                onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.BLUETOOTH_LE)) },
+                                label = { Text("BLE", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                    selectedLabelColor = NeonCyan
+                                )
                             )
-                        )
+                        }
+                        item {
+                            FilterChip(
+                                selected = state.selectedConnectionType == ConnectionType.WIFI_TCP,
+                                onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.WIFI_TCP)) },
+                                label = { Text("وای‌فای (Wi-Fi)", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                    selectedLabelColor = NeonCyan
+                                )
+                            )
+                        }
+                        item {
+                            FilterChip(
+                                selected = state.selectedConnectionType == ConnectionType.USB_SERIAL,
+                                onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.USB_SERIAL)) },
+                                label = { Text("کابل USB", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
+                                    selectedLabelColor = NeonCyan
+                                )
+                            )
+                        }
+                        item {
+                            FilterChip(
+                                selected = state.selectedConnectionType == ConnectionType.VIRTUAL_SIMULATOR,
+                                onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.VIRTUAL_SIMULATOR)) },
+                                label = { Text("شبیه‌ساز", fontSize = 11.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = NeonAmber.copy(alpha = 0.2f),
+                                    selectedLabelColor = NeonAmber
+                                )
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         // Add Custom Widget Button
@@ -249,7 +314,7 @@ fun FuelEconomyBanner(
                 }
 
                 Text(
-                    text = String.format(java.util.Locale.US, "%.1f L/100km", instantL100km),
+                    text = if (instantL100km > 0.05f) String.format(java.util.Locale.US, "%.1f L/100km", instantL100km) else "—",
                     color = NeonAmber,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -268,7 +333,7 @@ fun FuelEconomyBanner(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("پیمایش باقی‌مانده با سوخت فعلی:", color = TextMuted, fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("$remainingRangeKm km", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (remainingRangeKm > 0) "$remainingRangeKm km" else "—", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -276,7 +341,7 @@ fun FuelEconomyBanner(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text("هزینه هر کیلومتر:", color = TextMuted, fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("${costPerKm.toInt()} ت", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (costPerKm > 0f) "${costPerKm.toInt()} ت" else "—", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

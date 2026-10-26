@@ -16,5 +16,6 @@ enum class ConnectionType {
     VIRTUAL_SIMULATOR,
     BLUETOOTH_CLASSIC,
     BLUETOOTH_LE,
-    WIFI_TCP
+    WIFI_TCP,
+    USB_SERIAL
 }

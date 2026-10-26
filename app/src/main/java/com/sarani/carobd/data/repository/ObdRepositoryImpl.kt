@@ -92,6 +92,9 @@ class ObdRepositoryImpl(
                 val port = parts.getOrNull(1)?.toIntOrNull() ?: 35000
                 WifiTcpTransport(host, port)
             }
+            ConnectionType.USB_SERIAL -> {
+                com.sarani.carobd.data.transport.UsbSerialTransport(context)
+            }
         }
 
         val elm = Elm327Adapter(transport, scope)
@@ -120,6 +123,10 @@ class ObdRepositoryImpl(
             )
 
             startTelemetryLoop()
+            try {
+                com.sarani.carobd.service.ConnectionForegroundService.start(context)
+            } catch (_: Exception) {}
+
             Result.success(Unit)
         } else {
             val err = initResult.errorMessage ?: "خطا در اتصال به خودرو"
@@ -129,6 +136,10 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun disconnect() = withContext(Dispatchers.IO) {
+        try {
+            com.sarani.carobd.service.ConnectionForegroundService.stop(context)
+        } catch (_: Exception) {}
+
         stopTelemetryLoop()
 
         // Finalize active trip if any
