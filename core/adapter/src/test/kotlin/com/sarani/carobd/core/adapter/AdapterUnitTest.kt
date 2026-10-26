@@ -186,10 +186,72 @@ class AdapterUnitTest {
         assertTrue("State must be a Failure", state is ConnectionState.Failure)
         assertEquals("ECU_HANDSHAKE", (state as ConnectionState.Failure).stage)
     }
+
+    // --- B4: connection & active-vehicle truthfulness regressions ---
+
+    @Test
+    fun testSimulatorCannotMasqueradeAsPhysicalTransport() {
+        // B4 #3: a simulator transport exposes TransportType.SIMULATOR, never a physical type.
+        val sim = MockObdTransport(TransportType.SIMULATOR)
+        assertEquals(TransportType.SIMULATOR, sim.transportType)
+        assertTrue(
+            "Simulator must not masquerade as BLUETOOTH_CLASSIC/BLE/WIFI_TCP/USB_SERIAL",
+            sim.transportType != TransportType.BLUETOOTH_CLASSIC &&
+                sim.transportType != TransportType.BLUETOOTH_LE &&
+                sim.transportType != TransportType.WIFI_TCP &&
+                sim.transportType != TransportType.USB_SERIAL
+        )
+    }
+
+    @Test
+    fun testSimulatorHandshakeReportsIsSimulatorTrue() = runBlocking {
+        val sim = MockObdTransport(TransportType.SIMULATOR)
+        val adapter = Elm327Adapter(sim)
+        queueFullHandshake(sim)
+        assertTrue(adapter.initialize().isSuccess)
+        val state = adapter.state.value
+        assertTrue(state is ConnectionState.Connected)
+        assertTrue(
+            "Simulator Connected must carry isSimulator = true (B4 #4)",
+            (state as ConnectionState.Connected).isSimulator
+        )
+    }
+
+    @Test
+    fun testPhysicalHandshakeReportsIsSimulatorFalse() = runBlocking {
+        val phy = MockObdTransport() // BLUETOOTH_CLASSIC by default
+        val adapter = Elm327Adapter(phy)
+        queueFullHandshake(phy)
+        assertTrue(adapter.initialize().isSuccess)
+        val state = adapter.state.value
+        assertTrue(state is ConnectionState.Connected)
+        assertFalse(
+            "Physical connection must not carry isSimulator = true (B4 #5)",
+            (state as ConnectionState.Connected).isSimulator
+        )
+    }
 }
 
-class MockObdTransport : ObdTransport {
+private fun queueFullHandshake(t: MockObdTransport) {
+    t.queueResponse("ATZ", "ELM327 v1.5\r\r>")
+    t.queueResponse("ATE0", "OK\r\r>")
+    t.queueResponse("ATL0", "OK\r\r>")
+    t.queueResponse("ATS0", "OK\r\r>")
+    t.queueResponse("ATAT1", "OK\r\r>")
+    t.queueResponse("ATI", "ELM327 v1.5\r\r>")
+    t.queueResponse("AT@1", "OBDII to RS232 Interpreter\r\r>")
+    t.queueResponse("ATRV", "13.8V\r\r>")
+    t.queueResponse("ATCAF1", "OK\r\r>")
+    t.queueResponse("ATCSM0", "OK\r\r>")
+    t.queueResponse("STI", "?\r\r>")
+    t.queueResponse("ATSP0", "OK\r\r>")
+    t.queueResponse("0100", "41 00 BE 3E B8 11\r\r>")
+    t.queueResponse("ATDPN", "6\r\r>")
+}
+
+class MockObdTransport(
     override val transportType: TransportType = TransportType.BLUETOOTH_CLASSIC
+) : ObdTransport {
     override var isConnected: Boolean = false
 
     private val _incomingBytes = MutableSharedFlow<ByteArray>(extraBufferCapacity = 64)
