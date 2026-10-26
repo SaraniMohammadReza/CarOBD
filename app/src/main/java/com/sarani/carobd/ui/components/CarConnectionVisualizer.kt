@@ -49,7 +49,12 @@ fun CarConnectionVisualizer(
     modifier: Modifier = Modifier
 ) {
     val isConnected = connectionState is ConnectionState.Connected
-    val isConnecting = connectionState is ConnectionState.Connecting || connectionState is ConnectionState.Initializing
+    val isConnecting = !(connectionState is ConnectionState.Connected ||
+        connectionState is ConnectionState.Disconnected ||
+        connectionState is ConnectionState.Disconnecting ||
+        connectionState is ConnectionState.Failure ||
+        connectionState is ConnectionState.Idle ||
+        connectionState is ConnectionState.PermissionRequired)
 
     val infiniteTransition = rememberInfiniteTransition(label = "CarAnimation")
 
@@ -264,12 +269,15 @@ fun CarConnectionVisualizer(
             Spacer(modifier = Modifier.height(4.dp))
 
             // Subtitle text indicating visual state
-            val (descText, descColor) = when (connectionState) {
+            val (descText, descColor) = when (val cs = connectionState) {
                 is ConnectionState.Connected -> "چراغ‌های خودرو روشن شد • ایسیو آنلاین و متصل است" to NeonGreen
-                is ConnectionState.Connecting -> "در حال ارسال سیگنال و یافتن پورت OBD-II..." to NeonAmber
-                is ConnectionState.Initializing -> "هماهنگ‌سازی بایت‌های فریم و ارتباط با ایسیو..." to NeonAmber
-                is ConnectionState.Disconnected -> "آماده اتصال • دانگل دیاگ را متصل نمایید" to TextMuted
-                is ConnectionState.Error -> "عدم پاسخگویی ایسیو یا قطعی سوییچ خودرو" to Color(0xFFFF2A4B)
+                is ConnectionState.Failure -> "عدم پاسخگویی ایسیو یا قطعی سوییچ خودرو" to Color(0xFFFF2A4B)
+                is ConnectionState.Disconnected, is ConnectionState.Idle -> "آماده اتصال • دانگل دیاگ را متصل نمایید" to TextMuted
+                is ConnectionState.Disconnecting -> "در حال قطع ارتباص..." to TextMuted
+                is ConnectionState.AdapterIdentifying -> "هماهنم‌سازی بایت‌های فریم و ارتباط با ایسیو (${cs.probeStage})..." to NeonAmber
+                is ConnectionState.AdapterConfiguring -> "تنظیمات آداپتور (${cs.setting})..." to NeonAmber
+                is ConnectionState.ProtocolDetecting -> "جستجوی پروتکل ${cs.candidateName} (${cs.attemptIndex}/${cs.totalCandidates})..." to NeonAmber
+                else -> "در حال ارسال سیگنال و یافتن پورت OBD-II..." to NeonAmber
             }
 
             Text(

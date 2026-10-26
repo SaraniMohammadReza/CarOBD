@@ -67,12 +67,26 @@ class ObdRepositoryImpl(
     override val liveTelemetry: StateFlow<LiveTelemetry> = _liveTelemetry.asStateFlow()
 
     private var pollingJob: Job? = null
+    private var relayerJob: Job? = null
 
     override suspend fun connect(type: ConnectionType, target: String): Result<Unit> = withContext(Dispatchers.IO) {
         stopTelemetryLoop()
         disconnect()
 
-        _connectionState.value = ConnectionState.Connecting
+        // §27: Bluetooth OFF must be surfaced truthfully — never allowed to look connected.
+        if (type == ConnectionType.BLUETOOTH_CLASSIC || type == ConnectionType.BLUETOOTH_LE) {
+            val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val btAdapter = btManager?.adapter
+            if (btAdapter == null || !btAdapter.isEnabled) {
+                _connectionState.value = ConnectionState.Failure(
+                    stage = "BLUETOOTH",
+                    humanMessageFa = "بلوتوث خاموش است",
+                    technicalMessage = "BluetoothAdapter disabled or unavailable",
+                    isRecoverable = true
+                )
+                return@withContext Result.failure(Exception("بلوتوث خاموش است"))
+            }
+        }
 
         val transport = when (type) {
             ConnectionType.VIRTUAL_SIMULATOR -> {
@@ -80,13 +94,11 @@ class ObdRepositoryImpl(
             }
             ConnectionType.BLUETOOTH_CLASSIC -> {
                 val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-                val adapter = btManager?.adapter
-                BluetoothClassicTransport(target, adapter)
+                BluetoothClassicTransport(target, btManager?.adapter)
             }
             ConnectionType.BLUETOOTH_LE -> {
                 val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-                val adapter = btManager?.adapter
-                BleTransport(context, target, adapter)
+                BleTransport(context, target, btManager?.adapter)
             }
             ConnectionType.WIFI_TCP -> {
                 val parts = target.split(":")
@@ -102,22 +114,16 @@ class ObdRepositoryImpl(
         val elm = Elm327Adapter(transport, scope)
         activeAdapter = elm
 
-        _connectionState.value = ConnectionState.Initializing("آماده‌سازی چیپست آداپتور...")
+        // §26: single source of truth — relay the adapter's ECU-verified StateFlow instead of
+        // synthesizing connection state. Elm327Adapter.initialize() requires a valid Mode 01
+        // PID 00 response before emitting Connected, so this can never report "connected"
+        // while the ECU is silent.
+        relayerJob = scope.launch {
+            elm.state.collect { _connectionState.value = it }
+        }
 
         val initResult = elm.initialize()
         if (initResult.isSuccess) {
-            val deviceLabel = if (type == ConnectionType.VIRTUAL_SIMULATOR) {
-                "Virtual Car Simulator"
-            } else {
-                target.ifEmpty { "OBD-II Dongle" }
-            }
-
-            _connectionState.value = ConnectionState.Connected(
-                deviceName = deviceLabel,
-                protocolName = initResult.detectedProtocol?.displayName ?: "ISO 15765-4 CAN (Auto)",
-                elmVersion = initResult.firmwareVersion
-            )
-
             // Start Trip tracking
             currentTripComputer = TripComputer(
                 tripId = UUID.randomUUID().toString(),
@@ -132,7 +138,6 @@ class ObdRepositoryImpl(
             Result.success(Unit)
         } else {
             val err = initResult.errorMessage ?: "خطا در اتصال به خودرو"
-            _connectionState.value = ConnectionState.Error(err)
             Result.failure(Exception(err))
         }
     }
@@ -153,6 +158,8 @@ class ObdRepositoryImpl(
         }
         currentTripComputer = null
 
+        relayerJob?.cancel()
+        relayerJob = null
         activeAdapter?.disconnect()
         activeAdapter = null
         _connectionState.value = ConnectionState.Disconnected

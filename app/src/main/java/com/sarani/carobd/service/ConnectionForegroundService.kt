@@ -122,17 +122,26 @@ class ConnectionForegroundService : Service(), KoinComponent {
                         }
                         updateNotification(title, content)
                     }
-                    is ConnectionState.Connecting -> {
-                        updateNotification("در حال اتصال به دانگل دیاگ...", "ارسال سیگنال‌های آغازین")
+                    is ConnectionState.Failure -> {
+                        updateNotification("خطا در ارتباط", conn.humanMessageFa)
                     }
-                    is ConnectionState.Initializing -> {
-                        updateNotification("هماهنگ‌سازی با ایسیو...", conn.step)
+                    is ConnectionState.Disconnecting -> {
+                        updateNotification("در حال قطع ارتباط...", "اتصال منقطع می‌شود")
+                    }
+                    is ConnectionState.AdapterIdentifying -> {
+                        updateNotification("هماهنم‌سازی با ایسیو...", conn.probeStage)
+                    }
+                    is ConnectionState.AdapterConfiguring -> {
+                        updateNotification("تنظیمات آداپتور...", conn.setting)
+                    }
+                    is ConnectionState.ProtocolDetecting -> {
+                        updateNotification("جستجوی پروتکل...", "${conn.candidateName} (${conn.attemptIndex}/${conn.totalCandidates})")
                     }
                     is ConnectionState.Disconnected -> {
                         stopServiceSafely()
                     }
-                    is ConnectionState.Error -> {
-                        updateNotification("خطا در ارتباط", conn.message)
+                    else -> {
+                        updateNotification("در حال اتصال به دانگل دیاگ...", "ارسال سیگنال‌های آغازین")
                     }
                 }
             }

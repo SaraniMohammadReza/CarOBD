@@ -66,12 +66,15 @@ fun StatusHeader(
             ) {
                 // Connection Status Chip
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val (statusColor, statusText) = when (connectionState) {
+                    val (statusColor, statusText) = when (val cs = connectionState) {
                         is ConnectionState.Connected -> NeonGreen to stringResource(R.string.status_connected)
-                        is ConnectionState.Connecting -> NeonAmber to stringResource(R.string.status_connecting)
-                        is ConnectionState.Initializing -> NeonAmber to connectionState.step
-                        is ConnectionState.Disconnected -> TextMuted to stringResource(R.string.status_disconnected)
-                        is ConnectionState.Error -> NeonRed to stringResource(R.string.status_error)
+                        is ConnectionState.Failure -> NeonRed to cs.humanMessageFa
+                        is ConnectionState.Disconnected, is ConnectionState.Idle -> TextMuted to stringResource(R.string.status_disconnected)
+                        is ConnectionState.Disconnecting -> NeonAmber to stringResource(R.string.status_connecting)
+                        is ConnectionState.AdapterIdentifying -> NeonAmber to cs.probeStage
+                        is ConnectionState.AdapterConfiguring -> NeonAmber to cs.setting
+                        is ConnectionState.ProtocolDetecting -> NeonAmber to "${cs.candidateName} (${cs.attemptIndex}/${cs.totalCandidates})"
+                        else -> NeonAmber to stringResource(R.string.status_connecting)
                     }
 
                     Box(
