@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sarani.carobd.core.calculator.UnitConverter
 import com.sarani.carobd.ui.components.DigitalMetricCard
 import com.sarani.carobd.ui.theme.DarkBg
 import com.sarani.carobd.ui.theme.DarkCardBg
@@ -121,10 +122,14 @@ fun TripScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                val (distanceValue, distanceUnit) = UnitConverter.formatDistance(
+                    state.summary.distanceKm.toDouble(),
+                    state.unitSystem
+                )
                 DigitalMetricCard(
                     title = "مسافت طی شده",
-                    value = String.format(java.util.Locale.US, "%.2f", state.summary.distanceKm),
-                    unit = "کیلومتر",
+                    value = distanceValue,
+                    unit = distanceUnit,
                     accentColor = NeonCyan,
                     modifier = Modifier.weight(1f)
                 )
@@ -145,19 +150,27 @@ fun TripScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                val (maxSpeedValue, maxSpeedUnit) = UnitConverter.formatSpeed(
+                    state.summary.maxSpeedKmh.toDouble(),
+                    state.unitSystem
+                )
                 DigitalMetricCard(
                     title = "حداکثر سرعت",
-                    value = "${state.summary.maxSpeedKmh}",
-                    unit = "km/h",
+                    value = maxSpeedValue,
+                    unit = maxSpeedUnit,
                     icon = Icons.Default.Speed,
                     accentColor = NeonRed,
                     modifier = Modifier.weight(1f)
                 )
 
+                val (avgSpeedValue, avgSpeedUnit) = UnitConverter.formatSpeed(
+                    state.summary.averageSpeedKmh.toDouble(),
+                    state.unitSystem
+                )
                 DigitalMetricCard(
                     title = "سرعت میانگین",
-                    value = String.format(java.util.Locale.US, "%.1f", state.summary.averageSpeedKmh),
-                    unit = "km/h",
+                    value = avgSpeedValue,
+                    unit = avgSpeedUnit,
                     accentColor = NeonGreen,
                     modifier = Modifier.weight(1f)
                 )

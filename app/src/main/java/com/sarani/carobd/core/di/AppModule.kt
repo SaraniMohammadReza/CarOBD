@@ -48,5 +48,5 @@ val appModule = module {
     viewModel { VehicleProfileViewModel(get(), get(), get()) }
     viewModel { TerminalViewModel(get()) }
     viewModel { MaintenanceViewModel(get()) }
-    viewModel { TripViewModel(get(), get()) }
+    viewModel { TripViewModel(get(), get(), get()) }
 }

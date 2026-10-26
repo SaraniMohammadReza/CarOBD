@@ -3,6 +3,8 @@ package com.sarani.carobd.ui.screens.trip
 import androidx.lifecycle.viewModelScope
 import com.sarani.carobd.core.logger.TripLogger
 import com.sarani.carobd.core.logger.TripSummary
+import com.sarani.carobd.core.storage.AppPreferencesManager
+import com.sarani.carobd.core.storage.UnitSystem
 import com.sarani.carobd.domain.usecase.ObserveTelemetryUseCase
 import com.sarani.carobd.ui.mvi.MviViewModel
 import com.sarani.carobd.ui.mvi.UiEffect
@@ -12,6 +14,7 @@ import kotlinx.coroutines.launch
 
 data class TripState(
     val summary: TripSummary = TripSummary(),
+    val unitSystem: UnitSystem = UnitSystem.METRIC,
     val exportedCsvSnippet: String? = null
 ) : UiState
 
@@ -26,7 +29,8 @@ sealed interface TripEffect : UiEffect {
 
 class TripViewModel(
     private val tripLogger: TripLogger,
-    private val observeTelemetryUseCase: ObserveTelemetryUseCase
+    private val observeTelemetryUseCase: ObserveTelemetryUseCase,
+    private val appPreferencesManager: AppPreferencesManager
 ) : MviViewModel<TripState, TripIntent, TripEffect>(TripState()) {
 
     init {
@@ -38,6 +42,12 @@ class TripViewModel(
         viewModelScope.launch {
             observeTelemetryUseCase.telemetry.collect { tele ->
                 tripLogger.logSample(tele)
+            }
+        }
+        // Drive unit selection from persisted settings so the unit system is real & restart-safe (§Phase C).
+        viewModelScope.launch {
+            appPreferencesManager.unitSystem.collect { unit ->
+                setState { copy(unitSystem = unit) }
             }
         }
     }
