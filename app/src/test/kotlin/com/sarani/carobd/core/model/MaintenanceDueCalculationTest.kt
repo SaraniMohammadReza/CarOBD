@@ -87,4 +87,31 @@ class MaintenanceDueCalculationTest {
         assertEquals(35000, ServiceType.BRAKE_PADS.defaultIntervalKm)
         assertEquals(40000, ServiceType.GEARBOX_OIL.defaultIntervalKm)
     }
+
+    @Test
+    fun unknownHistory_isNotOverdue_noFakeDueDate() {
+        val item = ServiceReminderItem(
+            id = "oil",
+            type = ServiceType.ENGINE_OIL,
+            lastChangedKm = UNKNOWN_LAST_CHANGED,
+            intervalKm = 6000,
+            currentKm = 120000
+        )
+        assertTrue(item.isUnknownHistory)
+        assertFalse(item.isOverdue) // never fake-overdue when history unknown
+        assertEquals(-1, item.nextDueKm) // no fabricated due mileage
+        assertEquals(-1, item.remainingKm) // no fabricated remaining
+    }
+
+    @Test
+    fun unknownHistory_progressIsNaN() {
+        val item = ServiceReminderItem(
+            id = "oil",
+            type = ServiceType.ENGINE_OIL,
+            lastChangedKm = UNKNOWN_LAST_CHANGED,
+            intervalKm = 6000,
+            currentKm = 120000
+        )
+        assertTrue(item.progressPercent.isNaN())
+    }
 }

@@ -14,6 +14,8 @@ enum class ServiceType(val titleFa: String, val titleEn: String, val defaultInte
     BRAKE_FLUID("روغن ترمز", "Brake Fluid", 40000)
 }
 
+const val UNKNOWN_LAST_CHANGED = -1
+
 data class ServiceReminderItem(
     val id: String,
     val type: ServiceType,
@@ -22,13 +24,16 @@ data class ServiceReminderItem(
     val currentKm: Int,
     val notes: String = ""
 ) {
-    val nextDueKm: Int = lastChangedKm + intervalKm
-    val remainingKm: Int = nextDueKm - currentKm
-    val isOverdue: Boolean = remainingKm <= 0
-    val progressPercent: Float = if (intervalKm > 0) {
+    /** True when the user has never recorded this service — no fake history. */
+    val isUnknownHistory: Boolean get() = lastChangedKm < 0
+
+    val nextDueKm: Int = if (isUnknownHistory) -1 else lastChangedKm + intervalKm
+    val remainingKm: Int = if (isUnknownHistory) -1 else nextDueKm - currentKm
+    val isOverdue: Boolean = !isUnknownHistory && remainingKm <= 0
+    val progressPercent: Float = if (isUnknownHistory || intervalKm <= 0) Float.NaN else {
         val used = currentKm - lastChangedKm
         (1f - (used.toFloat() / intervalKm.toFloat())).coerceIn(0f, 1f)
-    } else 1f
+    }
 }
 
 data class VehicleSpecSheet(

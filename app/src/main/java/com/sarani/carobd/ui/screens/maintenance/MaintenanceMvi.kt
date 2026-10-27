@@ -4,6 +4,7 @@ import androidx.lifecycle.viewModelScope
 import com.sarani.carobd.core.database.IranianCarSpecsDatabase
 import com.sarani.carobd.core.model.ServiceReminderItem
 import com.sarani.carobd.core.model.ServiceType
+import com.sarani.carobd.core.model.UNKNOWN_LAST_CHANGED
 import com.sarani.carobd.core.model.VehicleProfile
 import com.sarani.carobd.core.model.VehicleSpecSheet
 import com.sarani.carobd.core.storage.AppPreferencesManager
@@ -28,21 +29,6 @@ sealed interface MaintenanceIntent : UiIntent {
 }
 
 sealed interface MaintenanceEffect : UiEffect
-
-/**
- * Generic last-service defaults (§Phase C §18: clearly-labeled generic fallbacks).
- * Persisted values override these per active vehicle. Timing-belt interval is
- * vehicle-specific via [VehicleSpecSheet] when a catalog profile is selected;
- * otherwise the service-type catalog default is used — never a silent Peugeot/TU5.
- */
-private val DEFAULT_LAST_CHANGED_KM = mapOf(
-    "oil" to 111500,
-    "filter" to 111500,
-    "timing_belt" to 70000,
-    "plugs" to 95000,
-    "brake_pads" to 90000,
-    "gearbox" to 85000
-)
 
 class MaintenanceViewModel(
     private val observeTelemetryUseCase: ObserveTelemetryUseCase,
@@ -93,7 +79,7 @@ class MaintenanceViewModel(
     ) = ServiceReminderItem(
         id = id,
         type = type,
-        lastChangedKm = lastChanged[id] ?: DEFAULT_LAST_CHANGED_KM[id] ?: 0,
+        lastChangedKm = lastChanged[id] ?: UNKNOWN_LAST_CHANGED,
         intervalKm = intervalKm,
         currentKm = currentKm,
         notes = notes

@@ -162,10 +162,12 @@ fun ServiceReminderCard(
     reminder: ServiceReminderItem,
     onResetClicked: () -> Unit
 ) {
-    val progress = reminder.progressPercent
+    val isUnknown = reminder.isUnknownHistory
+    val progress = if (isUnknown) 0f else (reminder.progressPercent.takeIf { !it.isNaN() } ?: 0f)
     val isOverdue = reminder.isOverdue
 
     val barColor = when {
+        isUnknown -> TextMuted
         isOverdue -> NeonRed
         progress < 0.25f -> NeonAmber
         else -> NeonGreen
@@ -235,7 +237,7 @@ fun ServiceReminderCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = if (isOverdue) "منقضی شده! (${-reminder.remainingKm} km گذشته)" else "باقی‌مانده: ${reminder.remainingKm} km",
+                    text = if (isUnknown) "ثبت نشده — تاریخچه سرویس ناشناست" else if (isOverdue) "منقضی شده! (${-reminder.remainingKm} km گذشته)" else "باقی‌مانده: ${reminder.remainingKm} km",
                     color = barColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
