@@ -165,15 +165,18 @@ class AppPreferencesManager(private val context: Context) {
         context.dataStore.edit { it[KEY_ODOMETER] = km }
     }
 
-    // Default widget layout
+    // Default widget layout (§4 Checkpoint E).
+    // Speed/RPM/Coolant/Battery are rendered compactly by PrimaryMetricsRow on
+    // the dashboard, so they are NOT duplicated here as 132dp CircularGauge
+    // widgets (§4: "two 132dp circular RPM/speed gauges duplicate the compact
+    // primary metrics"). Defaults are compact secondary metrics only; the O2
+    // oscilloscope chart is opt-in (sensor picker) rather than on the first
+    // screen, keeping the Samsung J7 dashboard lightweight.
     fun getDefaultWidgets(): List<DashboardWidgetConfig> = listOf(
-        DashboardWidgetConfig("w_rpm", "rpm", WidgetType.CIRCULAR_GAUGE, WidgetSize.MEDIUM),
-        DashboardWidgetConfig("w_speed", "speed", WidgetType.CIRCULAR_GAUGE, WidgetSize.MEDIUM),
-        DashboardWidgetConfig("w_coolant", "coolant_temp", WidgetType.DIGITAL_CARD, WidgetSize.SMALL),
         DashboardWidgetConfig("w_throttle", "throttle_pos", WidgetType.DIGITAL_CARD, WidgetSize.SMALL),
-        DashboardWidgetConfig("w_voltage", "module_voltage", WidgetType.DIGITAL_CARD, WidgetSize.SMALL),
         DashboardWidgetConfig("w_fuel", "fuel_level", WidgetType.BAR_GAUGE, WidgetSize.SMALL),
-        DashboardWidgetConfig("w_o2", "o2_b1s1", WidgetType.OSCILLOSCOPE_GRAPH, WidgetSize.LARGE),
+        DashboardWidgetConfig("w_intake_temp", "intake_temp", WidgetType.DIGITAL_CARD, WidgetSize.SMALL),
+        DashboardWidgetConfig("w_maf", "maf", WidgetType.DIGITAL_CARD, WidgetSize.SMALL),
         DashboardWidgetConfig("w_stepper", "stepper_steps", WidgetType.DIGITAL_CARD, WidgetSize.SMALL)
     )
 }

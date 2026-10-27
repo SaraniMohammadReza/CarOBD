@@ -52,7 +52,6 @@ import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.WidgetSize
 import com.sarani.carobd.core.model.WidgetType
 import com.sarani.carobd.ui.components.BluetoothDeviceDialog
-import com.sarani.carobd.ui.components.CarConnectionVisualizer
 import com.sarani.carobd.ui.components.CircularGauge
 import com.sarani.carobd.ui.components.DigitalMetricCard
 import com.sarani.carobd.ui.components.HorizontalBarGauge
@@ -119,7 +118,7 @@ fun DashboardScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Route, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("هنوز پروفایل تشخیصی انتخاب نشده است", color = TextPrimary, fontSize = 12.sp)
+                            Text(stringResource(R.string.dashboard_no_vehicle), color = TextPrimary, fontSize = 12.sp)
                             Spacer(modifier = Modifier.weight(1f))
                             Button(
                                 onClick = { onNavigateToVehicleCatalog() },
@@ -129,7 +128,7 @@ fun DashboardScreen(
                                 ),
                                 modifier = Modifier.height(32.dp)
                             ) {
-                                Text("انتخاب پروفایل تشخیسی", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.dashboard_select_profile), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -142,12 +141,10 @@ fun DashboardScreen(
                 PrimaryMetricsRow(telemetry = state.telemetry)
             }
 
-            // 2. Animated Car Silhouette & Headlight Visualizer
-            item {
-                CarConnectionVisualizer(connectionState = state.connectionState)
-            }
-
-            // 2.1 Simulator Warning Banner (§7: truthful TransportType.SIMULATOR / isSimulator)
+            // 2. Simulator Warning Banner — §4: keep a visible SIMULATOR indicator.
+            //    The animated CarConnectionVisualizer (infinite Canvas animation,
+            //    heavy on the J7) has been removed from the first screen; connection
+            //    state is already shown in StatusHeader above.
             if (state.isSimulator) {
                 item {
                     Box(
@@ -161,7 +158,7 @@ fun DashboardScreen(
                             Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "حالت شبیه‌ساز • داده‌ها واقعی خودرو نیستند",
+                                text = stringResource(R.string.simulator_warning),
                                 color = NeonAmber,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
@@ -196,7 +193,7 @@ fun DashboardScreen(
                             FilterChip(
                                 selected = state.selectedConnectionType == ConnectionType.BLUETOOTH_CLASSIC,
                                 onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.BLUETOOTH_CLASSIC)) },
-                                label = { Text("بلوتوث (BT)", fontSize = 11.sp) },
+                                label = { Text(stringResource(R.string.connection_bt), fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
                                     selectedLabelColor = NeonCyan
@@ -207,7 +204,7 @@ fun DashboardScreen(
                             FilterChip(
                                 selected = state.selectedConnectionType == ConnectionType.BLUETOOTH_LE,
                                 onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.BLUETOOTH_LE)) },
-                                label = { Text("BLE", fontSize = 11.sp) },
+                                label = { Text(stringResource(R.string.connection_ble), fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
                                     selectedLabelColor = NeonCyan
@@ -218,7 +215,7 @@ fun DashboardScreen(
                             FilterChip(
                                 selected = state.selectedConnectionType == ConnectionType.WIFI_TCP,
                                 onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.WIFI_TCP)) },
-                                label = { Text("وای‌فای (Wi-Fi)", fontSize = 11.sp) },
+                                label = { Text(stringResource(R.string.connection_wifi), fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
                                     selectedLabelColor = NeonCyan
@@ -229,7 +226,7 @@ fun DashboardScreen(
                             FilterChip(
                                 selected = state.selectedConnectionType == ConnectionType.USB_SERIAL,
                                 onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.USB_SERIAL)) },
-                                label = { Text("کابل USB", fontSize = 11.sp) },
+                                label = { Text(stringResource(R.string.connection_usb), fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
                                     selectedLabelColor = NeonCyan
@@ -240,7 +237,7 @@ fun DashboardScreen(
                             FilterChip(
                                 selected = state.selectedConnectionType == ConnectionType.VIRTUAL_SIMULATOR,
                                 onClick = { viewModel.onIntent(DashboardIntent.SetConnectionType(ConnectionType.VIRTUAL_SIMULATOR)) },
-                                label = { Text("شبیه‌ساز", fontSize = 11.sp) },
+                                label = { Text(stringResource(R.string.connection_simulator), fontSize = 11.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = NeonAmber.copy(alpha = 0.2f),
                                     selectedLabelColor = NeonAmber
@@ -257,7 +254,7 @@ fun DashboardScreen(
                             onClick = { viewModel.onIntent(DashboardIntent.OpenSensorPicker) },
                             modifier = Modifier.background(DarkCardBg, RoundedCornerShape(10.dp))
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Gauge", tint = NeonCyan)
+                            Icon(Icons.Default.Add,                            contentDescription = stringResource(R.string.cd_add_widget), tint = NeonCyan)
                         }
 
                         // HUD Mirror mode toggle
@@ -267,7 +264,7 @@ fun DashboardScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Visibility,
-                                contentDescription = "HUD",
+                                contentDescription = stringResource(R.string.cd_hud),
                                 tint = if (state.isHudMode) NeonAmber else TextMuted
                             )
                         }
@@ -294,7 +291,7 @@ fun DashboardScreen(
                             .size(26.dp)
                             .padding(4.dp)
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Remove", tint = TextMuted.copy(alpha = 0.6f))
+                        Icon(Icons.Default.Close,                        contentDescription = stringResource(R.string.cd_remove_widget), tint = TextMuted.copy(alpha = 0.6f))
                     }
                 }
             }
@@ -397,6 +394,21 @@ fun RenderCustomWidget(
 ) {
     val sensor = SensorCatalog.findById(config.sensorId)
 
+    // §4 / §8 truthfulness: an unknown (not-yet-measured) sensor must render "—"
+    // for EVERY widget type. Previously only DIGITAL_CARD was guarded, so a
+    // CircularGauge / BarGauge / Oscilloscope rendered numeric 0 for an unknown
+    // sensor — a fabricated zero (§4: "unknown custom-gauge values can still
+    // show numeric 0").
+    if (!telemetry.isMeasured(sensor.pid)) {
+        DigitalMetricCard(
+            title = sensor.nameFa,
+            value = "—",
+            unit = sensor.unitMetric,
+            accentColor = TextMuted
+        )
+        return
+    }
+
     // Extract sensor value dynamically from telemetry
     val sensorValue = when (sensor.id) {
         "rpm" -> telemetry.rpm.toFloat()
@@ -430,9 +442,10 @@ fun RenderCustomWidget(
             )
         }
         WidgetType.DIGITAL_CARD -> {
-            val displayValue = if (sensorValue == 0f && !telemetry.isMeasured(sensor.pid)) {
-                "—"
-            } else if (sensorValue >= 10f) {
+            // measured == true (guarded at the top of this function), so a 0f
+            // reading is a REAL zero, e.g. throttle at idle — render "0.00",
+            // never fabricate "—". (§4 / §8: zero only when the ECU measured 0.)
+            val displayValue = if (sensorValue >= 10f) {
                 "${sensorValue.toInt()}"
             } else {
                 String.format(java.util.Locale.US, "%.2f", sensorValue)
@@ -480,10 +493,10 @@ fun PrimaryMetricsRow(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
-        MetricItem("سرعت", "010D", telemetry.speedKmh, "km/h"),
-        MetricItem("RPM", "010C", telemetry.rpm, "RPM"),
-        MetricItem("آب‌خنک", "0105", telemetry.coolantTempCelsius, "°C"),
-        MetricItem("باتری", "0142", telemetry.batteryVoltage, "V")
+        MetricItem(stringResource(R.string.dashboard_metric_speed), "010D", telemetry.speedKmh, "km/h"),
+        MetricItem(stringResource(R.string.dashboard_metric_rpm), "010C", telemetry.rpm, "RPM"),
+        MetricItem(stringResource(R.string.dashboard_metric_coolant), "0105", telemetry.coolantTempCelsius, "°C"),
+        MetricItem(stringResource(R.string.dashboard_metric_battery), "0142", telemetry.batteryVoltage, "V")
     )
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -509,3 +522,12 @@ fun PrimaryMetricsRow(
 }
 
 private data class MetricItem(val label: String, val pid: String, val value: Any, val unit: String)
+
+/**
+ * §4 Canonical first-screen primary metric PID set, in display order:
+ * Speed (010D) → RPM (010C) → Coolant (0105) → Battery (0142). These four are
+ * rendered compactly by [PrimaryMetricsRow] and are NOT also emitted as
+ * dashboard CIRCULAR_GAUGE widgets — this removes the duplicate 132dp circular
+ * gauges §4 calls out. Pure top-level fn so the order is JVM-unit-testable.
+ */
+fun primaryMetricPids(): List<String> = listOf("010D", "010C", "0105", "0142")

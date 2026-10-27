@@ -119,7 +119,7 @@ fun StatusHeader(
                 // Vehicle & ECU Info
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = activeProfile?.modelNameFa ?: "خودروی تشخیصی انتخاب نشده",
+                        text = activeProfile?.modelNameFa ?: stringResource(R.string.dashboard_no_vehicle),
                         color = TextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,

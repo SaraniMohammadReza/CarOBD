@@ -37,4 +37,23 @@ class DashboardStateTest {
             DashboardState(selectedConnectionType = ConnectionType.WIFI_TCP).isSimulator
         )
     }
+
+    @Test
+    fun primaryMetricPids_areSpeedRpmCoolantBatteryInOrder() {
+        // §4: first-screen primary metrics must be exactly Speed/RPM/Coolant/
+        // Battery in that order — and must NOT also render as 132dp circular
+        // gauges (PrimaryMetricsRow owns them; defaults no longer include them).
+        assertEquals(listOf("010D", "010C", "0105", "0142"), primaryMetricPids())
+    }
+
+    @Test
+    fun defaultTelemetryMarksPrimaryPidsUnmeasured() {
+        // §4 / §8 truthfulness: with no live telemetry, every primary PID is
+        // "not measured" → PrimaryMetricsRow renders "—", never a fabricated 0.
+        val empty = DashboardState().telemetry
+        assertFalse(empty.isMeasured("010D")) // speed
+        assertFalse(empty.isMeasured("010C")) // rpm
+        assertFalse(empty.isMeasured("0105")) // coolant
+        assertFalse(empty.isMeasured("0142")) // battery
+    }
 }

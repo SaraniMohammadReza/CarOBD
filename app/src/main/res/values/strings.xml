@@ -86,4 +86,23 @@
     <string name="settings_reset_vehicle">Vehicle / Motorcycle Profile</string>
     <string name="settings_architecture_title">Super-app Architecture</string>
     <string name="settings_architecture_body">• Clean Architecture &amp; MVI&#10;• Offline caching with DataStore Preferences&#10;• Cloud sync ready (backend-ready)&#10;• 100+ car &amp; motorcycle sensors&#10;• K-Line + CAN support for Iranian, Chinese &amp; global vehicles</string>
+    <!-- Dashboard (§3 #9 / §4 Checkpoint E — migrated from hardcoded strings) -->
+    <string name="dashboard_no_vehicle">Vehicle profile not selected</string>
+    <string name="dashboard_select_profile">Select Profile</string>
+    <string name="simulator_warning">Simulator mode • data is not real vehicle data</string>
+    <string name="dashboard_metric_speed">Speed</string>
+    <string name="dashboard_metric_rpm">RPM</string>
+    <string name="dashboard_metric_coolant">Coolant</string>
+    <string name="dashboard_metric_battery">Battery</string>
+    <string name="dashboard_fuel_title">Fuel Consumption &amp; Range (%1$s)</string>
+    <string name="dashboard_range_label">Remaining range on current fuel:</string>
+    <string name="dashboard_cost_per_km">Cost per kilometer:</string>
+    <string name="connection_bt">Bluetooth (BT)</string>
+    <string name="connection_ble">BLE</string>
+    <string name="connection_wifi">Wi-Fi</string>
+    <string name="connection_usb">USB Cable</string>
+    <string name="connection_simulator">Simulator</string>
+    <string name="cd_add_widget">Add Gauge</string>
+    <string name="cd_hud">HUD</string>
+    <string name="cd_remove_widget">Remove</string>
 </resources>

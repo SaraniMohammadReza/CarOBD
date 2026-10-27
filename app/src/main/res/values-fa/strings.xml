@@ -86,4 +86,23 @@
     <string name="settings_reset_vehicle">تغییر مشخصات خودرو / موتورسیکلت (تنظیم مجدد پروفایل)</string>
     <string name="settings_architecture_title">مشخصات معماری سوپر اپلیکیشن</string>
     <string name="settings_architecture_body">• معماری ماژولار Clean Architecture + MVI&#10;• سیستم کشینگ آفلاین با DataStore Preferences&#10;• آماده اتصال به بک‌اند ابری (Cloud Sync Ready)&#10;• پشتیبانی از ۱۰۰+ سنسور خودرو و موتورسیکلت&#10;• پشتیبانی از خط K-Line و شبکه CAN تمام خودروهای داخلی، چینی و بین‌المللی</string>
+    <!-- Dashboard (§3 #9 / §4 Checkpoint E — migrated from hardcoded strings) -->
+    <string name="dashboard_no_vehicle">خودروی تشخه انتخاب نشده</string>
+    <string name="dashboard_select_profile">انتخاب پروفایل تشخیسی</string>
+    <string name="simulator_warning">حالت شبیه‌ساز • داده‌ها واقعی خودرو نیستند</string>
+    <string name="dashboard_metric_speed">سرعت</string>
+    <string name="dashboard_metric_rpm">RPM</string>
+    <string name="dashboard_metric_coolant">آب‌خنک</string>
+    <string name="dashboard_metric_battery">باتری</string>
+    <string name="dashboard_fuel_title">مصرف سوخت و پیمایش (%1$s)</string>
+    <string name="dashboard_range_label">پیمایش باقی‌مانده با سوخت فعلی:</string>
+    <string name="dashboard_cost_per_km">هزینه هر کیلومتر:</string>
+    <string name="connection_bt">بلوتوث (BT)</string>
+    <string name="connection_ble">BLE</string>
+    <string name="connection_wifi">وای‌فای (Wi-Fi)</string>
+    <string name="connection_usb">کابل USB</string>
+    <string name="connection_simulator">شبیه‌ساز</string>
+    <string name="cd_add_widget">اضافه کردن گیج</string>
+    <string name="cd_hud">آینه نمایش</string>
+    <string name="cd_remove_widget">حذف</string>
 </resources>
