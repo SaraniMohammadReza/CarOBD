@@ -139,7 +139,7 @@ fun DashboardScreen(
                     instantL100km = state.fuelEconomy.instantLitersPer100Km,
                     remainingRangeKm = state.fuelEconomy.remainingRangeKm,
                     costPerKm = state.fuelEconomy.fuelCostPerKmTomans,
-                    vehicleName = state.activeProfile?.modelNameFa ?: state.userVehicleSetup.model
+                    vehicleName = state.activeProfile?.modelNameFa ?: "خودروی تشخیصی انتخاب‌شده"
                 )
             }
 

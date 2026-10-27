@@ -12,8 +12,9 @@ import org.junit.Test
 class ActiveVehicleRepositoryTest {
 
     private val preset = IranianEcuRegistry.PRESET_VEHICLES
-    // Resolve a real catalogue entry; fall back to the first if "Dena" id is absent.
-    private val selected = preset.find { it.id.contains("dena", ignoreCase = true) } ?: preset.first()
+    // Resolve real catalogue entries by exact id — never fall back to PRESET_VEHICLES.first().
+    private val selected = preset.find { it.id.contains("dena", ignoreCase = true) }!!
+    private val pride = preset.find { it.id == "saipa_pride_tiba" }!!
 
     // B4 #9: no vehicle selected must NOT silently become PRESET_VEHICLES.first() (Peugeot 206 TU5).
     @Test
@@ -84,5 +85,40 @@ class ActiveVehicleRepositoryTest {
         while (ticks2 < 200 && repo2.activeVehicle.value?.id != selected.id) { delay(10); ticks2++ }
         assertEquals(selected.id, repo2.activeVehicle.value?.id)
         job2.cancel()
+    }
+
+    // C4 §6.7: changing selection A → B updates the active vehicle StateFlow immediately.
+    @Test
+    fun selectVehicle_replacesPreviousSelection() = runBlocking {
+        val store = MutableStateFlow<String?>(null)
+        val repo = ActiveVehicleRepository(store, { store.value = it }, { store.value = null })
+        val job = launch { repo.activeVehicle.collect { } }
+        delay(20)
+        repo.selectVehicle(selected)
+        var ticks = 0
+        while (ticks < 200 && repo.activeVehicle.value?.id != selected.id) { delay(10); ticks++ }
+        repo.selectVehicle(pride)
+        var t2 = 0
+        while (t2 < 200 && (repo.activeVehicle.value?.id ?: "") != pride.id) { delay(10); t2++ }
+        assertEquals(pride.id, repo.activeVehicle.value?.id)
+        job.cancel()
+    }
+
+    // C4 §6.8: clearing selection yields null — never a fabricated default.
+    @Test
+    fun clearSelection_resolvesToNull() = runBlocking {
+        val store = MutableStateFlow<String?>(null)
+        val repo = ActiveVehicleRepository(store, { store.value = it }, { store.value = null })
+        val job = launch { repo.activeVehicle.collect { } }
+        delay(20)
+        repo.selectVehicle(selected)
+        var ticks = 0
+        while (ticks < 200 && repo.activeVehicle.value?.id != selected.id) { delay(10); ticks++ }
+        assertNotNull(repo.activeVehicle.value)
+        repo.clearVehicle()
+        var t2 = 0
+        while (t2 < 100 && repo.activeVehicle.value != null) { delay(10); t2++ }
+        assertNull("clearVehicle must resolve active vehicle to null", repo.activeVehicle.value)
+        job.cancel()
     }
 }
