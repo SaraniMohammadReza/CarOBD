@@ -22,6 +22,16 @@ interface ObdAdapter {
     val batteryVoltage: Float
 
     /**
+     * True when the active physical bus is a CAN-family transport (ISO 15765-4 / UDS /
+     * J1939 / WWH-OBD). The repository uses this to select DTC framing: CAN carries a
+     * J1979 count byte after the service echo (43 <count> <pairs>); non-CAN classic
+     * (J1850 / ISO-9141-2 / KWP) emits DTC pairs directly with no count byte.
+     * Returns false when the protocol is unknown/unset (safe non-CAN default).
+     */
+    val isCanTransport: Boolean
+        get() = false
+
+    /**
      * Initializes adapter hardware with initialization string sequence (ATZ, ATE0, etc.)
      * and negotiates protocol with the vehicle.
      */

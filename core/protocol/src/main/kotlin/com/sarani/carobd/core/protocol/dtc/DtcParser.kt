@@ -12,6 +12,25 @@ import com.sarani.carobd.core.model.DtcSystem
  * 2. ISO 14229 / UDS 3-byte DTCs (with ISO/SAE Failure Mode Byte)
  * 3. SAE J1939 Heavy-Duty DTCs (SPN + FMI + OC)
  */
+/**
+ * §2 transport framing form for Mode 03 / 07 / 0A DTC responses, derived from
+ * [com.sarani.carobd.core.model.ProtocolStandard.isCanBus] by the adapter/repository layer.
+ *
+ * Critical: the J1979 count byte (payload[1]) is CAN-specific. Non-CAN classic
+ * transports (J1850 / ISO-9141-2 / KWP) emit DTC pairs directly after the service
+ * echo with NO count byte, so byte[1] is a DTC high byte — never a count. Treating
+ * it as a count fabricates/widrops codes (e.g. "43 01 33 00 00 00 00" -> P0133, not P3300).
+ */
+enum class DtcFrame {
+    /** CAN (ISO 15765-4 / J1939 / UDS): `4X <COUNT> <DTC pairs>` per J1979. */
+    CAN_WITH_COUNT,
+    /**
+     * Non-CAN classic (J1850 PWM/VPW, ISO 9141-2, KWP): `4X <DTC pairs>` with NO
+     * count byte — pairs begin immediately after the service-echo byte.
+     */
+    NON_CAN_PAIRS
+}
+
 object DtcParser {
 
     /**
@@ -72,25 +91,31 @@ object DtcParser {
     /**
      * Parses Mode 03 / 07 / 0A DTCs from a positively-acknowledged response that
      * STILL contains its service-echo byte (as produced by
-     * [PidCodec.cleanResponseHex] on a raw ELM line such as "43 02 01 15 03 00").
+     * [PidCodec.cleanResponseHex] on a raw ELM line, e.g. "43 02 01 15 03 00").
      *
-     * §4.3 framing contract — NO parity heuristic:
-     *  - byte[0] MUST be the positive service echo matching [category]:
-     *    STORED->0x43, PENDING->0x47, PERMANENT->0x4A.
-     *  - byte[1] is the J1979 DTC *count*.
-     *  - DTC pairs follow; trailing 00 00 padding is ignored.
+     * §2 / §4.3 framing contract — the count byte is NOT universal:
+     *  - byte[0] MUST be the positive service echo matching [category]
+     *    (STORED->0x43, PENDING->0x47, PERMANENT->0x4A); a mismatched/missing echo
+     *    is malformed framing and yields no DTCs.
+     *  - [DtcFrame.CAN_WITH_COUNT] (CAN family): byte[1] is the J1979 DTC *count*,
+     *    followed by `count` DTC pairs.
+     *  - [DtcFrame.NON_CAN_PAIRS] (J1850 / ISO-9141-2 / KWP classsic): DTC pairs
+     *    begin DIRECTLY after the echo with NO count byte — byte[1] is the first
+     *    DTC high byte. Trailing 00 00 is padding (not a code).
+     *    e.g. "43 01 33 00 00 00 00" -> [P0133] (01 33 = P0133), NOT count=1.
      *
-     * §9: a 7F negative-response frame yields NO DTCs (never fabricated). A
-     * missing/mismatched echo is treated as malformed framing and yields nothing;
-     * [DtcScanValidator] surfaces any explicit 7F rejection to the caller.
+     * §9: a 7F negative-response frame yields NO DTCs (never fabricated).
      *
-     * @param responderAddressHex responder id (e.g. "7E8"/"7E9"); an unknown id is
-     *        labelled "ECU <id>" downstream — never guessed as ABS/SRS/BCM.
+     * @param responderAddressHex responder id (e.g. "7E8"/"7E9"); unknown ids are
+     *        labelled "ECU <id>" downstream — never ABS/SRS/BCM.
+     * @param frame transport framing form, derived from the active protocol's
+     *        isCanBus flag by the repository layer (see [DtcFrame]).
      */
     fun parseMode03Payload(
         payload: ByteArray,
         category: DtcCategory = DtcCategory.STORED,
-        responderAddressHex: String = "7E8"
+        responderAddressHex: String = "7E8",
+        frame: DtcFrame = DtcFrame.CAN_WITH_COUNT
     ): List<DiagnosticCode> {
         val dtcs = mutableListOf<DiagnosticCode>()
         if (payload.isEmpty()) return dtcs
@@ -99,14 +124,16 @@ object DtcParser {
         if (first == 0x7F) return dtcs
         // §4.3: validate positive service echo explicitly — never trust length parity.
         if (first != mode0xEcho(category)) return dtcs
-        if (payload.size < 2) return dtcs
-        val count = payload[1].toInt() and 0xFF
-        var offset = 2
-        while (offset + 1 < payload.size && dtcs.size < count) {
-            val dtc = parseStandardObd2Dtc(payload[offset], payload[offset + 1], category, responderAddressHex)
-            if (dtc != null) {
-                dtcs.add(dtc)
-            }
+        // The count byte is CAN-specific; non-CAN classic emits DTC pairs directly.
+        val count: Int? = if (frame == DtcFrame.CAN_WITH_COUNT && payload.size >= 2)
+            payload[1].toInt() and 0xFF else null
+        var offset = if (frame == DtcFrame.CAN_WITH_COUNT) 2 else 1
+        while (offset + 1 < payload.size && (count == null || dtcs.size < count)) {
+            val hi = payload[offset].toInt() and 0xFF
+            val lo = payload[offset + 1].toInt() and 0xFF
+            // 00 00 is null/padding in OBD-II responses — skip, do not decode.
+            if (hi == 0x00 && lo == 0x00) { offset += 2; continue }
+            parseStandardObd2Dtc(payload[offset], payload[offset + 1], category, responderAddressHex)?.let { dtcs.add(it) }
             offset += 2
         }
         return dtcs

@@ -43,6 +43,13 @@ open class Elm327Adapter(
     override val batteryVoltage: Float
         get() = _batteryVoltage
 
+    // §2: expose CAN-family transport status on the adapter abstraction so the
+    // repository can select DTC framing without resolving the model-layer
+    // ProtocolStandard enum (which is shadowed by an app-module duplicate).
+    // Elm327Adapter resolves core/model's real ProtocolStandard here in core:adapter.
+    override val isCanTransport: Boolean
+        get() = _currentProtocol?.isCanBus == true
+
     private val commandMutex = Mutex()
     private val incomingCharsChannel = Channel<Char>(Channel.UNLIMITED)
     private var readerJob: Job? = null

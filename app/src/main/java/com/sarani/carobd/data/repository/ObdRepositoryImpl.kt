@@ -16,6 +16,7 @@ import com.sarani.carobd.core.model.NotConnectedException
 import com.sarani.carobd.core.model.VehicleProfile
 import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
 import com.sarani.carobd.core.protocol.dtc.DtcParser
+import com.sarani.carobd.core.protocol.dtc.DtcFrame
 import com.sarani.carobd.core.protocol.obd2.PidCodec
 import com.sarani.carobd.core.telemetry.fuel.FuelEconomyCalculator
 import com.sarani.carobd.core.telemetry.trip.TripComputer
@@ -195,6 +196,9 @@ class ObdRepositoryImpl(
         val adapter = activeAdapter ?: return@withContext Result.failure(NotConnectedException("آداپتور متصل نیست"))
 
         val dtcList = mutableListOf<DiagnosticCode>()
+        // §2 protocol-aware framing: CAN carries the J1979 count byte after the echo;
+        // non-CAN classic (J1850/ISO-9141/KWP) emits DTC pairs directly (no count byte).
+        val dtcFrame = if (adapter.isCanTransport) DtcFrame.CAN_WITH_COUNT else DtcFrame.NON_CAN_PAIRS
 
         // 1. Request Mode 03 (Stored DTCs).
         val mode03Resp = adapter.executeCommand("03", 4000L)
@@ -208,7 +212,7 @@ class ObdRepositoryImpl(
             // identity (category/responder/ecuSource) is preserved via addAll.
             dtcList.addAll(
                 DtcParser.parseMode03Payload(
-                    PidCodec.cleanResponseHex(mode03Resp.rawResponse), DtcCategory.STORED
+                    PidCodec.cleanResponseHex(mode03Resp.rawResponse), DtcCategory.STORED, frame = dtcFrame
                 )
             )
         }
@@ -224,7 +228,7 @@ class ObdRepositoryImpl(
                     ?.let { return@withContext Result.failure(EcuRejectionException(it)) }
             } else {
                 dtcList.addAll(
-                    DtcParser.parseMode03Payload(clean7, DtcCategory.PENDING)
+                    DtcParser.parseMode03Payload(clean7, DtcCategory.PENDING, frame = dtcFrame)
                 )
             }
         }
@@ -238,7 +242,7 @@ class ObdRepositoryImpl(
                     ?.let { return@withContext Result.failure(EcuRejectionException(it)) }
             } else {
                 dtcList.addAll(
-                    DtcParser.parseMode03Payload(cleanA, DtcCategory.PERMANENT)
+                    DtcParser.parseMode03Payload(cleanA, DtcCategory.PERMANENT, frame = dtcFrame)
                 )
             }
         }

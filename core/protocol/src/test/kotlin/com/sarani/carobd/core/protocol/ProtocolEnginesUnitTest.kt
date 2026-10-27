@@ -5,6 +5,7 @@ import com.sarani.carobd.core.model.DtcSystem
 import com.sarani.carobd.core.model.Mode09Decoded
 import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
 import com.sarani.carobd.core.protocol.dtc.DtcParser
+import com.sarani.carobd.core.protocol.dtc.DtcFrame
 import com.sarani.carobd.core.protocol.isotp.FlowStatus
 import com.sarani.carobd.core.protocol.isotp.IsoTpReassembler
 import com.sarani.carobd.core.protocol.j1939.J1939CanId
@@ -484,6 +485,65 @@ class ProtocolEnginesUnitTest {
         val dtcs = DtcParser.parseMode03Payload(byteArrayOf(0x43, 0x02, 0x01, 0x15, 0x03), DtcCategory.STORED)
         assertEquals(1, dtcs.size)
         assertEquals("P0115", dtcs[0].code)
+    }
+
+    // ---- §2 protocol-aware framing: non-CAN classic has NO count byte ----
+
+    @Test
+    fun testMode03NonCanClassicParsesPairsNotCount() {
+        // §2 critical regression: non-CAN classic "43 01 33 00 00 00 00" — byte[1]=0x01
+        // is the HIGH byte of P0133, NOT a count. Must yield [P0133], not P3300 or count=1.
+        val dtcs = DtcParser.parseMode03Payload(
+            byteArrayOf(0x43, 0x01, 0x33, 0x00, 0x00, 0x00, 0x00),
+            DtcCategory.STORED, frame = DtcFrame.NON_CAN_PAIRS
+        )
+        assertEquals(1, dtcs.size)
+        assertEquals("P0133", dtcs[0].code)
+        assertTrue(dtcs.none { it.code.startsWith("P33") })
+    }
+
+    @Test
+    fun testMode03NonCanPaddingZeroPairsAreDropped() {
+        // 43 01 33 03 00 00 00 -> pairs (01,33)=P0133, (03,00)=P0300, (00,00) padding
+        val dtcs = DtcParser.parseMode03Payload(
+            byteArrayOf(0x43, 0x01, 0x33, 0x03, 0x00, 0x00, 0x00),
+            DtcCategory.STORED, frame = DtcFrame.NON_CAN_PAIRS
+        )
+        assertEquals(listOf("P0133", "P0300"), dtcs.map { it.code })
+    }
+
+    @Test
+    fun testMode03NonCanZeroCodesIsEmpty() {
+        // 43 00 00 -> non-CAN: (00,00) is padding, no DTCs.
+        assertTrue(
+            DtcParser.parseMode03Payload(
+                byteArrayOf(0x43, 0x00, 0x00), DtcCategory.STORED, frame = DtcFrame.NON_CAN_PAIRS
+            ).isEmpty()
+        )
+    }
+
+    @Test
+    fun testMode03CanAndNonCanDifferOnSameBytes() {
+        // Same bytes "43 01 33 00" mean different things by framing:
+        //  CAN (count byte): count=1 -> pair(33,00) = P3300
+        //  Non-CAN (no count): pair(01,33) = P0133
+        val can = DtcParser.parseMode03Payload(
+            byteArrayOf(0x43, 0x01, 0x33, 0x00), DtcCategory.STORED, frame = DtcFrame.CAN_WITH_COUNT
+        )
+        val nonCan = DtcParser.parseMode03Payload(
+            byteArrayOf(0x43, 0x01, 0x33, 0x00), DtcCategory.STORED, frame = DtcFrame.NON_CAN_PAIRS
+        )
+        assertEquals(listOf("P3300"), can.map { it.code })
+        assertEquals(listOf("P0133"), nonCan.map { it.code })
+    }
+
+    @Test
+    fun testMode03NonCanMalformedTailDoesNotFabricate() {
+        // 43 01 33 -> one complete pair (01,33)=P0133; no padding; nothing fabricated.
+        val dtcs = DtcParser.parseMode03Payload(
+            byteArrayOf(0x43, 0x01, 0x33), DtcCategory.STORED, frame = DtcFrame.NON_CAN_PAIRS
+        )
+        assertEquals(listOf("P0133"), dtcs.map { it.code })
     }
 
     // ---- §10 Mode 09 typed vehicle-information decoders (CALID / CVN / ECU name) ----
