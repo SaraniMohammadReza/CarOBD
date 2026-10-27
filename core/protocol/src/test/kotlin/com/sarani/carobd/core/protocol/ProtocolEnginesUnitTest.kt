@@ -3,6 +3,7 @@ package com.sarani.carobd.core.protocol
 import com.sarani.carobd.core.model.DtcCategory
 import com.sarani.carobd.core.model.DtcSystem
 import com.sarani.carobd.core.model.Mode09Decoded
+import com.sarani.carobd.core.model.PidCapabilityMap
 import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
 import com.sarani.carobd.core.protocol.dtc.DtcParser
 import com.sarani.carobd.core.protocol.dtc.DtcFrame
@@ -613,5 +614,47 @@ class ProtocolEnginesUnitTest {
         assertEquals(0x04, calid.pid)
         assertTrue(calid.decoded is Mode09Decoded.CalibrationId)
         assertEquals("F12345678", (calid.decoded as Mode09Decoded.CalibrationId).value)
+    }
+
+    // ---- §10 readiness: no fabricated monitors; missing response is unavailable ----
+
+    @Test
+    fun testReadinessStatusDecoding() {
+        // Diesel ECU: A=0x83 (MIL on, 3 DTCs), B=0x0F (misfire+fuel+cats supported,
+        // diesel flag set), C=0xFF (all non-continuous supported), D=0x00 (all
+        // complete: isComplete = (d & bit) == 0). 3 continuous + 6 diesel = 9.
+        val payload = byteArrayOf(0x83.toByte(), 0x0F, 0xFF.toByte(), 0x00)
+        val status = PidCodec.decodeReadinessStatus(payload)
+        assertTrue(status.milActive)
+        assertEquals(3, status.dtcCount)
+        assertEquals(9, status.monitors.size)
+        assertTrue("all monitors supported", status.monitors.all { it.isSupported })
+        assertTrue("all monitors complete", status.monitors.all { it.isComplete })
+        assertTrue(status.monitors.any { it.id == "PM_FILTER" })
+        assertTrue(status.monitors.any { it.id == "EGR_VVT" })
+    }
+
+    @Test
+    fun testReadinessStatusMissingResponseIsUnavailableNotFabricated() {
+        // §10: a <4-byte readiness response must NOT be reported as
+        // "MIL OFF / 0 DTC / all monitors complete" — it is unavailable.
+        val status = PidCodec.decodeReadinessStatus(byteArrayOf(0x83.toByte()))
+        assertFalse(status.milActive)
+        assertEquals(0, status.dtcCount)
+        assertTrue(status.monitors.isEmpty())
+    }
+
+    // ---- §9: capability map built from 0100/0120 bitmasks, gates polling ----
+
+    @Test
+    fun testPidCapabilityMapFromBitmaps() {
+        // 0xBE 0x1F 0xA8 0x13: PID 1 (byte0 bit7), PID 0C (byte1 bit4); PID 2 NOT set.
+        val map = PidCapabilityMap.parseFromBitmaps(
+            mapOf("00" to listOf(0xBE, 0x1F, 0xA8, 0x13))
+        )
+        assertTrue(map.isSupported("0101"))  // PID 01 supported
+        assertFalse(map.isSupported("0102")) // PID 02 not supported
+        assertTrue(map.isSupported("010C")) // RPM supported
+        assertEquals("BE 1F A8 13", map.rawBitmapResponses["00"])
     }
 }
