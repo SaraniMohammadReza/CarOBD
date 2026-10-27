@@ -1,10 +1,13 @@
 package com.sarani.carobd.core.protocol.obd2
 
+import com.sarani.carobd.core.model.CalibrationVerificationNumber
+import com.sarani.carobd.core.model.Mode09Decoded
 import com.sarani.carobd.core.model.PidCapabilityMap
 import com.sarani.carobd.core.model.NegativeResponse
 import com.sarani.carobd.core.model.ObdNrc
 import com.sarani.carobd.core.model.ReadinessMonitor
 import com.sarani.carobd.core.model.ReadinessStatus
+import com.sarani.carobd.core.model.VehicleInformationResult
 
 /**
  * SAE J1979 Diagnostic PID Codec.
@@ -262,7 +265,11 @@ object PidCodec {
     }
 
     /**
-     * Decodes Calibration ID (CALID) or CVN from Mode 09 payload.
+     * Decodes a textual Mode 09 identifier (Calibration ID / CALID = PID 0904,
+     * or ECU name = PID 090A) from ASCII bytes. Only CALID and ECU name are
+     * textual; Calibration Verification Numbers (PID 0906) are binary 4-byte
+     * values — use [decodeCvn] for those. Treating CVN as ASCII is a
+     * truthfulness defect and is intentionally unsupported here.
      */
     fun decodeAsciiString(payload: ByteArray): String {
         val sb = StringBuilder()
@@ -274,6 +281,100 @@ object PidCodec {
         }
         return sb.toString().trim()
     }
+
+    /**
+     * §7 P0.7: CVN (Mode 09 PID 0906) is a sequence of 4-byte binary values —
+     * NOT ASCII text. Each CVN is emitted as an 8-char hex string ("1234ABCD").
+     * A trailing partial group (< 4 bytes) is malformed and dropped — never
+     * fabricated or zero-padded. See [CalibrationVerificationNumber].
+     */
+    fun decodeCvn(payload: ByteArray): CalibrationVerificationNumber {
+        val values = payload.toList().chunked(4) { chunk ->
+            if (chunk.size < 4) null
+            else chunk.joinToString("") { "%02X".format(it.toInt() and 0xFF) }
+        }.filterNotNull()
+        return CalibrationVerificationNumber(values)
+    }
+
+    private fun mode09Result(
+        pid: Int,
+        payload: ByteArray,
+        responder: String?,
+        messageCount: Int?,
+        multiFrameComplete: Boolean?,
+        decoded: Mode09Decoded?
+    ): VehicleInformationResult = VehicleInformationResult(
+        pid = pid,
+        responder = responder,
+        rawBytes = payload.copyOf(),
+        decoded = decoded,
+        messageCount = messageCount,
+        multiFrameComplete = multiFrameComplete
+    )
+
+    /** §7 P0.7: typed Mode 09 PID 0902 (VIN) result — preserves raw/responder/count. */
+    fun decodeVinResult(
+        payload: ByteArray,
+        responder: String? = null,
+        messageCount: Int? = null,
+        multiFrameComplete: Boolean? = null
+    ): VehicleInformationResult =
+        mode09Result(
+            pid = 0x02,
+            payload = payload,
+            responder = responder,
+            messageCount = messageCount,
+            multiFrameComplete = multiFrameComplete,
+            decoded = decodeVin(payload)?.let { Mode09Decoded.Vin(it) }
+        )
+
+    /** §7 P0.7: typed Mode 09 PID 0904 (Calibration ID) — textual ASCII identifier. */
+    fun decodeCalibrationIdResult(
+        payload: ByteArray,
+        responder: String? = null,
+        messageCount: Int? = null,
+        multiFrameComplete: Boolean? = null
+    ): VehicleInformationResult =
+        mode09Result(
+            pid = 0x04,
+            payload = payload,
+            responder = responder,
+            messageCount = messageCount,
+            multiFrameComplete = multiFrameComplete,
+            decoded = Mode09Decoded.CalibrationId(decodeAsciiString(payload))
+        )
+
+    /** §7 P0.7: typed Mode 09 PID 0906 (CVN) — typed 4-byte binary values. */
+    fun decodeCvnResult(
+        payload: ByteArray,
+        responder: String? = null,
+        messageCount: Int? = null,
+        multiFrameComplete: Boolean? = null
+    ): VehicleInformationResult =
+        mode09Result(
+            pid = 0x06,
+            payload = payload,
+            responder = responder,
+            messageCount = messageCount,
+            multiFrameComplete = multiFrameComplete,
+            decoded = Mode09Decoded.Cvn(decodeCvn(payload))
+        )
+
+    /** §7 P0.7: typed Mode 09 PID 090A (ECU name) — textual ASCII identifier. */
+    fun decodeEcuNameResult(
+        payload: ByteArray,
+        responder: String? = null,
+        messageCount: Int? = null,
+        multiFrameComplete: Boolean? = null
+    ): VehicleInformationResult =
+        mode09Result(
+            pid = 0x0A,
+            payload = payload,
+            responder = responder,
+            messageCount = messageCount,
+            multiFrameComplete = multiFrameComplete,
+            decoded = Mode09Decoded.EcuName(decodeAsciiString(payload))
+        )
 
     // -------------------------------------------------------------
     // §9 NEGATIVE RESPONSES (7F <service> <NRC>)

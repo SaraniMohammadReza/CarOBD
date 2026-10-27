@@ -2,6 +2,7 @@ package com.sarani.carobd.core.protocol
 
 import com.sarani.carobd.core.model.DtcCategory
 import com.sarani.carobd.core.model.DtcSystem
+import com.sarani.carobd.core.model.Mode09Decoded
 import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
 import com.sarani.carobd.core.protocol.dtc.DtcParser
 import com.sarani.carobd.core.protocol.isotp.FlowStatus
@@ -451,13 +452,72 @@ class ProtocolEnginesUnitTest {
         assertEquals(DtcCategory.PERMANENT, dtcs[0].category)
     }
 
-    // ---- §10 Mode 09 ASCII vehicle-info decoders (CALID / CVN / ECU name) ----
+    // ---- §10 Mode 09 typed vehicle-information decoders (CALID / CVN / ECU name) ----
 
     @Test
-    fun testMode09AsciiDecodersForCalidAndCvn() {
-        // Calibration ID / CVN / ECU name come back as printable ASCII; decodeAsciiString
-        // preserves printable chars (0x20..0x7E) and drops non-printable padding.
+    fun testMode09AsciiDecodersForCalidAndEcuName() {
+        // Calibration ID (0904) and ECU name (090A) are textual ASCII identifiers;
+        // decodeAsciiString preserves printable chars (0x20..0x7E) and drops padding.
         assertEquals("F12345678", PidCodec.decodeAsciiString("F12345678".toByteArray()))
         assertEquals("ABC-12345 XYZ", PidCodec.decodeAsciiString("ABC-12345 XYZ".toByteArray()))
+    }
+
+    @Test
+    fun testDecodeCvnAsTypedBinaryValues() {
+        // §7: CVN (Mode 09 PID 06) is 4-byte binary — NOT ASCII text.
+        val single = PidCodec.decodeCvn(byteArrayOf(0x12, 0x34, 0xAB.toByte(), 0xCD.toByte()))
+        assertEquals(listOf("1234ABCD"), single.values)
+
+        // Multiple CVNs: two complete 4-byte values.
+        val multi = PidCodec.decodeCvn(byteArrayOf(0x01, 0x02, 0x03, 0x04, 0xFF.toByte(), 0xEE.toByte(), 0xDD.toByte(), 0xCC.toByte()))
+        assertEquals(listOf("01020304", "FFEEDDCC"), multi.values)
+
+        // Trailing partial group (< 4 bytes) is malformed — dropped, not fabricated/padded.
+        val partial = PidCodec.decodeCvn(byteArrayOf(0x01, 0x02, 0x03, 0x04, 0xAA.toByte(), 0xBB.toByte()))
+        assertEquals(listOf("01020304"), partial.values)
+    }
+
+    @Test
+    fun testDecodeCvnRejectsInvalidLength() {
+        // A Cvn chunk shorter than 4 bytes must not be emitted as a CVN (would be fabrication).
+        val only = PidCodec.decodeCvn(byteArrayOf(0xAA.toByte(), 0xBB.toByte()))
+        assertEquals(emptyList<String>(), only.values)
+    }
+
+    @Test
+    fun testMode09TypedResultsPreserveRawAndResponder() {
+        val vin = PidCodec.decodeVinResult(
+            payload = "VF32AKFWF12345678".toByteArray(), responder = "7E8",
+            messageCount = 1, multiFrameComplete = true
+        )
+        assertEquals(0x02, vin.pid)
+        assertEquals("7E8", vin.responder)
+        assertTrue("raw bytes preserved verbatim", vin.rawBytes.contentEquals("VF32AKFWF12345678".toByteArray()))
+        assertEquals(1, vin.messageCount)
+        assertTrue(vin.multiFrameComplete == true)
+        assertTrue(vin.decoded is Mode09Decoded.Vin)
+        assertEquals("VF32AKFWF12345678", (vin.decoded as Mode09Decoded.Vin).value)
+
+        val cvn = PidCodec.decodeCvnResult(
+            payload = byteArrayOf(0x12, 0x34, 0xAB.toByte(), 0xCD.toByte(), 0x01, 0x02, 0x03, 0x04), responder = "7E9"
+        )
+        assertEquals(0x06, cvn.pid)
+        assertEquals("7E9", cvn.responder)
+        assertTrue(cvn.multiFrameComplete == null)
+        assertTrue(cvn.decoded is Mode09Decoded.Cvn)
+        assertEquals(listOf("1234ABCD", "01020304"), (cvn.decoded as Mode09Decoded.Cvn).cvn.values)
+    }
+
+    @Test
+    fun testMode09EcuNameAndCalidTypedResultsDistinctByPid() {
+        val ecuName = PidCodec.decodeEcuNameResult("Bosch ME7.4".toByteArray(), responder = "7EA")
+        assertEquals(0x0A, ecuName.pid)
+        assertTrue(ecuName.decoded is Mode09Decoded.EcuName)
+        assertEquals("Bosch ME7.4", (ecuName.decoded as Mode09Decoded.EcuName).value)
+
+        val calid = PidCodec.decodeCalibrationIdResult("F12345678".toByteArray(), responder = "7E8")
+        assertEquals(0x04, calid.pid)
+        assertTrue(calid.decoded is Mode09Decoded.CalibrationId)
+        assertEquals("F12345678", (calid.decoded as Mode09Decoded.CalibrationId).value)
     }
 }
