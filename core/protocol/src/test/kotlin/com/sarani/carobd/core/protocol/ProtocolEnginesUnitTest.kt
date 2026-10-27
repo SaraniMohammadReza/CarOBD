@@ -375,4 +375,79 @@ class ProtocolEnginesUnitTest {
         assertEquals("720", dtcs[0].responderAddressHex)
         assertEquals("ECU 720", dtcs[0].ecuSource) // not a fabricated ABS/SRS/BCM name
     }
+
+    // ---- §9 structured negative-response model (7F <svc> <NRC>) ----
+
+    @Test
+    fun testIsNegativeResponseDetects7f() {
+        assertTrue(PidCodec.isNegativeResponse(byteArrayOf(0x7F, 0x03, 0x12)))
+        assertFalse(PidCodec.isNegativeResponse(byteArrayOf(0x41, 0x0C, 0x1A.toByte(), 0xF8.toByte())))
+        assertFalse(PidCodec.isNegativeResponse(byteArrayOf()))
+    }
+
+    @Test
+    fun testParseNegativeResponseCommonNrc() {
+        val neg = PidCodec.parseNegativeResponse(byteArrayOf(0x7F, 0x03, 0x22), responder = "7E8", rawLine = "7F 03 22")
+        assertNotNull(neg)
+        assertEquals(0x03, neg!!.requestedService)
+        assertEquals(0x22, neg.nrcCode)
+        assertNotNull("known NRC must resolve", neg.nrc)
+        assertEquals("7E8", neg.responder)
+        assertEquals("7F 03 22", neg.rawLine)
+    }
+
+    @Test
+    fun testParseNegativeResponseUnknownNrcRetainedNumerically() {
+        val neg = PidCodec.parseNegativeResponse(byteArrayOf(0x7F, 0x01, 0xAB.toByte()))
+        assertNotNull(neg)
+        assertEquals(0x01, neg!!.requestedService)
+        assertNull("unknown NRC must not be faked as a known one", neg.nrc)
+        assertEquals(0xAB, neg.nrcCode)
+    }
+
+    @Test
+    fun testParseNegativeResponseMalformed() {
+        assertNull("too short to be a negative response", PidCodec.parseNegativeResponse(byteArrayOf(0x7F, 0x03)))
+        assertNull("positive response is not a negative response", PidCodec.parseNegativeResponse(byteArrayOf(0x41, 0x0C)))
+    }
+
+    @Test
+    fun testParseNegativeResponseAcrossRequestedServices() {
+        // §9 case set: 7F 01 xx, 7F 03 xx, 7F 09 xx, 7F 0A xx
+        assertEquals(0x01, PidCodec.parseNegativeResponse(byteArrayOf(0x7F, 0x01, 0x11))!!.requestedService)
+        assertEquals(0x03, PidCodec.parseNegativeResponse(byteArrayOf(0x7F, 0x03, 0x12))!!.requestedService)
+        assertEquals(0x09, PidCodec.parseNegativeResponse(byteArrayOf(0x7F, 0x09, 0x12))!!.requestedService)
+        assertEquals(0x0A, PidCodec.parseNegativeResponse(byteArrayOf(0x7F, 0x0A, 0x13))!!.requestedService)
+    }
+
+    // ---- §10 Mode 09 PID-00 supported-PID discovery ----
+
+    @Test
+    fun testDecodeSupportedMode09PidsBitmap() {
+        // byte0 bit6 -> PID 02 (VIN); byte0 bit2 -> PID 06 (CVN); byte1 bit6 -> PID 0x0A (ECU name)
+        val bitmap = byteArrayOf(0x44, 0x40, 0x00, 0x00)
+        assertEquals(setOf(0x02, 0x06, 0x0A), PidCodec.decodeSupportedMode09Pids(bitmap))
+    }
+
+    @Test
+    fun testDecodeSupportedMode09PidsMalformed() {
+        assertTrue(PidCodec.decodeSupportedMode09Pids(byteArrayOf(0x44, 0x40, 0x00)).isEmpty()) // < 4 bytes
+        assertTrue(PidCodec.decodeSupportedMode09Pids(byteArrayOf()).isEmpty())
+    }
+
+    @Test
+    fun testDtcParserRejectsNegativeResponseAsDtc() {
+        // A 7F payload must NOT be parsed into fabricated DTC codes (e.g. P0312).
+        val sevenF = byteArrayOf(0x7F, 0x03, 0x12) // 7F 03 12 = Mode 03 rejected, NRC 0x12
+        assertTrue("7F 03 xx must yield no DTCs", DtcParser.parseMode03Payload(sevenF, DtcCategory.STORED).isEmpty())
+        assertTrue("7F 07 xx must yield no pending DTCs", DtcParser.parseMode03Payload(byteArrayOf(0x7F, 0x07, 0x22), DtcCategory.PENDING).isEmpty())
+    }
+
+    @Test
+    fun testMode0APermanentDtcCategoryIsModeled() {
+        // §8.3: Mode 0A must keep its own PERMANENT category, not flatten into STORED.
+        val dtcs = DtcParser.parseMode03Payload(byteArrayOf(0x03, 0x00), DtcCategory.PERMANENT) // P0300
+        assertEquals(1, dtcs.size)
+        assertEquals(DtcCategory.PERMANENT, dtcs[0].category)
+    }
 }

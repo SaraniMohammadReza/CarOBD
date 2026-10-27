@@ -113,5 +113,14 @@ data class DiagnosticCommand(
                 expectedResponseServiceId = 0x48,
                 timeoutMs = 4000L
             )
+
+        /** §10: Mode 09 PID-00 supported-PID discovery (0900). */
+        fun mode09SupportedPids(): DiagnosticCommand =
+            DiagnosticCommand(
+                rawCommand = "0900",
+                description = "Mode 09 Supported PIDs",
+                expectedResponseServiceId = 0x49,
+                timeoutMs = 4000L
+            )
     }
 }

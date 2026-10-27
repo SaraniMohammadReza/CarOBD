@@ -81,6 +81,10 @@ object DtcParser {
     ): List<DiagnosticCode> {
         val dtcs = mutableListOf<DiagnosticCode>()
         if (payload.isEmpty()) return dtcs
+        // §9: a 0x7F negative response (7F <svc> <NRC>) must never be mis-parsed
+        // into fabricated DTCs. Mode 03 rejects are additionally surfaced as a scan
+        // failure by DtcScanValidator; Mode 07/0A simply yield no codes here.
+        if ((payload[0].toInt() and 0xFF) == 0x7F) return dtcs
 
         // If length is odd, first byte is often DTC count
         var offset = if (payload.size % 2 != 0) 1 else 0

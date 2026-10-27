@@ -1,6 +1,8 @@
 package com.sarani.carobd.core.protocol.obd2
 
 import com.sarani.carobd.core.model.PidCapabilityMap
+import com.sarani.carobd.core.model.NegativeResponse
+import com.sarani.carobd.core.model.ObdNrc
 import com.sarani.carobd.core.model.ReadinessMonitor
 import com.sarani.carobd.core.model.ReadinessStatus
 
@@ -271,5 +273,54 @@ object PidCodec {
             }
         }
         return sb.toString().trim()
+    }
+
+    // -------------------------------------------------------------
+    // §9 NEGATIVE RESPONSES (7F <service> <NRC>)
+    // -------------------------------------------------------------
+
+    /**
+     * §9: true if [bytes] is an OBD-II negative response frame (service-id echo 0x7F).
+     * A negative response is an explicit ECU rejection — it must never be parsed as
+     * a positive payload, an empty result, or a fabricated DTC.
+     */
+    fun isNegativeResponse(bytes: ByteArray): Boolean =
+        bytes.isNotEmpty() && (bytes[0].toInt() and 0xFF) == 0x7F
+
+    /**
+     * §9: parse "7F <requested-service> <NRC>" into a structured [NegativeResponse].
+     * Unknown NRCs are retained numerically via nrcCode; [NegativeResponse.nrc] is null
+     * only when the NRC is unrecognized.
+     */
+    fun parseNegativeResponse(
+        bytes: ByteArray,
+        responder: String? = null,
+        rawLine: String = ""
+    ): NegativeResponse? {
+        if (bytes.size < 3) return null
+        if ((bytes[0].toInt() and 0xFF) != 0x7F) return null
+        val requestedService = bytes[1].toInt() and 0xFF
+        val nrcCode = bytes[2].toInt() and 0xFF
+        return NegativeResponse(
+            requestedService = requestedService,
+            nrc = ObdNrc.fromCode(nrcCode),
+            nrcCode = nrcCode,
+            rawLine = rawLine,
+            responder = responder
+        )
+    }
+
+    // -------------------------------------------------------------
+    // §10 MODE 09 VEHICLE INFORMATION — support discovery
+    // -------------------------------------------------------------
+
+    /**
+     * §10: Mode 09 PID-00 (0900) supported-PID bitmap for PIDs 0901..0920.
+     * Reuses the standard 32-bit OBD bitmap math; the Mode 09 high-nibble context
+     * (VIN / CALID / CVN / ECU name) is supplied by the caller on the command side.
+     */
+    fun decodeSupportedMode09Pids(bytes: ByteArray): Set<Int> {
+        if (bytes.size < 4) return emptySet()
+        return decodeSupportedPids(bytes, 0x00)
     }
 }

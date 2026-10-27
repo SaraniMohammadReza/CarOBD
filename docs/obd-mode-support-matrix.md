@@ -1,8 +1,7 @@
 # OBD-II Support Matrix (Phase F audit)
 
-Audited against `core/protocol` (Obd2Command / PidCodec / DtcParser) and
-`core/adapter` (Elm327Adapter / Elm327BufferParser) + `:core:protocol:test` /
-`:core:adapter:test` (89 unit tests green at Phase F gate; 72 Phase E + 17 Phase F).
+- `core/protocol` (Obd2Command / PidCodec / DtcParser) + `core/adapter` (DtcScanValidator) +
+  `:core:protocol:test` / `:core:adapter:test` (98 unit tests green at Phase F+ gate; 89 Phase F + 9 §9/#10).
 
 Legend: ✅ = Implemented • ✅ parsed • ✅ tested • ✅ UI • ⛔ = not supported • DEVICE = hardware-blocked.
 
@@ -16,8 +15,8 @@ Legend: ✅ = Implemented • ✅ parsed • ✅ tested • ✅ UI • ⛔ = not
 | 06 | Onboard monitoring | ✅ (mode06 command builder, added) | ⛔ (no decoder) | ⛔ | ⛔ | DEVICE TEST REQUIRED |
 | 07 | Pending DTC | ✅ (requestPendingDtcs + parseMode03Payload(PENDING)) | ✅ | ✅ | ✅ | DEVICE TEST REQUIRED |
 | 08 | Control operation | ✅ (mode08 command builder, added) | ⛔ (no decoder) | ⛔ | ⛔ | DEVICE TEST REQUIRED |
-| 09 | Vehicle info (VIN/CALID/CVN) | ✅ (mode09 + decodeVin/decodeAsciiString) | ✅ | ✅ | ⛔ | DEVICE TEST REQUIRED |
-| 0A | Permanent DTC | ✅ (requestPermanentDtcs command) | ⚠️ (parseMode03Payload works; DtcCategory lacks PERMANENT bucket) | ⛔ | ⛔ | DEVICE TEST REQUIRED |
+| 09 | Vehicle info (VIN/CALID/CVN/ECU name) | ✅ (mode09 + 0900 discovery + decodeVin/decodeAsciiString) | ✅ | ✅ | ⛔ | DEVICE TEST REQUIRED |
+| 0A | Permanent DTC | ✅ (requestPermanentDtcs) | ✅ (DtcCategory.PERMANENT, same parse path) | ✅ | ⛔ | DEVICE TEST REQUIRED |
 
 ## ISO-TP (ISO 15765-2) coverage
 - Single Frame ✅ (tested)
@@ -37,6 +36,16 @@ NO DATA ✅ / STOPPED ✅ / `?` ✅ (UnknownCommand) / SEARCHING... ✅ (strippe
 UNABLE TO CONNECT ✅ / BUS INIT: ERROR ✅ / CAN ERROR ✅ / BUFFER FULL ✅ /
 prompt `>` ✅ (stripped) / command echo ✅ (stripped) / CR/LF ✅ / multi-line ✅.
 `Timeout` / `TransportFault` / `Other` error types exist for transport-level failures.
+
+## §9 negative-response model (7F <service> <NRC>)
+- `NegativeResponse(requestedService, nrc, nrcCode, rawLine, responder)` in core/model.
+- `ObdNrc` enum (J1979/ISO 14229 common NRCs); unknown NRCs retained numerically.
+- `PidCodec.isNegativeResponse` / `parseNegativeResponse`.
+- `DtcScanValidator.notConnectedError` rejects a 7F Mode 03 Success as a scan failure (not "no codes found").
+- `DtcParser.parseMode03Payload` returns empty on 7F (no fabricated DTCs).
+- `clearDiagnosticTroubleCodes` (Mode 04) now requires a real 0x44 positive echo.
+- Per-protocol 7F models already present: UDS (`UdsNrc`/`UdsResponse.Negative`) and KWP (`KwpNrc`/`KwpResponse.Negative`).
+- Status: IMPLEMENTED / PARSED / UNIT TESTED (DtcScanValidatorTest + ProtocolEnginesUnitTest) — not UI-integrated, DEVICE TEST REQUIRED.
 
 ## §13 multi-ECU / responder identity
 - `DiagnosticCode` now carries `responderAddressHex` threaded through `parseMode03Payload` /

@@ -45,4 +45,19 @@ class DtcScanValidatorTest {
         assertNotNull(err)
         assertTrue(err is NotConnectedException)
     }
+
+    @Test
+    fun negativeMode03ResponseIsFailureNotNoCodes() {
+        // §4.4/§9: a 7F <svc> <NRC> Success payload is an explicit rejection,
+        // NOT "no trouble codes found". Must surface as a failure.
+        val sevenF = AdapterResponse.Success(
+            rawResponse = "7F 03 22",
+            cleanedLines = listOf("7F 03 22"),
+            executionTimeMs = 20
+        )
+        val err = DtcScanValidator.notConnectedError(sevenF)
+        assertNotNull("7F must NOT pass the truth gate as a valid Mode 03 response", err)
+        assertTrue(err is NotConnectedException)
+        assertTrue("Failure message must record the explicit ECU rejection", err?.message?.contains("rejected Mode 03") ?: false)
+    }
 }

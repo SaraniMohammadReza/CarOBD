@@ -272,10 +272,14 @@ class ObdRepositoryImpl(
         val adapter = activeAdapter ?: return@withContext Result.failure(Exception("Adapter not connected"))
 
         val response = adapter.executeCommand("04", 5000L)
-        if (response is AdapterResponse.Success) {
+        if (response is AdapterResponse.Success &&
+            PidCodec.verifyClearDtcResponse(PidCodec.cleanResponseHex(response.rawResponse))
+        ) {
+            // §8.4: a real 0x44 positive echo is required. A 7F negative response or
+            // empty/no-data payload must NEVER become a successful clear.
             Result.success(Unit)
         } else {
-            Result.failure(Exception("ECU did not acknowledge DTC clear request"))
+            Result.failure(Exception("ECU did not acknowledge DTC clear request (no 0x44 positive response)"))
         }
     }
 
