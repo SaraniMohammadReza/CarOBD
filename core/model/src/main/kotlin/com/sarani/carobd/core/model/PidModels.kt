@@ -53,7 +53,8 @@ class PidCapabilityMap(
     companion object {
         /**
          * Decodes standard SAE J1979 32-bit bitmap responses.
-         * Example: PID 00 response "BE 3E B8 11"
+         * Example: PID 00 response "BE 3F B8 11" (advertises MAF / pid 16 on the
+         * 2nd byte, since this simulator answers 0110).
          */
         fun parseFromBitmaps(bitmapMap: Map<String, List<Int>>): PidCapabilityMap {
             val supported = mutableSetOf<String>()

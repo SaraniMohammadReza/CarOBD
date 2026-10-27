@@ -78,7 +78,7 @@ class IsolatedSimulatorTransport : ObdTransport {
         // 2. OBD Diagnostic Modes Handling
         return when {
             // Mode 01 PID 00 (Supported PIDs 01-20)
-            cmd == "0100" -> "41 00 BE 3E B8 11"
+            cmd == "0100" -> "41 00 BE 3F B8 11"
 
             // Mode 01 PID 20 (Supported PIDs 21-40)
             cmd == "0120" -> "41 20 80 05 B0 11"

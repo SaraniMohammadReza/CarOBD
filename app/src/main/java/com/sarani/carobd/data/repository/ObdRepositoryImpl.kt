@@ -12,12 +12,14 @@ import com.sarani.carobd.core.model.DiagnosticCode
 import com.sarani.carobd.core.model.DtcCategory
 import com.sarani.carobd.core.model.EcuRejectionException
 import com.sarani.carobd.core.model.LiveTelemetry
+import com.sarani.carobd.core.model.PidCapabilityMap
 import com.sarani.carobd.core.model.NotConnectedException
 import com.sarani.carobd.core.model.VehicleProfile
 import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
 import com.sarani.carobd.core.protocol.dtc.DtcParser
 import com.sarani.carobd.core.protocol.dtc.DtcFrame
 import com.sarani.carobd.core.protocol.obd2.PidCodec
+import com.sarani.carobd.core.protocol.obd2.PidPollingPlan
 import com.sarani.carobd.core.telemetry.fuel.FuelEconomyCalculator
 import com.sarani.carobd.core.telemetry.trip.TripComputer
 import com.sarani.carobd.data.db.CarObdDatabaseHelper
@@ -302,11 +304,25 @@ class ObdRepositoryImpl(
             // economy is computed ONLY from a measured MAF reading (PID 10); when
             // MAF is absent the rate is unavailable and the banner renders "—".
             var cycleCount = 0
+            // §9 / §22: probe the ECU's supported-PID bitmap once per session
+            // (Mode 01 PID 00/20/40/60/80/A0/C0/E0). Discovery failure degrades to
+            // the full baseline plan, so an unreadable bus never reduces coverage.
+            var capabilityMap: PidCapabilityMap? = null
             while (currentCoroutineContext().isActive && _connectionState.value is ConnectionState.Connected) {
                 val adapter = activeAdapter ?: break
 
                 try {
                     val measured = current.measuredPids.toMutableSet()
+
+                    if (capabilityMap == null) {
+                        capabilityMap = runCatching {
+                            PidPollingPlan.discover { cmd ->
+                                val r = adapter.executeCommand(cmd, 2000L)
+                                if (r is AdapterResponse.Success) r.rawResponse else null
+                            }
+                        }.getOrNull()
+                    }
+                    val pollPlan = PidPollingPlan.supported(capabilityMap)
 
                     // Periodic battery voltage reading (every 15 cycles ~ 2-3 sec)
                     if (cycleCount % 15 == 0) {
@@ -322,83 +338,17 @@ class ObdRepositoryImpl(
                     }
                     cycleCount++
 
-                    // 1. Query RPM (PID 0C)
-                    val rpmResp = adapter.executeCommand("010C", 600L)
-                    if (rpmResp is AdapterResponse.Success) {
-                        val bytes = PidCodec.cleanResponseHex(rpmResp.rawResponse)
-                        if (bytes.size >= 4 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x0C) {
-                            val a = bytes[2].toInt() and 0xFF
-                            val b = bytes[3].toInt() and 0xFF
-                            measured.add("0C")
-                            current = current.copy(rpm = PidCodec.decodeEngineRpm(a, b).toInt())
-                        }
-                    }
-
-                    // 2. Query Vehicle Speed (PID 0D)
-                    val speedResp = adapter.executeCommand("010D", 600L)
-                    if (speedResp is AdapterResponse.Success) {
-                        val bytes = PidCodec.cleanResponseHex(speedResp.rawResponse)
-                        if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x0D) {
-                            val a = bytes[2].toInt() and 0xFF
-                            measured.add("0D")
-                            current = current.copy(speedKmh = PidCodec.decodeVehicleSpeed(a).toInt())
-                        }
-                    }
-
-                    // 3. Query Throttle Position (PID 11)
-                    val throttleResp = adapter.executeCommand("0111", 600L)
-                    if (throttleResp is AdapterResponse.Success) {
-                        val bytes = PidCodec.cleanResponseHex(throttleResp.rawResponse)
-                        if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x11) {
-                            val a = bytes[2].toInt() and 0xFF
-                            measured.add("11")
-                            current = current.copy(throttlePositionPercent = PidCodec.decodeThrottlePosition(a).toFloat())
-                        }
-                    }
-
-                    // 4. Query Coolant Temp (PID 05)
-                    val coolantResp = adapter.executeCommand("0105", 600L)
-                    if (coolantResp is AdapterResponse.Success) {
-                        val bytes = PidCodec.cleanResponseHex(coolantResp.rawResponse)
-                        if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x05) {
-                            val a = bytes[2].toInt() and 0xFF
-                            measured.add("05")
-                            current = current.copy(coolantTempCelsius = PidCodec.decodeStandardTemperature(a).toInt())
-                        }
-                    }
-
-                    // 5. Query Engine Load (PID 04)
-                    val loadResp = adapter.executeCommand("0104", 600L)
-                    if (loadResp is AdapterResponse.Success) {
-                        val bytes = PidCodec.cleanResponseHex(loadResp.rawResponse)
-                        if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x04) {
-                            val a = bytes[2].toInt() and 0xFF
-                            measured.add("04")
-                            current = current.copy(engineLoadPercent = PidCodec.decodeEngineLoad(a).toFloat())
-                        }
-                    }
-
-                    // 6. Query Intake Manifold Pressure (MAP - PID 0B)
-                    val mapResp = adapter.executeCommand("010B", 600L)
-                    if (mapResp is AdapterResponse.Success) {
-                        val bytes = PidCodec.cleanResponseHex(mapResp.rawResponse)
-                        if (bytes.size >= 3 && bytes[0].toInt() == 0x41 && bytes[1].toInt() == 0x0B) {
-                            val a = bytes[2].toInt() and 0xFF
-                            measured.add("0B")
-                            current = current.copy(intakeManifoldPressureKpa = PidCodec.decodeMapPressure(a).toInt())
-                        }
-                    }
-
-                    // 6.1 Query Mass Air Flow (PID 10) — measured MAF is the sole
-                    //     truthful fuel-economy input available on this model.
-                    val mafResp = adapter.executeCommand("0110", 600L)
-                    if (mafResp is AdapterResponse.Success) {
-                        val mafBytes = PidCodec.cleanResponseHex(mafResp.rawResponse)
-                        if (mafBytes.size >= 4 && mafBytes[0].toInt() == 0x41 && mafBytes[1].toInt() == 0x10) {
-                            val a = mafBytes[2].toInt() and 0xFF
-                            val b = mafBytes[3].toInt() and 0xFF
-                            measured.add("10")
-                            current = current.copy(mafGramsPerSec = PidCodec.decodeMafAirFlow(a, b).toFloat())
+                    // §9 / §22 capability-gated polling: only PIDs the ECU advertised
+                    // as supported are queried; unsupported PIDs are never repeatedly
+                    // requested (§21). Unknown/empty map degrades to full baseline.
+                    for (spec in pollPlan) {
+                        val resp = adapter.executeCommand(spec.command, 600L)
+                        if (resp is AdapterResponse.Success) {
+                            val bytes = PidCodec.cleanResponseHex(resp.rawResponse)
+                            PidPollingPlan.decodePoll(spec, bytes, current)?.let {
+                                measured.add(spec.pidHex)
+                                current = it
+                            }
                         }
                     }
 
