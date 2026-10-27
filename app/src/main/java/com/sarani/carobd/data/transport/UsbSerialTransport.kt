@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
@@ -218,7 +219,10 @@ class UsbSerialTransport(
         }
         permissionReceiver = receiver
         val appContext = context.applicationContext
-        appContext.registerReceiver(receiver, filter)
+        // Android 13/U+ requires an explicit exported flag for dynamically-registered
+        // receivers on non-system broadcasts. This receiver only handles our own
+        // ACTION_USB_PERMISSION result, so it must NOT be exported.
+        ContextCompat.registerReceiver(appContext, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         try {
             usbManager.requestPermission(device, permissionIntent)

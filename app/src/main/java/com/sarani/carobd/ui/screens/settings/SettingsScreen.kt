@@ -38,7 +38,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -76,7 +76,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
-    val activity = LocalContext.current as Activity
+    val activity = LocalActivity.current
     // Real persisted settings (§Phase C): pickers read/write the DataStore via
     // AppPreferencesManager — no local-only remember state for theme/unit/language.
     val themeMode by appPreferencesManager.themeMode.collectAsState(AppThemeMode.AMOLED_BLACK)
@@ -234,7 +234,7 @@ fun SettingsScreen(
                             // persisted).
                             scope.launch {
                                 appPreferencesManager.setLanguage(lang)
-                                activity.recreate()
+                                activity?.recreate()
                             }
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = NeonCyan)
