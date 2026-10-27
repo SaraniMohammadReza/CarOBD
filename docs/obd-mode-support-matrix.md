@@ -41,15 +41,18 @@ prompt `>` ✅ (stripped) / command echo ✅ (stripped) / CR/LF ✅ / multi-line
 - `NegativeResponse(requestedService, nrc, nrcCode, rawLine, responder)` in core/model.
 - `ObdNrc` enum (J1979/ISO 14229 common NRCs); unknown NRCs retained numerically.
 - `PidCodec.isNegativeResponse` / `parseNegativeResponse`.
-- `DtcScanValidator.notConnectedError` rejects a 7F Mode 03 Success as a scan failure (not "no codes found").
-- `DtcParser.parseMode03Payload` returns empty on 7F (no fabricated DTCs).
-- `clearDiagnosticTroubleCodes` (Mode 04) now requires a real 0x44 positive echo.
+- `EcuRejectionException` (core/model) models "ECU reachable but rejected (7F <svc> <NRC>)" — distinct from `NotConnectedException`.
+- `DtcScanValidator.scanFailure`: returns null = clean positive (scan proceeds); `NotConnectedException` = ECU silent / transport error; `EcuRejectionException` = 7F rejection. 7F NEVER collapses to "not connected" or "no codes found."
+- `DtcParser.parseMode03Payload` now validates the positive service echo explicitly (43/47/4A per category) + J1979 count byte; returns empty on 7F or mismatched echo (no parity heuristic, no echo-byte fabrication).
+- `scanDiagnosticTroubleCodes` (Mode 03/07/0A): 7F surfaces as `EcuRejectionException` (abort); Mode 03 is the truth gate.
+- `clearDiagnosticTroubleCodes` (Mode 04): requires a real 0x44 echo; 7F → `EcuRejectionException`; failure → truthful "ECU did not acknowledge."
 - Per-protocol 7F models already present: UDS (`UdsNrc`/`UdsResponse.Negative`) and KWP (`KwpNrc`/`KwpResponse.Negative`).
-- Status: IMPLEMENTED / PARSED / UNIT TESTED (DtcScanValidatorTest + ProtocolEnginesUnitTest) — not UI-integrated, DEVICE TEST REQUIRED.
+- Status: IMPLEMENTED / PARSED / UNIT TESTED (DtcScanValidatorTest: 6 tests incl. 7F-across-services NRC preservation; ProtocolEnginesUnitTest: 4 framing-regression tests + echo-category fixes). UI truthful (clear-ack message + source/category subtitle). DEVICE TEST REQUIRED for physical 7F behavior.
 
 ## §13 multi-ECU / responder identity
-- `DiagnosticCode` now carries `responderAddressHex` threaded through `parseMode03Payload` /
-  `parseStandardObd2Dtc` / `parseUdsDtc` (instead of hardcoded `7E8`).
+- `DiagnosticCode` carries `responderAddressHex`+`category` threaded through `parseMode03Payload`
+  / `parseStandardObd2Dtc` / `parseUdsDtc` (no longer hardcoded `7E8`); identity preserved end-to-end
+  via `dtcList.addAll(...)` in ObdRepositoryImpl (Mode 03/07/0A) — not dropped on the model→domain mapping.
 - `J1939CanId` parses 29-bit CAN IDs so multi-ECU frames are addressable.
 - Per §13: standard OBD engine addresses (7E8/7E9) map to "Engine ECU"; all other responder
   IDs are preserved as `ECU <id>`. No ABS/SRS/BCM manufacturer diagnostics are claimed from a
@@ -59,5 +62,5 @@ prompt `>` ✅ (stripped) / command echo ✅ (stripped) / CR/LF ✅ / multi-line
 ## Known gaps (not fabricated as supported)
 - Mode 02 freeze-frame decoder.
 - Mode 05/06/08 response decoders.
-- Mode 0A permanent-DTC `DtcCategory` bucket (command + parser exist; category enum gap).
+- Mode 0A permanent-DTC `DtcCategory` bucket — CLOSED (4A echo + PERMANENT category, tested).
 - ISO-TP receive timeout (no timer in reassembler).

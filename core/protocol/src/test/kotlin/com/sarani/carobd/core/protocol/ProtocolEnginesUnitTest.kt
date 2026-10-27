@@ -89,8 +89,8 @@ class ProtocolEnginesUnitTest {
 
     @Test
     fun testDtcMode03PayloadParsing() {
-        // Mode 43 payload with DTC count byte (2 codes: P0115 and P0300)
-        val payload = byteArrayOf(0x02, 0x01, 0x15, 0x03, 0x00)
+        // Mode 43 positive response WITH echo byte: 43 [count=02] P0115 P0300
+        val payload = byteArrayOf(0x43, 0x02, 0x01, 0x15, 0x03, 0x00)
         val dtcs = DtcParser.parseMode03Payload(payload, DtcCategory.STORED)
 
         assertEquals(2, dtcs.size)
@@ -340,8 +340,8 @@ class ProtocolEnginesUnitTest {
 
     @Test
     fun testMode07PendingDtcCarriesPendingCategory() {
-        // Mode 07 payload: a single DTC encoded as 0x03 0x00 (P0300) after the 0x47 echo.
-        val payload = byteArrayOf(0x03, 0x00)
+        // Mode 07 positive response WITH echo: 47 [count=01] P0300.
+        val payload = byteArrayOf(0x47, 0x01, 0x03, 0x00)
         val dtcs = DtcParser.parseMode03Payload(payload, category = DtcCategory.PENDING)
         assertEquals(1, dtcs.size)
         assertEquals("P0300", dtcs[0].code)
@@ -361,7 +361,7 @@ class ProtocolEnginesUnitTest {
 
     @Test
     fun testDtcParserPreservesResponderAddress() {
-        val payload = byteArrayOf(0x03, 0x00) // P0300
+        val payload = byteArrayOf(0x43, 0x01, 0x03, 0x00) // 43 echo + count=01 + P0300
         val dtcs = DtcParser.parseMode03Payload(payload, responderAddressHex = "7E9")
         assertEquals(1, dtcs.size)
         assertEquals("7E9", dtcs[0].responderAddressHex) // identity preserved, not hardcoded 7E8
@@ -370,7 +370,7 @@ class ProtocolEnginesUnitTest {
 
     @Test
     fun testDtcParserNeutralEcuNameForUnknownResponder() {
-        val payload = byteArrayOf(0x03, 0x00) // P0300
+        val payload = byteArrayOf(0x43, 0x01, 0x03, 0x00) // 43 echo + count=01 + P0300
         val dtcs = DtcParser.parseMode03Payload(payload, responderAddressHex = "720")
         assertEquals(1, dtcs.size)
         assertEquals("720", dtcs[0].responderAddressHex)
@@ -446,10 +446,44 @@ class ProtocolEnginesUnitTest {
 
     @Test
     fun testMode0APermanentDtcCategoryIsModeled() {
-        // §8.3: Mode 0A must keep its own PERMANENT category, not flatten into STORED.
-        val dtcs = DtcParser.parseMode03Payload(byteArrayOf(0x03, 0x00), DtcCategory.PERMANENT) // P0300
+        // §8.3: Mode 0A positive response: 4A echo + count=01 + P0300.
+        val dtcs = DtcParser.parseMode03Payload(byteArrayOf(0x4A, 0x01, 0x03, 0x00), DtcCategory.PERMANENT)
         assertEquals(1, dtcs.size)
         assertEquals(DtcCategory.PERMANENT, dtcs[0].category)
+    }
+
+    // ---- §4.3 framing regression: no fabricated DTCs, no parity heuristic ----
+
+    @Test
+    fun testMode03EchoByteIsNeverParsedAsDtc() {
+        // Canonical J1979: "43 02 01 15 03 00" must yield exactly [P0115, P0300].
+        // The old parity heuristic mis-parsed the 0x43 echo as a bogus "C0302".
+        val dtcs = DtcParser.parseMode03Payload(byteArrayOf(0x43, 0x02, 0x01, 0x15, 0x03, 0x00), DtcCategory.STORED)
+        assertEquals(2, dtcs.size)
+        assertTrue(dtcs.none { it.code.startsWith("C0") || it.code.startsWith("C3") })
+    }
+
+    @Test
+    fun testMode03ZeroCountIsHealthyEmptyNotFabrication() {
+        // 43 00 = scan succeeded, zero codes — truthfully empty, NOT a failure.
+        assertTrue(DtcParser.parseMode03Payload(byteArrayOf(0x43, 0x00), DtcCategory.STORED).isEmpty())
+    }
+
+    @Test
+    fun testMode03MismatchedEchoIsRejectedNotMisParsed() {
+        // 0x41 is a Mode-01 echo, not a Mode-03 echo → malformed framing → no DTCs.
+        // Must not be mis-parsed as (0x41,0x02)->"P0102", (0x15,0x03)->"C1503".
+        val dtcs = DtcParser.parseMode03Payload(byteArrayOf(0x41, 0x02, 0x01, 0x15, 0x03, 0x00), DtcCategory.STORED)
+        assertTrue("mismatched echo must not fabricate DTCs", dtcs.isEmpty())
+    }
+
+    @Test
+    fun testMode03MalformedOddTailDoesNotFabricate() {
+        // count claims 02, but only one complete pair precedes a dangling 0x03.
+        // The dangling byte must be dropped, not zero-padded or mis-paired into a code.
+        val dtcs = DtcParser.parseMode03Payload(byteArrayOf(0x43, 0x02, 0x01, 0x15, 0x03), DtcCategory.STORED)
+        assertEquals(1, dtcs.size)
+        assertEquals("P0115", dtcs[0].code)
     }
 
     // ---- §10 Mode 09 typed vehicle-information decoders (CALID / CVN / ECU name) ----

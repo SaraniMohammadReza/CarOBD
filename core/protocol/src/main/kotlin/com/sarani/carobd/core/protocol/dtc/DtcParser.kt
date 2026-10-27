@@ -70,9 +70,22 @@ object DtcParser {
     }
 
     /**
-     * Parses standard Mode 03 / 07 / 0A response payload (after Service ID echo byte).
-     * Format: [Count] [DTC1_B1] [DTC1_B2] [DTC2_B1] [DTC2_B2] ...
-     * Some ECUs omit the count byte and provide DTC pairs directly.
+     * Parses Mode 03 / 07 / 0A DTCs from a positively-acknowledged response that
+     * STILL contains its service-echo byte (as produced by
+     * [PidCodec.cleanResponseHex] on a raw ELM line such as "43 02 01 15 03 00").
+     *
+     * §4.3 framing contract — NO parity heuristic:
+     *  - byte[0] MUST be the positive service echo matching [category]:
+     *    STORED->0x43, PENDING->0x47, PERMANENT->0x4A.
+     *  - byte[1] is the J1979 DTC *count*.
+     *  - DTC pairs follow; trailing 00 00 padding is ignored.
+     *
+     * §9: a 7F negative-response frame yields NO DTCs (never fabricated). A
+     * missing/mismatched echo is treated as malformed framing and yields nothing;
+     * [DtcScanValidator] surfaces any explicit 7F rejection to the caller.
+     *
+     * @param responderAddressHex responder id (e.g. "7E8"/"7E9"); an unknown id is
+     *        labelled "ECU <id>" downstream — never guessed as ABS/SRS/BCM.
      */
     fun parseMode03Payload(
         payload: ByteArray,
@@ -81,23 +94,30 @@ object DtcParser {
     ): List<DiagnosticCode> {
         val dtcs = mutableListOf<DiagnosticCode>()
         if (payload.isEmpty()) return dtcs
-        // §9: a 0x7F negative response (7F <svc> <NRC>) must never be mis-parsed
-        // into fabricated DTCs. Mode 03 rejects are additionally surfaced as a scan
-        // failure by DtcScanValidator; Mode 07/0A simply yield no codes here.
-        if ((payload[0].toInt() and 0xFF) == 0x7F) return dtcs
-
-        // If length is odd, first byte is often DTC count
-        var offset = if (payload.size % 2 != 0) 1 else 0
-
-        while (offset + 1 < payload.size) {
+        val first = payload[0].toInt() and 0xFF
+        // §9: a 0x7F rejection must never be mis-parsed into fabricated DTCs.
+        if (first == 0x7F) return dtcs
+        // §4.3: validate positive service echo explicitly — never trust length parity.
+        if (first != mode0xEcho(category)) return dtcs
+        if (payload.size < 2) return dtcs
+        val count = payload[1].toInt() and 0xFF
+        var offset = 2
+        while (offset + 1 < payload.size && dtcs.size < count) {
             val dtc = parseStandardObd2Dtc(payload[offset], payload[offset + 1], category, responderAddressHex)
             if (dtc != null) {
                 dtcs.add(dtc)
             }
             offset += 2
         }
-
         return dtcs
+    }
+
+    /** J1979 positive-response service echo byte for each DTC category. */
+    private fun mode0xEcho(category: DtcCategory): Int = when (category) {
+        DtcCategory.STORED -> 0x43      // Mode 03 response
+        DtcCategory.PENDING -> 0x47     // Mode 07 response
+        DtcCategory.PERMANENT -> 0x4A   // Mode 0A response
+        DtcCategory.HISTORY -> 0x43     // not a standard OBD-II echo; degrade safely
     }
 
     /**

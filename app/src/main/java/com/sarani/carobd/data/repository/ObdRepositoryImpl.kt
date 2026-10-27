@@ -10,6 +10,7 @@ import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ConnectionType
 import com.sarani.carobd.core.model.DiagnosticCode
 import com.sarani.carobd.core.model.DtcCategory
+import com.sarani.carobd.core.model.EcuRejectionException
 import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.NotConnectedException
 import com.sarani.carobd.core.model.VehicleProfile
@@ -195,63 +196,49 @@ class ObdRepositoryImpl(
 
         val dtcList = mutableListOf<DiagnosticCode>()
 
-        // 1. Request Mode 03 (Stored DTCs)
+        // 1. Request Mode 03 (Stored DTCs).
         val mode03Resp = adapter.executeCommand("03", 4000L)
-        // Truthful gate (§28): Mode 03 is the canonical "ECU is answering" signal. A
-        // non-success / absent response means the ECU is unreachable and MUST surface as
-        // NotConnected — never as an empty "no codes found" result.
-        DtcScanValidator.notConnectedError(mode03Resp)?.let { return@withContext Result.failure(it) }
+        // §28 / §4.4 / §4.3 truth gate: Mode 03 is the canonical "ECU is answering"
+        // signal. An unreachable ECU surfaces as NotConnected; a 7F rejection
+        // surfaces as EcuRejectionException. Neither may collapse into an empty
+        // "no codes found" success.
+        DtcScanValidator.scanFailure(mode03Resp)?.let { return@withContext Result.failure(it) }
         if (mode03Resp is AdapterResponse.Success) {
-            val cleanHex = PidCodec.cleanResponseHex(mode03Resp.rawResponse)
-            val stored = DtcParser.parseMode03Payload(cleanHex, com.sarani.carobd.core.model.DtcCategory.STORED)
-            for (c in stored) {
-                dtcList.add(
-                    DiagnosticCode(
-                        code = c.code,
-                        titleEn = c.titleEn,
-                        titleFa = c.titleFa,
-                        descriptionEn = c.descriptionEn,
-                        descriptionFa = c.descriptionFa,
-                        ecuSource = c.ecuSource
-                    )
+            // §4.3: parseMode03Payload validates the 0x43 echo + count byte explicitly;
+            // identity (category/responder/ecuSource) is preserved via addAll.
+            dtcList.addAll(
+                DtcParser.parseMode03Payload(
+                    PidCodec.cleanResponseHex(mode03Resp.rawResponse), DtcCategory.STORED
                 )
-            }
+            )
         }
 
-        // 2. Request Mode 07 (Pending DTCs)
+        // 2. Request Mode 07 (Pending DTCs). A 7F here is an explicit ECU rejection
+        //    (this responder does not answer pending-DTC requests) and MUST surface
+        //    as a failure — never silently become an empty "no pending codes" success.
         val mode07Resp = adapter.executeCommand("07", 4000L)
         if (mode07Resp is AdapterResponse.Success) {
-            val cleanHex = PidCodec.cleanResponseHex(mode07Resp.rawResponse)
-            val pending = DtcParser.parseMode03Payload(cleanHex, com.sarani.carobd.core.model.DtcCategory.PENDING)
-            for (c in pending) {
-                dtcList.add(
-                    DiagnosticCode(
-                        code = c.code,
-                        titleEn = c.titleEn,
-                        titleFa = c.titleFa,
-                        descriptionEn = c.descriptionEn,
-                        descriptionFa = c.descriptionFa,
-                        ecuSource = c.ecuSource
-                    )
+            val clean7 = PidCodec.cleanResponseHex(mode07Resp.rawResponse)
+            if (PidCodec.isNegativeResponse(clean7)) {
+                PidCodec.parseNegativeResponse(clean7, rawLine = mode07Resp.rawResponse)
+                    ?.let { return@withContext Result.failure(EcuRejectionException(it)) }
+            } else {
+                dtcList.addAll(
+                    DtcParser.parseMode03Payload(clean7, DtcCategory.PENDING)
                 )
             }
         }
 
-        // 3. Request Mode 0A (Permanent DTCs)
+        // 3. Request Mode 0A (Permanent DTCs). Same 7F-rejection semantics as Mode 07.
         val mode0aResp = adapter.executeCommand("0A", 4000L)
         if (mode0aResp is AdapterResponse.Success) {
-            val cleanHex = PidCodec.cleanResponseHex(mode0aResp.rawResponse)
-            val permanent = DtcParser.parseMode03Payload(cleanHex, com.sarani.carobd.core.model.DtcCategory.PERMANENT)
-            for (c in permanent) {
-                dtcList.add(
-                    DiagnosticCode(
-                        code = c.code,
-                        titleEn = c.titleEn,
-                        titleFa = c.titleFa,
-                        descriptionEn = c.descriptionEn,
-                        descriptionFa = c.descriptionFa,
-                        ecuSource = c.ecuSource
-                    )
+            val cleanA = PidCodec.cleanResponseHex(mode0aResp.rawResponse)
+            if (PidCodec.isNegativeResponse(cleanA)) {
+                PidCodec.parseNegativeResponse(cleanA, rawLine = mode0aResp.rawResponse)
+                    ?.let { return@withContext Result.failure(EcuRejectionException(it)) }
+            } else {
+                dtcList.addAll(
+                    DtcParser.parseMode03Payload(cleanA, DtcCategory.PERMANENT)
                 )
             }
         }
@@ -272,14 +259,22 @@ class ObdRepositoryImpl(
         val adapter = activeAdapter ?: return@withContext Result.failure(Exception("Adapter not connected"))
 
         val response = adapter.executeCommand("04", 5000L)
-        if (response is AdapterResponse.Success &&
-            PidCodec.verifyClearDtcResponse(PidCodec.cleanResponseHex(response.rawResponse))
-        ) {
-            // §8.4: a real 0x44 positive echo is required. A 7F negative response or
-            // empty/no-data payload must NEVER become a successful clear.
-            Result.success(Unit)
-        } else {
-            Result.failure(Exception("ECU did not acknowledge DTC clear request (no 0x44 positive response)"))
+        val cleanHex = response.let {
+            if (it is AdapterResponse.Success) PidCodec.cleanResponseHex(it.rawResponse) else byteArrayOf()
+        }
+        return@withContext when {
+            // §8.4 / §13: a real 0x44 positive echo is required for success.
+            response is AdapterResponse.Success && PidCodec.verifyClearDtcResponse(cleanHex)
+                -> Result.success(Unit)
+            // §13/#3 & §4.4: a 7F on a clear is an explicit ECU rejection — never success.
+            response is AdapterResponse.Success && PidCodec.isNegativeResponse(cleanHex) -> {
+                val neg = PidCodec.parseNegativeResponse(cleanHex, rawLine = response.rawResponse)
+                Result.failure(
+                    neg?.let { EcuRejectionException(it) }
+                        ?: Exception("ECU sent 7F rejection to DTC clear")
+                )
+            }
+            else -> Result.failure(Exception("ECU did not acknowledge DTC clear request (no 0x44 positive response)"))
         }
     }
 

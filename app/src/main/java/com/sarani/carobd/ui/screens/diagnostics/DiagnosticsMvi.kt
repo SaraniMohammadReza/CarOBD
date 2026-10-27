@@ -82,7 +82,7 @@ class DiagnosticsViewModel(
                         copy(
                             isClearing = false,
                             troubleCodes = emptyList(),
-                            lastScanMessage = "کدهای خطا با موفقیت پاک شدند (MIL ریست شد)",
+                            lastScanMessage = "درخواست پاک‌سازی کدهای خطا توسط ECU تأیید شد (0x44)",
                             scanCompletedSuccessfully = false
                         )
                     }

@@ -157,7 +157,7 @@ fun DiagnosticsScreen(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.troubleCodes, key = { it.code }) { dtc ->
+                    items(state.troubleCodes, key = { "${it.responderAddressHex}-${it.category.name}-${it.code}" }) { dtc ->
                         DtcCard(dtc = dtc)
                     }
                 }
@@ -257,6 +257,13 @@ fun DtcCard(dtc: DiagnosticCode) {
                 color = TextMuted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Normal
+            )
+
+            // §7 / #15: source ECU + category identity (never guessed; never absent).
+            Text(
+                text = "رد: ${dtc.responderAddressHex} • ${dtc.category.name.lowercase()}",
+                color = TextMuted,
+                fontSize = 11.sp
             )
 
             Spacer(modifier = Modifier.height(10.dp))
