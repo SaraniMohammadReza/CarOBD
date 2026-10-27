@@ -51,8 +51,17 @@ open class Elm327Adapter(
         get() = _currentProtocol?.isCanBus == true
 
     private val commandMutex = Mutex()
-    private val incomingCharsChannel = Channel<Char>(Channel.UNLIMITED)
+    // §5 bounded buffering (was UNLIMITED): caps memory so a flooded/stuck adapter
+    // cannot grow the inbound channel without limit.
+    private val incomingCharsChannel = Channel<Char>(4096)
     private var readerJob: Job? = null
+
+    // §5 command-generation / session identity: each command is tagged (seq) so a late
+    // or orphan response can never be matched to a subsequent command.
+    private var commandSequence = 0L
+    // §5: set true when a post-timeout resynchronisation window expires WITHOUT
+    // observing the terminating '>' prompt — the stream is unverified until reset.
+    private var resyncCompromised = false
 
     init {
         startIncomingReader()
@@ -82,6 +91,10 @@ open class Elm327Adapter(
 
     override suspend fun initialize(forcedProtocol: ProtocolStandard?): AdapterInitializationResult =
         commandMutex.withLock {
+            // §5: (re)initialisation is a recovery boundary — clear any compromised
+            // stream state from a prior timeout so the handshake begins clean.
+            resyncCompromised = false
+            commandSequence = 0L
             try {
                 _state.value = ConnectionState.TransportConnecting(transport.transportType.name)
                 if (!transport.isConnected) {
@@ -256,6 +269,16 @@ open class Elm327Adapter(
 
     private suspend fun executeInternal(command: String, timeoutMs: Long): AdapterResponse {
         val startTime = System.currentTimeMillis()
+        // §5: a prior timeout that could not be resynchronised leaves the inbound
+        // stream unverified — refuse to issue until (re)initialisation resets it.
+        if (resyncCompromised) {
+            return AdapterResponse.Error(
+                AdapterError.Timeout(timeoutMs),
+                "unverified stream after prior timeout; re-initialise adapter",
+                System.currentTimeMillis() - startTime
+            )
+        }
+        commandSequence++
         drainPendingBuffer()
 
         val outgoing = (command.trim() + "\r").toByteArray(Charsets.US_ASCII)
@@ -282,15 +305,35 @@ open class Elm327Adapter(
         }
 
         val elapsed = System.currentTimeMillis() - startTime
-        return if (receivedPrompt == true) {
-            Elm327BufferParser.parseBuffer(sb.toString(), command, elapsed)
-        } else {
-            AdapterResponse.Error(
-                AdapterError.Timeout(timeoutMs),
-                sb.toString(),
-                elapsed
-            )
+        if (receivedPrompt == true) {
+            return Elm327BufferParser.parseBuffer(sb.toString(), command, elapsed)
         }
+
+        // §5 late-prompt isolation: this command timed out WITHOUT a prompt. Quarantine
+        // its late payload + late '>' so the NEXT command can never consume them.
+        resyncAfterTimeout(resyncWindowMs = 500L)
+        return AdapterResponse.Error(
+            AdapterError.Timeout(timeoutMs),
+            sb.toString(),
+            elapsed
+        )
+    }
+
+    /**
+     * §5 post-timeout quarantine: consume bytes still in flight from the timed-out
+     * command until its terminating '>' prompt is observed, proving a clean prompt
+     * boundary before the next command. Bounded by [resyncWindowMs]; if no prompt
+     * arrives the stream cannot be resynchronised and is marked compromised.
+     */
+    private suspend fun resyncAfterTimeout(resyncWindowMs: Long) {
+        val deadline = System.currentTimeMillis() + resyncWindowMs
+        while (System.currentTimeMillis() < deadline) {
+            val remaining = (deadline - System.currentTimeMillis()).coerceAtLeast(0L)
+            val c = withTimeoutOrNull(remaining) { incomingCharsChannel.receive() } ?: break
+            if (c == Elm327BufferParser.PROMPT_CHAR) return
+        }
+        // Prompt never observed within the window: stream is unverifiable.
+        resyncCompromised = true
     }
 
     private fun drainPendingBuffer() {

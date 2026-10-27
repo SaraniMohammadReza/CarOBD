@@ -12,7 +12,13 @@ import com.sarani.carobd.core.model.ProtocolStandard
 import com.sarani.carobd.core.model.TransportType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
@@ -98,7 +104,7 @@ class AdapterUnitTest {
     @Test
     fun testElm327AdapterFullHandshake() = runBlocking {
         val mockTransport = MockObdTransport()
-        val adapter = Elm327Adapter(mockTransport)
+        val adapter = testAdapter(mockTransport)
 
         // Queue mock hardware responses
         mockTransport.queueResponse("ATZ", "ELM327 v1.5\r\r>")
@@ -135,7 +141,7 @@ class AdapterUnitTest {
     @Test
     fun testElm327AdapterFailsOnNoDataFromEcu() = runBlocking {
         val mockTransport = MockObdTransport()
-        val adapter = Elm327Adapter(mockTransport)
+        val adapter = testAdapter(mockTransport)
 
         mockTransport.queueResponse("ATZ", "ELM327 v1.5\r\r>")
         mockTransport.queueResponse("ATE0", "OK\r\r>")
@@ -162,7 +168,7 @@ class AdapterUnitTest {
     @Test
     fun testElm327AdapterFailsOnMalformed0100() = runBlocking {
         val mockTransport = MockObdTransport()
-        val adapter = Elm327Adapter(mockTransport)
+        val adapter = testAdapter(mockTransport)
 
         mockTransport.queueResponse("ATZ", "ELM327 v1.5\r\r>")
         mockTransport.queueResponse("ATE0", "OK\r\r>")
@@ -206,7 +212,7 @@ class AdapterUnitTest {
     @Test
     fun testSimulatorHandshakeReportsIsSimulatorTrue() = runBlocking {
         val sim = MockObdTransport(TransportType.SIMULATOR)
-        val adapter = Elm327Adapter(sim)
+        val adapter = testAdapter(sim)
         queueFullHandshake(sim)
         assertTrue(adapter.initialize().isSuccess)
         val state = adapter.state.value
@@ -220,7 +226,7 @@ class AdapterUnitTest {
     @Test
     fun testPhysicalHandshakeReportsIsSimulatorFalse() = runBlocking {
         val phy = MockObdTransport() // BLUETOOTH_CLASSIC by default
-        val adapter = Elm327Adapter(phy)
+        val adapter = testAdapter(phy)
         queueFullHandshake(phy)
         assertTrue(adapter.initialize().isSuccess)
         val state = adapter.state.value
@@ -274,7 +280,118 @@ class AdapterUnitTest {
         assertEquals("41 0C 1A F8", success.cleanedLines[0])
         assertEquals("41 0D 55", success.cleanedLines[1])
     }
+
+    // ---- §5 ELM command lifecycle: serialization + late-prompt isolation ----
+
+    @Test
+    fun testLatePromptDoesNotContaminateNextCommand() = runBlocking {
+        // §5 headline: A times out because its response arrives late; the late A
+        // payload + late '>' must be quarantined by the post-timeout resync and
+        // never leak into B. B must succeed with its OWN bytes only.
+        val mockTransport = MockObdTransport()
+        val adapter = testAdapter(mockTransport)
+        mockTransport.queueDelayedResponse("010C", 400, "010C\r41 0C 1A F8\r\r>")
+        mockTransport.queueResponse("010D", "010D\r41 0D 55\r\r>")
+
+        val a = adapter.executeCommand("010C", 300L)
+        assertTrue("A must time out", a is AdapterResponse.Error)
+        assertTrue("A must be a Timeout", (a as AdapterResponse.Error).error is AdapterError.Timeout)
+
+        val b = adapter.executeCommand("010D", 2000L)
+        assertTrue("B must succeed independently after resync", b is AdapterResponse.Success)
+        val bSuccess = b as AdapterResponse.Success
+        // §5 invariant: B must NEVER receive A's response bytes.
+        assertFalse("B must not contain A's data", bSuccess.rawResponse.contains("41 0C"))
+        assertEquals(1, bSuccess.cleanedLines.size)
+        assertEquals("41 0D 55", bSuccess.cleanedLines[0])
+    }
+
+    @Test
+    fun testTwoSimultaneousCallersSerializeOnMutex() = runBlocking {
+        // §5: concurrent callers must serialize (one command in flight). Both must
+        // receive their own clean response with no interleaving.
+        val mockTransport = MockObdTransport()
+        val adapter = testAdapter(mockTransport)
+        mockTransport.queueResponse("010C", "41 0C 1A F8\r\r>")
+        mockTransport.queueResponse("010D", "41 0D 55\r\r>")
+
+        val results = java.util.Collections.synchronizedList(mutableListOf<AdapterResponse>())
+        val j1 = launch { results.add(adapter.executeCommand("010C", 2000L)) }
+        val j2 = launch { results.add(adapter.executeCommand("010D", 2000L)) }
+        joinAll(j1, j2)
+        assertEquals(2, results.size)
+        assertTrue("both must succeed (serialized, not interleaved)", results.all { it is AdapterResponse.Success })
+        val codes = results.map { (it as AdapterResponse.Success).cleanedLines.first() }.toSet()
+        assertEquals(setOf("41 0C 1A F8", "41 0D 55"), codes)
+    }
+
+    @Test
+    fun testElmFailureTokensNeverBecomeSuccess() = runBlocking {
+        // §5 transcript: each ELM failure token must surface as Error at the
+        // executeCommand boundary, never silently become Success.
+        val cases = listOf(
+            "NO DATA" to AdapterError.NoData,
+            "STOPPED" to AdapterError.Stopped,
+            "CAN ERROR" to AdapterError.CanError,
+            "BUFFER FULL" to AdapterError.BufferOverflow,
+            "UNABLE TO CONNECT" to AdapterError.UnableToConnect,
+            "BUS INIT: ERROR" to AdapterError.BusInitFailed
+        )
+        for ((text, expected) in cases) {
+            val mockTransport = MockObdTransport()
+            val adapter = testAdapter(mockTransport)
+            mockTransport.queueResponse("010C", "$text\r\r>")
+            val resp = adapter.executeCommand("010C", 1000L)
+            assertTrue("$text must be Error", resp is AdapterResponse.Error)
+            assertEquals("$text must map to $expected", expected, (resp as AdapterResponse.Error).error)
+        }
+    }
+
+    @Test
+    fun testUnknownCommandMarkerBecomesError() = runBlocking {
+        val mockTransport = MockObdTransport()
+        val adapter = testAdapter(mockTransport)
+        mockTransport.queueResponse("ATINVALID", "ATINVALID\r?\r\r>")
+        val resp = adapter.executeCommand("ATINVALID", 1000L)
+        assertTrue("? must be UnknownCommand Error", resp is AdapterResponse.Error)
+        assertEquals(AdapterError.UnknownCommand, (resp as AdapterResponse.Error).error)
+    }
+
+    @Test
+    fun testReconnectAfterStreamCompromiseRestoresCommandPath() = runBlocking {
+        // §5: when a command times out and resynchronisation cannot be proven
+        // (no late prompt ever arrives), the stream is marked compromised and
+        // subsequent commands are refused until a (re)initialisation resets it.
+        val deadTransport = MockObdTransport()
+        val deadAdapter = testAdapter(deadTransport)
+        val a = deadAdapter.executeCommand("010C", 200L)
+        assertTrue("A must time out", a is AdapterResponse.Error)
+        // Dead transport never sends A's late prompt -> resync cannot prove a boundary.
+        val b = deadAdapter.executeCommand("010D", 300L)
+        assertTrue("compromised stream must refuse subsequent commands", b is AdapterResponse.Error)
+
+        // Reconnect: a fresh adapter + full handshake resets session state.
+        val newTransport = MockObdTransport()
+        val newAdapter = testAdapter(newTransport)
+        queueFullHandshake(newTransport)
+        assertTrue(newAdapter.initialize().isSuccess)
+        newTransport.queueResponse("010D", "41 0D 55\r\r>")
+        val c = newAdapter.executeCommand("010D", 2000L)
+        assertTrue("after reconnect, command succeeds on its own bytes", c is AdapterResponse.Success)
+        assertEquals("41 0D 55", (c as AdapterResponse.Success).cleanedLines[0])
+    }
 }
+
+/**
+ * Deterministic test adapter. Injects a Dispatchers.Unconfined-backed scope so the
+ * inbound reader suspends synchronously in collect() during construction and is
+ * resumed inline on the calling (runBlocking) thread by emit(). This removes the
+ * Dispatchers.IO scheduling race that otherwise starves the receive loop and
+ * produces spurious command timeouts under JUnit. Production code is untouched
+ * (Elm327Adapter defaults to Dispatchers.IO).
+ */
+private fun testAdapter(transport: ObdTransport): Elm327Adapter =
+    Elm327Adapter(transport, CoroutineScope(Dispatchers.Unconfined))
 
 private fun queueFullHandshake(t: MockObdTransport) {
     t.queueResponse("ATZ", "ELM327 v1.5\r\r>")
@@ -302,9 +419,16 @@ class MockObdTransport(
     override val incomingBytes: Flow<ByteArray> = _incomingBytes.asSharedFlow()
 
     private val responseMap = mutableMapOf<String, String>()
+    private val delayedResponses = mutableMapOf<String, Pair<Long, String>>()
+    private val emitScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     fun queueResponse(cmd: String, resp: String) {
         responseMap[cmd.trim().uppercase()] = resp
+    }
+
+    /** Queues a response emitted only after [delayMs], modelling a late prompt. */
+    fun queueDelayedResponse(cmd: String, delayMs: Long, resp: String) {
+        delayedResponses[cmd.trim().uppercase()] = (delayMs to resp)
     }
 
     override suspend fun connect() {
@@ -317,7 +441,19 @@ class MockObdTransport(
 
     override suspend fun write(data: ByteArray) {
         val cmdString = String(data, Charsets.US_ASCII).trim().uppercase()
-        val canned = responseMap[cmdString] ?: "OK\r\r>"
-        _incomingBytes.emit(canned.toByteArray(Charsets.US_ASCII))
+        val delayed = delayedResponses.remove(cmdString)
+        val canned = responseMap[cmdString]
+        // No fabricated "OK\r\r>" ack: an unqueued command models a no-response
+        // transport, so emit nothing and let the receive loop time out cleanly.
+        if (delayed != null) {
+            // Late response: emit asynchronously so bytes arrive AFTER the command's
+            // timeout, exercising the post-timeout resync path (never synchronously).
+            emitScope.launch {
+                delay(delayed.first)
+                _incomingBytes.emit(delayed.second.toByteArray(Charsets.US_ASCII))
+            }
+        } else if (canned != null) {
+            _incomingBytes.emit(canned.toByteArray(Charsets.US_ASCII))
+        }
     }
 }
