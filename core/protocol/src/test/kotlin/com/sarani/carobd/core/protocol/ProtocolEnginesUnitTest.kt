@@ -450,4 +450,14 @@ class ProtocolEnginesUnitTest {
         assertEquals(1, dtcs.size)
         assertEquals(DtcCategory.PERMANENT, dtcs[0].category)
     }
+
+    // ---- §10 Mode 09 ASCII vehicle-info decoders (CALID / CVN / ECU name) ----
+
+    @Test
+    fun testMode09AsciiDecodersForCalidAndCvn() {
+        // Calibration ID / CVN / ECU name come back as printable ASCII; decodeAsciiString
+        // preserves printable chars (0x20..0x7E) and drops non-printable padding.
+        assertEquals("F12345678", PidCodec.decodeAsciiString("F12345678".toByteArray()))
+        assertEquals("ABC-12345 XYZ", PidCodec.decodeAsciiString("ABC-12345 XYZ".toByteArray()))
+    }
 }
