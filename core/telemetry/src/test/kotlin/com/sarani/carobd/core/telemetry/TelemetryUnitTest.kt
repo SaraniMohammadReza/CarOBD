@@ -138,4 +138,36 @@ class TelemetryUnitTest {
         scheduler.updateMetric("010D", 75.0) // Speed
         assertEquals(75, scheduler.liveTelemetry.value.speedKmh)
     }
+
+    @Test
+    fun testFuelRateTruthfulnessGate() {
+        // §8: MAF path — a measured MAF needs no vehicle metadata.
+        val fromMaf = FuelEconomyCalculator.fuelRateIfMeasurable(mafGramsPerSec = 3.5)
+        assertNotNull(fromMaf)
+        assertEquals(1.15, fromMaf!!, 0.05) // 3.5 g/s -> ~1.15 L/h (matches testFuelEconomyMaf)
+
+        // §8: MAF unmeasured -> null (no fabricated displacement/VE/IAT defaults).
+        assertNull(FuelEconomyCalculator.fuelRateIfMeasurable(mafGramsPerSec = null))
+
+        // §8: speed-density gate rejects partial/invented inputs:
+        assertNull(FuelEconomyCalculator.fuelRateIfMeasurable(
+            rpm = 2800.0, mapKpa = 65.0, iatCelsius = 30.0,
+            displacementLiters = null, volumetricEfficiency = 0.80)) // unknown engine
+        assertNull(FuelEconomyCalculator.fuelRateIfMeasurable(
+            rpm = 2800.0, mapKpa = 65.0, iatCelsius = 30.0,
+            displacementLiters = 1.587, volumetricEfficiency = null)) // unknown VE
+        assertNull(FuelEconomyCalculator.fuelRateIfMeasurable(
+            rpm = 2800.0, mapKpa = 65.0, iatCelsius = null,
+            displacementLiters = 1.587, volumetricEfficiency = 0.80)) // unmeasured IAT
+        assertNull(FuelEconomyCalculator.fuelRateIfMeasurable(
+            rpm = 0.0, mapKpa = 65.0, iatCelsius = 30.0,
+            displacementLiters = 1.587, volumetricEfficiency = 0.80)) // engine not running
+
+        // All SD inputs genuinely known -> a real, non-fabricated rate.
+        val fromSd = FuelEconomyCalculator.fuelRateIfMeasurable(
+            rpm = 2800.0, mapKpa = 65.0, iatCelsius = 30.0,
+            displacementLiters = 1.587, volumetricEfficiency = 0.75)
+        assertNotNull(fromSd)
+        assertTrue(fromSd!! > 0.0)
+    }
 }

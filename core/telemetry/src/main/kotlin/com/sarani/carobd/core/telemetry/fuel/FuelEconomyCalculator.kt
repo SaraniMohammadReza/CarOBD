@@ -81,6 +81,53 @@ object FuelEconomyCalculator {
             )
         }
     }
+
+    /**
+     * §8 TRUTHFULNESS GATE: fuel rate ONLY from genuinely-measured inputs.
+     *
+     * Returns null (no fuel rate -> render "—", accumulate 0 in TripComputer)
+     * when ANY required input is missing, rather than fabricating a result from
+     * defaults. The previous production code defaulted displacement to 1.587L
+     * (TU5), VE to 0.80 and IAT to 0C (never queried) — fabricating L/100km.
+     *
+     * - MAF path: a measured Mass-Air-Flow reading (PID 10) already encodes
+     *   airflow, so it needs NO vehicle metadata (displacement, VE).
+     * - Speed-density path: only when displacement, VE, IAT, RPM and MAP are ALL
+     *   explicitly known. Displacement is NEVER defaulted to TU5/1.587/1.6;
+     *   VE is NEVER defaulted to 0.80; IAT is NEVER defaulted to 0C.
+     *
+     * @return null when fuel rate is unavailable (unmeasured / unknown inputs).
+     */
+    fun fuelRateIfMeasurable(
+        mafGramsPerSec: Double? = null,
+        rpm: Double? = null,
+        mapKpa: Double? = null,
+        iatCelsius: Double? = null,
+        displacementLiters: Double? = null,
+        volumetricEfficiency: Double? = null
+    ): Double? {
+        // MAF path — direct mass-air measurement, no vehicle-metadata assumptions.
+        if (mafGramsPerSec != null && mafGramsPerSec > 0.0) {
+            return calculateFuelRateFromMaf(mafGramsPerSec)
+        }
+        // Speed-density path — every input MUST be explicitly known.
+        if (displacementLiters != null && displacementLiters > 0.0 &&
+            volumetricEfficiency != null && volumetricEfficiency > 0.0 &&
+            iatCelsius != null &&
+            rpm != null && rpm > 0.0 &&
+            mapKpa != null && mapKpa > 0.0
+        ) {
+            return calculateFuelRateFromSpeedDensity(
+                mapKpa = mapKpa,
+                iatCelsius = iatCelsius,
+                rpm = rpm,
+                displacementLiters = displacementLiters,
+                volumetricEfficiency = volumetricEfficiency
+            )
+        }
+        // §8: unmeasured / unknown inputs -> unavailable, never fabricated.
+        return null
+    }
 }
 
 enum class FuelUnit(val symbolEn: String, val symbolFa: String) {

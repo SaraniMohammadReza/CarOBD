@@ -48,4 +48,14 @@ class FuelEconomyAndCatalogTest {
         assertTrue("Estimated range should be realistic (around 400km)", metrics.remainingRangeKm in 250..650)
         assertTrue("Cost per km should be positive", metrics.fuelCostPerKmTomans > 0f)
     }
+
+    @Test
+    fun testFuelEconomyUnavailableWhenMafUnmeasured() {
+        // §8: no measured MAF -> FuelEconomyEngine must NOT fabricate fuel
+        // economy from assumed displacement/VE/IAT. Banner renders "—".
+        val telemetry = LiveTelemetry(speedKmh = 100, rpm = 2800, fuelLevelPercent = 60f)
+        val metrics = FuelEconomyEngine.calculate(telemetry = telemetry, tankCapacityLiters = 50f)
+        assertEquals(0f, metrics.instantLitersPer100Km, 0.01f) // -> banner "—"
+        assertEquals(0f, metrics.instantKmPerLiter, 0.01f)
+    }
 }

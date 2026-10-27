@@ -296,16 +296,11 @@ class ObdRepositoryImpl(
 
         val flowStream = flow {
             var current = _liveTelemetry.value
-            val engineName = _activeVehicleProfile.value?.engineName ?: "Unknown"
-            val displacement = when {
-                engineName.contains("XU7", ignoreCase = true) -> 1.761
-                engineName.contains("EF7", ignoreCase = true) -> 1.645
-                engineName.contains("M15", ignoreCase = true) -> 1.503
-                engineName.contains("M13", ignoreCase = true) -> 1.323
-                engineName.contains("TU3", ignoreCase = true) -> 1.360
-                else -> 1.587 // TU5
-            }
-
+            // §8 TRUTHFULNESS: vehicle metadata (engine displacement, volumetric
+            // efficiency) is NOT carried on LiveTelemetry / VehicleProfile, so we
+            // do NOT fabricate a TU5/1.6/1.587L default or assume VE=0.80. Fuel
+            // economy is computed ONLY from a measured MAF reading (PID 10); when
+            // MAF is absent the rate is unavailable and the banner renders "—".
             var cycleCount = 0
             while (currentCoroutineContext().isActive && _connectionState.value is ConnectionState.Connected) {
                 val adapter = activeAdapter ?: break
@@ -394,20 +389,36 @@ class ObdRepositoryImpl(
                         }
                     }
 
-                    // 7. Calculate physical fuel rate (Speed-Density or MAF)
-                    val fuelRateLitersPerHour = FuelEconomyCalculator.calculateFuelRateFromSpeedDensity(
-                        mapKpa = current.intakeManifoldPressureKpa.toDouble(),
-                        iatCelsius = current.intakeAirTempCelsius.toDouble(),
-                        rpm = current.rpm.toDouble(),
-                        displacementLiters = displacement,
-                        volumetricEfficiency = 0.80
+                    // 6.1 Query Mass Air Flow (PID 10) — measured MAF is the sole
+                    //     truthful fuel-economy input available on this model.
+                    val mafResp = adapter.executeCommand("0110", 600L)
+                    if (mafResp is AdapterResponse.Success) {
+                        val mafBytes = PidCodec.cleanResponseHex(mafResp.rawResponse)
+                        if (mafBytes.size >= 4 && mafBytes[0].toInt() == 0x41 && mafBytes[1].toInt() == 0x10) {
+                            val a = mafBytes[2].toInt() and 0xFF
+                            val b = mafBytes[3].toInt() and 0xFF
+                            measured.add("10")
+                            current = current.copy(mafGramsPerSec = PidCodec.decodeMafAirFlow(a, b).toFloat())
+                        }
+                    }
+
+                    // 7. §8 TRUTHFULNESS: fuel rate ONLY from measured inputs.
+                    //     Previously fabricated displacement (TU5 fallback) + VE(0.80)
+                    //     + IAT(0, never queried) -> fake L/h fed to TripComputer.
+                    val fuelRateLitersPerHour = FuelEconomyCalculator.fuelRateIfMeasurable(
+                        mafGramsPerSec = if ("10" in measured) current.mafGramsPerSec.toDouble() else null,
+                        rpm = if ("0C" in measured && current.rpm > 0) current.rpm.toDouble() else null,
+                        mapKpa = if ("0B" in measured && current.intakeManifoldPressureKpa > 0) current.intakeManifoldPressureKpa.toDouble() else null,
+                        iatCelsius = if ("0F" in measured) current.intakeAirTempCelsius.toDouble() else null,
+                        displacementLiters = null, // §8: not on VehicleProfile -> never assume TU5/1.6
+                        volumetricEfficiency = null // §8: unknown -> never assume 0.80
                     )
 
-                    // Feed Trip Computer
+                    // Feed Trip Computer — 0.0 when unmeasured (NO fabricated fuel).
                     currentTripComputer?.processSample(
                         speedKmh = current.speedKmh,
                         rpm = current.rpm,
-                        fuelRateLitersPerHour = fuelRateLitersPerHour,
+                        fuelRateLitersPerHour = fuelRateLitersPerHour ?: 0.0,
                         timestampMs = System.currentTimeMillis()
                     )
 

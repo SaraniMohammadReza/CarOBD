@@ -32,16 +32,13 @@ object FuelEconomyEngine {
             return FuelEconomyMetrics()
         }
 
+        // §8 TRUTHFULNESS: fuel rate ONLY from measured MAF. The previous
+        // else-branch fabricated displacement (1.6L), VE (0.80) and IAT (0C,
+        // never queried) via speed-density -> fake L/100km in the dashboard banner.
         val fuelLitersPerHour = if (maf > 0.1f) {
-            FuelEconomyCalculator.calculateFuelRateFromMaf(maf.toDouble()).toFloat()
+            (FuelEconomyCalculator.fuelRateIfMeasurable(mafGramsPerSec = maf.toDouble())?.toFloat() ?: 0f)
         } else {
-            FuelEconomyCalculator.calculateFuelRateFromSpeedDensity(
-                mapKpa = telemetry.intakeManifoldPressureKpa.toDouble(),
-                iatCelsius = telemetry.intakeAirTempCelsius.toDouble(),
-                rpm = rpm.toDouble(),
-                displacementLiters = 1.6,
-                volumetricEfficiency = 0.80
-            ).toFloat()
+            0f // §8: MAF unmeasured -> no fuel economy, never fabricated.
         }
 
         val instantL100km = if (speed > 3) {
