@@ -69,6 +69,21 @@
     <string name="settings_language">زبان برنامه / Language</string>
     <string name="settings_theme">پوسته ظاهری</string>
     <string name="settings_refresh_rate">نرخ بروزرسانی داده‌های تله‌متری</string>
+    <string name="settings_refresh_rate_ultrafast">15 هرتز (اُلترا فست)</string>
     <string name="cancel">انصراف</string>
     <string name="confirm">تأیید</string>
+
+    <!-- Settings — migrated from hardcoded strings (Checkpoint D) -->
+    <string name="settings_theme_amold">تم و پوسته ظاهری (پشتیبانی از AMOLED)</string>
+    <string name="state_active">فعال</string>
+    <string name="settings_units">سیستم یکاها و واحدها (Units)</string>
+    <string name="state_selected">انتخاب شده</string>
+    <string name="settings_adapter_inspector">بررسی سخت‌افزار دانگل و پین‌اوت موتورسیکلت</string>
+    <string name="settings_adapter_inspector_desc">تست اصالت چیپ ELM327 و کابل‌های تبدیل ۶ پین</string>
+    <string name="action_view_more">مشاهده ></string>
+    <string name="language_persian_label">فارسی (پیش‌فرض)</string>
+    <string name="language_english_label">English</string>
+    <string name="settings_reset_vehicle">تغییر مشخصات خودرو / موتورسیکلت (تنظیم مجدد پروفایل)</string>
+    <string name="settings_architecture_title">مشخصات معماری سوپر اپلیکیشن</string>
+    <string name="settings_architecture_body">• معماری ماژولار Clean Architecture + MVI&#10;• سیستم کشینگ آفلاین با DataStore Preferences&#10;• آماده اتصال به بک‌اند ابری (Cloud Sync Ready)&#10;• پشتیبانی از ۱۰۰+ سنسور خودرو و موتورسیکلت&#10;• پشتیبانی از خط K-Line و شبکه CAN تمام خودروهای داخلی، چینی و بین‌المللی</string>
 </resources>

@@ -1,5 +1,6 @@
 package com.sarani.carobd
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -52,10 +53,11 @@ import com.sarani.carobd.ui.theme.DarkBg
 import com.sarani.carobd.ui.theme.DarkCardBg
 import com.sarani.carobd.ui.theme.NeonCyan
 import com.sarani.carobd.ui.theme.TextMuted
-import androidx.lifecycle.lifecycleScope
+import com.sarani.carobd.core.storage.AppLanguage
 import com.sarani.carobd.core.storage.LocaleHelper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 
@@ -72,22 +74,25 @@ class MainActivity : ComponentActivity() {
 
     private val appPreferencesManager: AppPreferencesManager by inject()
 
+    // §3: apply the persisted language in attachBaseContext (BEFORE super) so the
+    // locale is baked into the Activity's resources for first composition — no race
+    // with recreate, and no resource is read before the locale is set. The single
+    // blocking DataStore read at attach replaces the old async lifecycleScope.apply()
+    // that could run after super.onCreate.
+    override fun attachBaseContext(newBase: Context) {
+        val lang = runBlocking {
+            try { appPreferencesManager.language.first() }
+            catch (_: Exception) { AppLanguage.PERSIAN }
+        }
+        super.attachBaseContext(LocaleHelper.wrapContext(newBase, lang))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        lifecycleScope.launch {
-            // Restore persisted locale before first composition (§Phase C). Single cached
-            // DataStore read — no runBlocking / heavy IO on startup.
-            try {
-                val lang = appPreferencesManager.language.first()
-                LocaleHelper.apply(this@MainActivity, lang)
-            } catch (_: Exception) {
-                /* non-fatal: keep system locale */
-            }
-            setContent {
-                CarObdTheme(appPreferencesManager = appPreferencesManager) {
-                    MainAppScaffold(appPreferencesManager = appPreferencesManager)
-                }
+        setContent {
+            CarObdTheme(appPreferencesManager = appPreferencesManager) {
+                MainAppScaffold(appPreferencesManager = appPreferencesManager)
             }
         }
     }

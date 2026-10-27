@@ -69,6 +69,21 @@
     <string name="settings_language">Language / زبان</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_refresh_rate">Telemetry Refresh Rate</string>
+    <string name="settings_refresh_rate_ultrafast">15 Hz (Ultra Fast)</string>
     <string name="cancel">Cancel</string>
     <string name="confirm">Confirm</string>
+
+    <!-- Settings — migrated from hardcoded strings (Checkpoint D) -->
+    <string name="settings_theme_amold">Theme &amp; Appearance (AMOLED)</string>
+    <string name="state_active">Active</string>
+    <string name="settings_units">Units &amp; Measurements</string>
+    <string name="state_selected">Selected</string>
+    <string name="settings_adapter_inspector">Dongle Hardware &amp; Pin-out Inspector</string>
+    <string name="settings_adapter_inspector_desc">Verify ELM327 chip authenticity and 6-pin adapter cables</string>
+    <string name="action_view_more">View &gt;</string>
+    <string name="language_persian_label">Persian (default)</string>
+    <string name="language_english_label">English</string>
+    <string name="settings_reset_vehicle">Vehicle / Motorcycle Profile</string>
+    <string name="settings_architecture_title">Super-app Architecture</string>
+    <string name="settings_architecture_body">• Clean Architecture &amp; MVI&#10;• Offline caching with DataStore Preferences&#10;• Cloud sync ready (backend-ready)&#10;• 100+ car &amp; motorcycle sensors&#10;• K-Line + CAN support for Iranian, Chinese &amp; global vehicles</string>
 </resources>

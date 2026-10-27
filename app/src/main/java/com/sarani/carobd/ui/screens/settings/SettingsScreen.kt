@@ -57,7 +57,6 @@ import com.sarani.carobd.R
 import com.sarani.carobd.core.storage.AppLanguage
 import com.sarani.carobd.core.storage.AppPreferencesManager
 import com.sarani.carobd.core.storage.AppThemeMode
-import com.sarani.carobd.core.storage.LocaleHelper
 import com.sarani.carobd.core.storage.UnitSystem
 import kotlinx.coroutines.launch
 import com.sarani.carobd.ui.theme.DarkBg
@@ -84,7 +83,8 @@ fun SettingsScreen(
     val unitSystem by appPreferencesManager.unitSystem.collectAsState(UnitSystem.METRIC)
     val language by appPreferencesManager.language.collectAsState(AppLanguage.PERSIAN)
     val isPersian = language == AppLanguage.PERSIAN
-    var selectedRate by remember { mutableStateOf("15 Hz (Ultra Fast)") }
+    val ultrafastRateLabel = stringResource(R.string.settings_refresh_rate_ultrafast)
+    var selectedRate by remember { mutableStateOf(ultrafastRateLabel) }
 
     Box(
         modifier = modifier
@@ -117,7 +117,7 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.ColorLens, contentDescription = null, tint = NeonCyan)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("تم و پوسته ظاهری (پشتیبانی از AMOLED)", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.settings_theme_amold), color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -133,7 +133,7 @@ fun SettingsScreen(
                         ) {
                             Text(mode.titleFa, color = if (themeMode == mode) NeonCyan else TextMuted, fontSize = 12.sp)
                             if (themeMode == mode) {
-                                Text("فعال", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.state_active), color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -152,7 +152,7 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Straighten, contentDescription = null, tint = NeonCyan)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("سیستم یکاها و واحدها (Units)", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.settings_units), color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -168,7 +168,7 @@ fun SettingsScreen(
                         ) {
                             Text(unit.titleFa, color = if (unitSystem == unit) NeonCyan else TextMuted, fontSize = 12.sp)
                             if (unitSystem == unit) {
-                                Text("انتخاب شده", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.state_selected), color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -193,11 +193,11 @@ fun SettingsScreen(
                         Icon(Icons.Default.DeveloperBoard, contentDescription = null, tint = NeonCyan)
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("بررسی سخت‌افزار دانگل و پین‌اوت موتورسیکلت", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("تست اصالت چیپ ELM327 و کابل‌های تبدیل ۶ پین", color = TextMuted, fontSize = 11.sp)
+                            Text(stringResource(R.string.settings_adapter_inspector), color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.settings_adapter_inspector_desc), color = TextMuted, fontSize = 11.sp)
                         }
                     }
-                    Text("مشاهده >", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.action_view_more), color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -219,7 +219,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(stringResource(R.string.settings_language), color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text(if (isPersian) "فارسی (Persian - پیش‌فرض)" else "English", color = TextMuted, fontSize = 12.sp)
+                            Text(if (isPersian) stringResource(R.string.language_persian_label) else stringResource(R.string.language_english_label), color = TextMuted, fontSize = 12.sp)
                         }
                     }
 
@@ -227,8 +227,15 @@ fun SettingsScreen(
                         checked = isPersian,
                         onCheckedChange = { nextIsPersian ->
                             val lang = if (nextIsPersian) AppLanguage.PERSIAN else AppLanguage.ENGLISH
-                            scope.launch { appPreferencesManager.setLanguage(lang) }
-                            LocaleHelper.applyAndRecreate(activity, lang)
+                            // §3 #3: persist FIRST, then recreate. recreate triggers
+                            // attachBaseContext, which re-reads the freshly persisted
+                            // language — no race on a stale DataStore write (the old
+                            // path recreated before setLanguage() had necessarily
+                            // persisted).
+                            scope.launch {
+                                appPreferencesManager.setLanguage(lang)
+                                activity.recreate()
+                            }
                         },
                         colors = SwitchDefaults.colors(checkedThumbColor = NeonCyan)
                     )
@@ -244,7 +251,7 @@ fun SettingsScreen(
             ) {
                 Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = NeonCyan)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("تغییر مشخصات خودرو / موتورسیکلت (تنظیم مجدد پروفایل)")
+                Text(stringResource(R.string.settings_reset_vehicle))
             }
 
             // Architecture & Backend-Ready Info
@@ -259,13 +266,15 @@ fun SettingsScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Info, contentDescription = null, tint = NeonGreen)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("مشخصات معماری سوپر اپلیکیشن", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.settings_architecture_title), color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    // §3: migrated to settings_architecture_body string resource.
+                    // Layout rendered from the resource: "• line1\n• line2\n• line3\n• line4\n• line5".
                     Text(
-                        text = "• معماری ماژولار Clean Architecture + MVI\n• سیستم کشینگ آفلاین با DataStore Preferences\n• آماده اتصال به بک‌اند ابری (Cloud Sync Ready)\n• پشتیبانی از ۱۰۰+ سنسور خودرو و موتورسیکلت\n• پشتیبانی از خط K-Line و شبکه CAN تمام خودروهای داخلی، چینی و بین‌المللی",
+                        stringResource(R.string.settings_architecture_body),
                         color = TextMuted,
                         fontSize = 11.sp,
                         lineHeight = 17.sp
