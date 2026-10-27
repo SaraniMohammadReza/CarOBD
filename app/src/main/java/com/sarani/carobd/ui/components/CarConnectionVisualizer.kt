@@ -94,7 +94,7 @@ fun CarConnectionVisualizer(
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(95.dp)
+                    .height(48.dp)
             ) {
                 val w = size.width
                 val h = size.height

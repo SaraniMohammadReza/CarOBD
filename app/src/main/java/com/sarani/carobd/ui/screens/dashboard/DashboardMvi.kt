@@ -25,9 +25,11 @@ data class DashboardState(
     val telemetry: LiveTelemetry = LiveTelemetry(),
     val connectionState: ConnectionState = ConnectionState.Disconnected,
     val activeProfile: VehicleProfile? = null,
+    val selectedConnectionType: ConnectionType = ConnectionType.VIRTUAL_SIMULATOR,
+    val hasActiveVehicle: Boolean = activeProfile != null,
+    val isSimulator: Boolean = selectedConnectionType == ConnectionType.VIRTUAL_SIMULATOR,
     val isHudMode: Boolean = false,
     val isChartMode: Boolean = false,
-    val selectedConnectionType: ConnectionType = ConnectionType.VIRTUAL_SIMULATOR,
     val showBluetoothDialog: Boolean = false,
     val showSensorPicker: Boolean = false,
     val showOnboarding: Boolean = false,
@@ -40,7 +42,10 @@ data class DashboardState(
     val rpmHistory: List<Float> = emptyList(),
     val speedHistory: List<Float> = emptyList(),
     val o2History: List<Float> = emptyList()
-) : UiState
+) : UiState {
+    /** Truthful vehicle label — never fabricate an identity from onboarding free-text (§5.5 / §4). */
+    fun vehicleDisplayLabel(): String = activeProfile?.modelNameFa ?: "خودروی تشخیصی انتخاب نشده"
+}
 
 sealed interface DashboardIntent : UiIntent {
     data object ToggleConnection : DashboardIntent
@@ -56,10 +61,12 @@ sealed interface DashboardIntent : UiIntent {
     data class ConnectToDevice(val device: DiscoveredBluetoothDevice) : DashboardIntent
     data object TriggerBtScan : DashboardIntent
     data class SaveOnboarding(val setup: UserVehicleSetup) : DashboardIntent
+    data object OpenVehicleCatalog : DashboardIntent
 }
 
 sealed interface DashboardEffect : UiEffect {
     data class ShowMessage(val text: String) : DashboardEffect
+    data object NavigateToVehicleCatalog : DashboardEffect
 }
 
 class DashboardViewModel(
@@ -191,6 +198,11 @@ class DashboardViewModel(
                 viewModelScope.launch {
                     appPreferencesManager.saveVehicleSetup(intent.setup)
                     setState { copy(showOnboarding = false, userVehicleSetup = intent.setup) }
+                }
+            }
+            is DashboardIntent.OpenVehicleCatalog -> {
+                viewModelScope.launch {
+                    setEffect { DashboardEffect.NavigateToVehicleCatalog }
                 }
             }
         }

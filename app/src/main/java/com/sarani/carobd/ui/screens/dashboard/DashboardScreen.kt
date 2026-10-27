@@ -73,7 +73,8 @@ import com.sarani.carobd.ui.theme.TextPrimary
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToVehicleCatalog: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -104,13 +105,50 @@ fun DashboardScreen(
                 )
             }
 
+            // 1.1 Diagnostic vehicle selection CTA (§2/§C4: free-text onboarding leaves activeVehicle null;
+            //     must NOT fuzz-match make/model — navigate to the exact catalog Vehicle screen.)
+            if (!state.hasActiveVehicle) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(NeonAmber.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                            .border(1.dp, NeonAmber.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Route, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("هنوز پروفایل تشخیصی انتخاب نشده است", color = TextPrimary, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.weight(1f))
+                            Button(
+                                onClick = { onNavigateToVehicleCatalog() },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = NeonAmber.copy(alpha = 0.2f),
+                                    contentColor = NeonAmber
+                                ),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("انتخاب پروفایل تشخیسی", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 1.2 Primary metrics row (§4): Speed / RPM / Coolant / Battery. Unknown → "—";
+            //     never fabricate a zero value (§4/§7).
+            item {
+                PrimaryMetricsRow(telemetry = state.telemetry)
+            }
+
             // 2. Animated Car Silhouette & Headlight Visualizer
             item {
                 CarConnectionVisualizer(connectionState = state.connectionState)
             }
 
-            // 2.1 Simulator Warning Banner (Strict Truthfulness Enforcement)
-            if (state.selectedConnectionType == ConnectionType.VIRTUAL_SIMULATOR) {
+            // 2.1 Simulator Warning Banner (§7: truthful TransportType.SIMULATOR / isSimulator)
+            if (state.isSimulator) {
                 item {
                     Box(
                         modifier = Modifier
@@ -123,7 +161,7 @@ fun DashboardScreen(
                             Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "حالت تست شبیه‌ساز مجازی فعال است • داده‌ها واقعی خودرو نیستند",
+                                text = "حالت شبیه‌ساز • داده‌ها واقعی خودرو نیستند",
                                 color = NeonAmber,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
@@ -139,7 +177,7 @@ fun DashboardScreen(
                     instantL100km = state.fuelEconomy.instantLitersPer100Km,
                     remainingRangeKm = state.fuelEconomy.remainingRangeKm,
                     costPerKm = state.fuelEconomy.fuelCostPerKmTomans,
-                    vehicleName = state.activeProfile?.modelNameFa ?: "خودروی تشخیصی انتخاب‌شده"
+                    vehicleName = state.vehicleDisplayLabel()
                 )
             }
 
@@ -431,3 +469,43 @@ fun RenderCustomWidget(
         }
     }
 }
+
+/**
+ * §4 compact primary metrics: Speed / RPM / Coolant / Battery.
+ * Unknown (not yet measured) renders "—"; never fabricate a zero value from defaults.
+ */
+@Composable
+fun PrimaryMetricsRow(
+    telemetry: LiveTelemetry,
+    modifier: Modifier = Modifier
+) {
+    val items = listOf(
+        MetricItem("سرعت", "010D", telemetry.speedKmh, "km/h"),
+        MetricItem("RPM", "010C", telemetry.rpm, "RPM"),
+        MetricItem("آب‌خنک", "0105", telemetry.coolantTempCelsius, "°C"),
+        MetricItem("باتری", "0142", telemetry.batteryVoltage, "V")
+    )
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items.forEach { item ->
+            val measured = telemetry.isMeasured(item.pid)
+            val display = if (measured) item.value.toString() else "—"
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(item.label, color = TextMuted, fontSize = 10.sp)
+                Text(
+                    text = display,
+                    color = if (measured) TextPrimary else TextMuted,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(item.unit, color = TextMuted, fontSize = 9.sp)
+            }
+        }
+    }
+}
+
+private data class MetricItem(val label: String, val pid: String, val value: Any, val unit: String)

@@ -161,7 +161,18 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
         ) {
             composable(AppDestination.Dashboard.route) {
                 val vm: DashboardViewModel = koinViewModel()
-                DashboardScreen(viewModel = vm)
+                DashboardScreen(
+                    viewModel = vm,
+                    onNavigateToVehicleCatalog = {
+                        navController.navigate(AppDestination.EcuProfiles.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
             }
             composable(AppDestination.Diagnostics.route) {
                 val vm: DiagnosticsViewModel = koinViewModel()
