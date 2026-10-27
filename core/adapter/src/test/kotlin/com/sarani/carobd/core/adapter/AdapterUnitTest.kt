@@ -230,6 +230,50 @@ class AdapterUnitTest {
             (state as ConnectionState.Connected).isSimulator
         )
     }
+
+    // ---- §12 ELM327 / STN robustness coverage (failures must never become success) ----
+
+    @Test
+    fun testBufferParserStopped() {
+        val parsed = Elm327BufferParser.parseBuffer("010C\rSTOPPED\r\r>", "010C", 100L)
+        assertTrue(parsed is AdapterResponse.Error)
+        assertEquals(AdapterError.Stopped, (parsed as AdapterResponse.Error).error)
+    }
+
+    @Test
+    fun testBufferParserBusInitError() {
+        val parsed = Elm327BufferParser.parseBuffer("0100\rSEARCHING...\rBUS INIT: ERROR\r\r>", "0100", 2500L)
+        assertTrue(parsed is AdapterResponse.Error)
+        assertEquals(AdapterError.BusInitFailed, (parsed as AdapterResponse.Error).error)
+    }
+
+    @Test
+    fun testBufferParserBufferFull() {
+        val parsed = Elm327BufferParser.parseBuffer("0100\rBUFFER FULL\r\r>", "0100", 100L)
+        assertTrue(parsed is AdapterResponse.Error)
+        assertEquals(AdapterError.BufferOverflow, (parsed as AdapterResponse.Error).error)
+    }
+
+    @Test
+    fun testBufferParserStripsCommandEcho() {
+        val parsed = Elm327BufferParser.parseBuffer("010C\r41 0C 1A F8\r\r>", "010C", 50L)
+        assertTrue(parsed is AdapterResponse.Success)
+        val lines = (parsed as AdapterResponse.Success).cleanedLines
+        assertEquals(1, lines.size)
+        assertEquals("41 0C 1A F8", lines[0])
+        assertFalse("Command echo must be stripped from cleaned lines", lines.any { it == "010C" })
+    }
+
+    @Test
+    fun testBufferParserMultilineStripsPromptAndCrlf() {
+        val parsed = Elm327BufferParser.parseBuffer("41 0C 1A F8\r41 0D 55\r\r>", "010C", 50L)
+        assertTrue(parsed is AdapterResponse.Success)
+        val success = parsed as AdapterResponse.Success
+        assertEquals(2, success.cleanedLines.size)
+        assertTrue("Prompt '>' must be stripped", !success.rawResponse.contains(">"))
+        assertEquals("41 0C 1A F8", success.cleanedLines[0])
+        assertEquals("41 0D 55", success.cleanedLines[1])
+    }
 }
 
 private fun queueFullHandshake(t: MockObdTransport) {

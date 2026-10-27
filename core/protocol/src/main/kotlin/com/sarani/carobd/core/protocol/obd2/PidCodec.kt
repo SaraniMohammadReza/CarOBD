@@ -37,6 +37,16 @@ object PidCodec {
         return modeEcho == expectedModeEcho && pidEcho == expectedPid
     }
 
+    /**
+     * §10: Mode 04 (Clear DTC) response validation. A positive response echoes
+     * service id 0x44 with no DTC payload. An empty buffer or a non-0x44 echo is
+     * NOT a successful clear — never fabricate success from failed communication.
+     */
+    fun verifyClearDtcResponse(bytes: ByteArray): Boolean {
+        if (bytes.isEmpty()) return false
+        return (bytes[0].toInt() and 0xFF) == 0x44
+    }
+
     // -------------------------------------------------------------
     // MODE 01 SUPPORTED BITMASKS (00, 20, 40, 60, 80, A0, C0)
     // -------------------------------------------------------------

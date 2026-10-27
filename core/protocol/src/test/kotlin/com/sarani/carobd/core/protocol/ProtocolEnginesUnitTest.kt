@@ -237,4 +237,142 @@ class ProtocolEnginesUnitTest {
         assertEquals(5, dtc.occurrenceCount)
         assertTrue(dtc.spnDescription.contains("Engine Speed"))
     }
+
+    // ---- §11 ISO-TP Network Layer coverage (Network → Transport Layer reassembly) ----
+
+    @Test
+    fun testIsoTpFirstFrameStartsAssembly() {
+        val reassembler = IsoTpReassembler()
+        // First Frame: PCI 0x10 (FF), total length 0x0011 = 17 bytes, 6 data bytes follow.
+        val ff = byteArrayOf(0x10, 0x11, 0x49, 0x44, 0x00, 0x00, 0x00, 0x00)
+        assertNull("First Frame must not complete the message", reassembler.processFrame(ff))
+        assertFalse(reassembler.isComplete)
+        assertTrue("Assembly progress must advance past zero", reassembler.progress > 0f)
+    }
+
+    @Test
+    fun testIsoTpConsecutiveFrameCompletesReassembly() {
+        val payload = "VF32AKFWF12345678".toByteArray() // 17-byte Mode 09 VIN payload
+        val frames = IsoTpReassembler.segmentPayload(payload, 8)
+        assertTrue("Multi-frame payload must yield a First + Consecutive frames", frames.size >= 2)
+        val reassembler = IsoTpReassembler()
+        var result: ByteArray? = null
+        for (frame in frames) {
+            result = reassembler.processFrame(frame) ?: result
+        }
+        assertNotNull("Reassembly must complete on the final Consecutive Frame", result)
+        assertArrayEquals(payload, result!!)
+    }
+
+    @Test
+    fun testIsoTpSequenceRollover() {
+        // Payload large enough to require > 16 Consecutive Frames, exercising the 4-bit
+        // sequence-number rollover (1..F then 0..).
+        val payload = ByteArray(200) { (it % 251).toByte() }
+        val frames = IsoTpReassembler.segmentPayload(payload, 8)
+        assertTrue("Payload must need more than 16 Consecutive Frames for rollover", frames.size > 17)
+        val reassembler = IsoTpReassembler()
+        var result: ByteArray? = null
+        for (frame in frames) {
+            result = reassembler.processFrame(frame) ?: result
+        }
+        assertNotNull(result)
+        assertArrayEquals(payload, result!!)
+    }
+
+    @Test
+    fun testIsoTpWrongSequenceResets() {
+        val reassembler = IsoTpReassembler()
+        // First Frame declaring a 13-byte message
+        val ff = byteArrayOf(0x10, 0x0D, 0x41, 0x0C, 0x00, 0x00, 0x00, 0x00)
+        assertNull(reassembler.processFrame(ff))
+        // Consecutive Frame with WRONG sequence number (2 instead of expected 1)
+        val wrongSeq = byteArrayOf(0x22, 0x41, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
+        assertNull("Wrong sequence number must not complete assembly", reassembler.processFrame(wrongSeq))
+        // A later correctly-sequenced CF must NOT resurrect a dead assembly (state was reset)
+        val cf1 = byteArrayOf(0x21, 0x41, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
+        assertNull("Reset state must reject stray Consecutive Frame", reassembler.processFrame(cf1))
+    }
+
+    @Test
+    fun testIsoTpMalformedAndEmptyFramesAreIgnored() {
+        val reassembler = IsoTpReassembler()
+        assertNull("Empty frame must be ignored", reassembler.processFrame(ByteArray(0)))
+        // Invalid PCI type nibble (0xF) -> not a valid ISO-TP frame type
+        assertNull(
+            "Invalid PCI must be ignored",
+            reassembler.processFrame(byteArrayOf(0xF0.toByte(), 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00))
+        )
+    }
+
+    @Test
+    fun testIsoTpFlowControlFrameIsIgnoredByReceiver() {
+        val reassembler = IsoTpReassembler()
+        // First Frame declaring an 8-byte message (6 bytes initial + need CF)
+        val ff = byteArrayOf(0x10, 0x08, 0x41, 0x05, 0x00, 0x00, 0x00, 0x00)
+        assertNull(reassembler.processFrame(ff))
+        // Flow Control frame (PCI 0x30) is a sender-side directive; receiver ignores it
+        val fc = byteArrayOf(0x30, 0x00, 0x00, 0xAA.toByte(), 0xAA.toByte(), 0xAA.toByte(), 0xAA.toByte(), 0xAA.toByte())
+        assertNull(reassembler.processFrame(fc))
+        assertFalse("Flow Control must not complete receiver assembly", reassembler.isComplete)
+    }
+
+    @Test
+    fun testIsoTpLengthMismatchStaysIncomplete() {
+        val reassembler = IsoTpReassembler()
+        // First Frame declares 20 bytes; only one partial Consecutive Frame arrives
+        val ff = byteArrayOf(0x10, 0x14, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06) // total 20
+        assertNull(reassembler.processFrame(ff))
+        val partialCf = byteArrayOf(0x21, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D)
+        assertNull("Partial Consecutive Frame must not complete assembly", reassembler.processFrame(partialCf))
+        assertFalse(reassembler.isComplete)
+    }
+
+    // ---- §10 Mode coverage: parsing / validation ----
+
+    @Test
+    fun testMode09VinDecoding() {
+        val vin = "VF32AKFWF12345678"
+        val decoded = PidCodec.decodeVin(vin.toByteArray())
+        assertEquals(vin, decoded)
+    }
+
+    @Test
+    fun testMode07PendingDtcCarriesPendingCategory() {
+        // Mode 07 payload: a single DTC encoded as 0x03 0x00 (P0300) after the 0x47 echo.
+        val payload = byteArrayOf(0x03, 0x00)
+        val dtcs = DtcParser.parseMode03Payload(payload, category = DtcCategory.PENDING)
+        assertEquals(1, dtcs.size)
+        assertEquals("P0300", dtcs[0].code)
+        assertEquals(DtcCategory.PENDING, dtcs[0].category)
+    }
+
+    @Test
+    fun testClearDtcResponseValidation() {
+        // Mode 04 positive response echoes service id 0x44.
+        assertTrue(PidCodec.verifyClearDtcResponse(byteArrayOf(0x44)))
+        assertTrue(PidCodec.verifyClearDtcResponse(byteArrayOf(0x44, 0x00)))
+        assertFalse("Empty response must not validate as success", PidCodec.verifyClearDtcResponse(byteArrayOf()))
+        assertFalse("Wrong SID must not validate", PidCodec.verifyClearDtcResponse(byteArrayOf(0x41, 0x0C)))
+    }
+
+    // ---- §13 responder-identity preservation (multi-ECU honest framing) ----
+
+    @Test
+    fun testDtcParserPreservesResponderAddress() {
+        val payload = byteArrayOf(0x03, 0x00) // P0300
+        val dtcs = DtcParser.parseMode03Payload(payload, responderAddressHex = "7E9")
+        assertEquals(1, dtcs.size)
+        assertEquals("7E9", dtcs[0].responderAddressHex) // identity preserved, not hardcoded 7E8
+        assertEquals("Engine ECU", dtcs[0].ecuSource)
+    }
+
+    @Test
+    fun testDtcParserNeutralEcuNameForUnknownResponder() {
+        val payload = byteArrayOf(0x03, 0x00) // P0300
+        val dtcs = DtcParser.parseMode03Payload(payload, responderAddressHex = "720")
+        assertEquals(1, dtcs.size)
+        assertEquals("720", dtcs[0].responderAddressHex)
+        assertEquals("ECU 720", dtcs[0].ecuSource) // not a fabricated ABS/SRS/BCM name
+    }
 }

@@ -88,5 +88,30 @@ data class DiagnosticCommand(
                 expectedResponseServiceId = 0x4A,
                 timeoutMs = 4000L
             )
+
+        /** §10: command factories for diagnostic services that had no command builder. */
+        fun mode05(): DiagnosticCommand =
+            DiagnosticCommand(
+                rawCommand = "05",
+                description = "Mode 05 O2 Sensor Monitor Tests",
+                expectedResponseServiceId = 0x45,
+                timeoutMs = 4000L
+            )
+
+        fun mode06(pid: Int): DiagnosticCommand =
+            DiagnosticCommand(
+                rawCommand = String.format("06%02X", pid and 0xFF),
+                description = "Mode 06 Onboard Monitoring PID 0x%02X".format(pid),
+                expectedResponseServiceId = 0x46,
+                timeoutMs = 4000L
+            )
+
+        fun mode08(pid: Int): DiagnosticCommand =
+            DiagnosticCommand(
+                rawCommand = String.format("08%02X", pid and 0xFF),
+                description = "Mode 08 Control Operation PID 0x%02X".format(pid),
+                expectedResponseServiceId = 0x48,
+                timeoutMs = 4000L
+            )
     }
 }

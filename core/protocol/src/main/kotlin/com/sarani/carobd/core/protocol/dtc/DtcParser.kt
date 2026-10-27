@@ -17,7 +17,12 @@ object DtcParser {
     /**
      * Parses a 2-byte standard OBD-II DTC pair (e.g. 0x01, 0x33 -> "P0133").
      */
-    fun parseStandardObd2Dtc(byte1: Byte, byte2: Byte, category: DtcCategory = DtcCategory.STORED): DiagnosticCode? {
+    fun parseStandardObd2Dtc(
+        byte1: Byte,
+        byte2: Byte,
+        category: DtcCategory = DtcCategory.STORED,
+        responderAddressHex: String = "7E8"
+    ): DiagnosticCode? {
         val b1 = byte1.toInt() and 0xFF
         val b2 = byte2.toInt() and 0xFF
 
@@ -57,8 +62,8 @@ object DtcParser {
             category = category,
             likelyCausesFa = lookup?.likelyCausesFa ?: emptyList(),
             diagnosticStepsFa = lookup?.diagnosticStepsFa ?: emptyList(),
-            ecuSource = "Engine ECU",
-            responderAddressHex = "7E8",
+            ecuSource = ecuNameFromAddress(responderAddressHex),
+            responderAddressHex = responderAddressHex,
             freezeFrame = null,
             confidence = ConfidenceLevel.VERIFIED_STANDARD
         )
@@ -69,7 +74,11 @@ object DtcParser {
      * Format: [Count] [DTC1_B1] [DTC1_B2] [DTC2_B1] [DTC2_B2] ...
      * Some ECUs omit the count byte and provide DTC pairs directly.
      */
-    fun parseMode03Payload(payload: ByteArray, category: DtcCategory = DtcCategory.STORED): List<DiagnosticCode> {
+    fun parseMode03Payload(
+        payload: ByteArray,
+        category: DtcCategory = DtcCategory.STORED,
+        responderAddressHex: String = "7E8"
+    ): List<DiagnosticCode> {
         val dtcs = mutableListOf<DiagnosticCode>()
         if (payload.isEmpty()) return dtcs
 
@@ -77,7 +86,7 @@ object DtcParser {
         var offset = if (payload.size % 2 != 0) 1 else 0
 
         while (offset + 1 < payload.size) {
-            val dtc = parseStandardObd2Dtc(payload[offset], payload[offset + 1], category)
+            val dtc = parseStandardObd2Dtc(payload[offset], payload[offset + 1], category, responderAddressHex)
             if (dtc != null) {
                 dtcs.add(dtc)
             }
@@ -90,7 +99,13 @@ object DtcParser {
     /**
      * Parses ISO 14229 UDS DTC (3 bytes: High byte, Low byte, Failure Type Byte).
      */
-    fun parseUdsDtc(highByte: Byte, lowByte: Byte, failureTypeByte: Byte, statusMask: Int = 0): DiagnosticCode? {
+    fun parseUdsDtc(
+        highByte: Byte,
+        lowByte: Byte,
+        failureTypeByte: Byte,
+        statusMask: Int = 0,
+        responderAddressHex: String = "7E8"
+    ): DiagnosticCode? {
         val b1 = highByte.toInt() and 0xFF
         val b2 = lowByte.toInt() and 0xFF
         val ftb = failureTypeByte.toInt() and 0xFF
@@ -137,7 +152,7 @@ object DtcParser {
             likelyCausesFa = lookup?.likelyCausesFa ?: emptyList(),
             diagnosticStepsFa = lookup?.diagnosticStepsFa ?: emptyList(),
             ecuSource = "UDS Server",
-            responderAddressHex = "7E8",
+            responderAddressHex = responderAddressHex,
             freezeFrame = null,
             confidence = ConfidenceLevel.VERIFIED_STANDARD
         )
@@ -165,6 +180,17 @@ object DtcParser {
             0x87 -> FtbDescription("Missing message", "عدم دریافت پیام در شبکه")
             else -> FtbDescription("General failure (0x%02X)".format(ftb), "خطای عمومی (0x%02X)".format(ftb))
         }
+    }
+
+    /**
+     * §13: preserve responder identity instead of assuming a single engine ECU.
+     * Only standard OBD-II engine addresses are named; every other responder ID
+     * is kept neutral ("ECU <id>") — never ABS/SRS/BCM manufacturer claims from a
+     * generic OBD responder.
+     */
+    private fun ecuNameFromAddress(hex: String): String = when (hex.trim().uppercase()) {
+        "7E8", "7E9", "7E0", "7E1" -> "Engine ECU"
+        else -> "ECU $hex"
     }
 
     private data class FtbDescription(val en: String, val fa: String)
