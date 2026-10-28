@@ -19,7 +19,10 @@ import com.sarani.carobd.core.model.DtcCategory
 import com.sarani.carobd.core.model.EcuRejectionException
 import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.NotConnectedException
+import com.sarani.carobd.core.model.ProtocolMode
+import com.sarani.carobd.core.model.ProtocolStandard
 import com.sarani.carobd.core.model.TelemetryPollMode
+import com.sarani.carobd.core.model.protocolFromManualCode
 import com.sarani.carobd.core.model.TransportConfig
 import com.sarani.carobd.core.model.TransportType
 import com.sarani.carobd.core.model.VehicleProfile
@@ -141,6 +144,33 @@ class ObdRepositoryImpl(
         finishConnect(profile, transport)
     }
 
+    /** §18: surface the selected MANUAL protocol to the adapter via initialize()/.
+     *  AUTO and VEHICLE_PROFILE resolve to null (adapter auto-detects). An
+     *  unsupported manual code (e.g. B/C) is ProtocolConfigurationFailed — never
+     *  a silent AT SP 0 fallback. */
+    private fun resolveForcedProtocol(profile: ConnectionProfile): ProtocolStandard? {
+        return when (profile.protocolMode) {
+            ProtocolMode.MANUAL -> {
+                val code = profile.manualProtocolCode?.trim()?.uppercase()
+                if (code == null) null
+                else {
+                    val mapped = protocolFromManualCode(code)
+                    if (mapped == null) {
+                        _connectionState.value = ConnectionState.Failure(
+                            stage = "PROTOCOL",
+                            humanMessageFa = "پروتکل دستی ناشناخته",
+                            technicalMessage = "unsupported manual protocol code: $code",
+                            isRecoverable = true,
+                        )
+                        return null
+                    }
+                    mapped
+                }
+            }
+            ProtocolMode.AUTO, ProtocolMode.VEHICLE_PROFILE -> null
+        }
+    }
+
     private suspend fun finishConnect(profile: ConnectionProfile, transport: ObdTransport): Result<Unit> {
         val elm = Elm327Adapter(transport, scope)
         activeAdapter = elm
@@ -150,7 +180,12 @@ class ObdRepositoryImpl(
             elm.state.collect { _connectionState.value = it }
         }
 
-        val initResult = elm.initialize()
+        val forcedProtocol = resolveForcedProtocol(profile)
+        // A non-recoverable protocol misconfiguration: surface and abort.
+        if (profile.protocolMode == ProtocolMode.MANUAL && profile.manualProtocolCode != null && forcedProtocol == null) {
+            return Result.failure(Exception("unsupported manual protocol: ${profile.manualProtocolCode}"))
+        }
+        val initResult = elm.initialize(forcedProtocol)
         return if (initResult.isSuccess) {
             // Start Trip tracking
             currentTripComputer = TripComputer(
