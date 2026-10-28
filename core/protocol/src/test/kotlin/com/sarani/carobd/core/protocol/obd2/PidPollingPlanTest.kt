@@ -49,9 +49,60 @@ class PidPollingPlanTest {
 
     @Test
     fun discoverExtensionBitPage0160() = runTest {
-        val caps = PidPollingPlan.discover { cmd -> if (cmd == "0160") "41 60 80 00 00 00" else null }
-        // base 0x60 = 96; byte0 0x80 (bit7) -> pid 97 = 0x61
+        // §6 lazy extension: each page must advertise its boundary PID (0x20, 0x40,
+        // 0x60) for the next page to be requested. byte3 bit0 of each page carries
+        // that boundary PID.
+        val caps = PidPollingPlan.discover { cmd ->
+            when (cmd) {
+                "0100" -> "41 00 00 00 00 01"   // advertises 0x20 -> next page
+                "0120" -> "41 20 00 00 00 01"   // advertises 0x40 -> next page
+                "0140" -> "41 40 00 00 00 01"   // advertises 0x60 -> next page
+                "0160" -> "41 60 80 00 00 00"   // byte0 0x80 -> pid 0x61
+                else -> null
+            }
+        }
+        // base 0x60; byte0 0x80 (bit7) -> pid 0x61
         assertTrue(caps.isSupported("61"))
+    }
+
+    @Test
+    fun discoverProbesLazilyAndNeverRequestsUnsupportedPages() = runTest {
+        val requested = mutableListOf<String>()
+        // 0100 advertises pids 01-08 only (byte0=0xFF); 0x20 NOT supported.
+        val caps = PidPollingPlan.discover { cmd ->
+            requested.add(cmd)
+            if (cmd == "0100") "41 00 FF 00 00 00" else null
+        }
+        // Only the baseline page was asked — 0120/0140.. were NOT probed.
+        assertEquals(listOf("0100"), requested)
+        assertTrue(caps.isSupported("01"))
+        assertTrue(caps.isSupported("08"))
+        assertFalse(caps.isSupported("20"))
+        assertFalse(caps.isSupported("0C")) // not in this bitmap
+    }
+
+    @Test
+    fun discoverStopsWhenExtensionBitAbsent() = runTest {
+        val requested = mutableListOf<String>()
+        PidPollingPlan.discover { cmd ->
+            requested.add(cmd)
+            // 0100 does NOT advertise 0x20 (byte3 = 0x00).
+            if (cmd == "0100") "41 00 BE 3E B8 00" else null
+        }
+        assertEquals(listOf("0100"), requested)
+    }
+
+    @Test
+    fun discoverNoDataOr7FStopsProbing() = runTest {
+        // NO DATA (null) and 7F on the baseline page both terminate discovery —
+        // no further pages are hammered, and the map is empty (degrades to BASELINE
+        // via [supported], never pretends baseline is supported).
+        for (firstPageReply in listOf<String?>(null, "7F 00 7F 12")) {
+            val caps = PidPollingPlan.discover { cmd ->
+                if (cmd == "0100") firstPageReply else null
+            }
+            assertTrue(caps.supportedPids.isEmpty())
+        }
     }
 
     @Test

@@ -44,32 +44,46 @@ object PidPollingPlan {
     }
 
     /**
-     * Probes Mode 01 PID 00/20/40/60/80/A0/C0/E0 and builds a [PidCapabilityMap].
-     * Each page is asked via [respond]; malformed, non-positive (7F / NO DATA) or
-     * absent pages are skipped. A fully unreadable bus yields an empty map (the
-     * caller's [supported] then falls back to [BASELINE]).
+     * Probes Mode 01 PID 00/20/40/60/80/A0/C0/E0 and builds a [PidCapabilityMap],
+     * following the J1979 extension bit lazily (§6): only request page `0120` if
+     * the previous page advertised its boundary PID (`0x20`) as supported, and so
+     * on. This avoids hammering unsupported pages. Malformed, 7F/NO_DATA, absent or
+     * unreadable pages are skipped; a fully unreadable bus yields an empty map
+     * (the caller's [supported] then falls back to [BASELINE]).
      */
     suspend fun discover(
         respond: suspend (command: String) -> String?
     ): PidCapabilityMap {
-        val pages = listOf("0100", "0120", "0140", "0160", "0180", "01A0", "01C0", "01E0")
         val raw = mutableMapOf<String, List<Int>>()
-        for (p in pages) {
-            val resp = respond(p) ?: continue
+        var pageBase = "00"                       // page "0100" baseline = PIDs 01..20
+        while (pageBase.toInt(16) <= 0xE0) {
+            val pageKey = pageBase                    // "00".."E0"
+            val cmd = "01$pageKey"                    // "0100".."01E0"
+            val resp = respond(cmd) ?: break
             val bytes = PidCodec.cleanResponseHex(resp)
             // Need at least: 0x41, PID echo, 4 data bytes (6 bytes total).
-            if (bytes.size < 6) continue
-            val mode = bytes[0].toInt() and 0xFF
-            val pid = bytes[1].toInt() and 0xFF
-            val expectedPid = p.substring(2).toInt(16) // "0100" -> 0x00 ...
-            if (mode != 0x41 || pid != expectedPid) continue // 7F / NO DATA / wrong PID
-            val data = listOf(
-                bytes[2].toInt() and 0xFF,
-                bytes[3].toInt() and 0xFF,
-                bytes[4].toInt() and 0xFF,
-                bytes[5].toInt() and 0xFF,
-            )
-            raw[p.substring(2)] = data
+            if (bytes.size >= 6 &&
+                (bytes[0].toInt() and 0xFF) == 0x41 &&
+                (bytes[1].toInt() and 0xFF) == pageKey.toInt(16)
+            ) {
+                raw[pageKey] = listOf(
+                    bytes[2].toInt() and 0xFF,
+                    bytes[3].toInt() and 0xFF,
+                    bytes[4].toInt() and 0xFF,
+                    bytes[5].toInt() and 0xFF,
+                )
+            } else {
+                // 7F / NO DATA / wrong PID / malformed / too short: stop probing
+                // further pages — the ECU has no/cannot answer here.
+                break
+            }
+            // Extension bit: the next page exists only if this page's boundary
+            // PID (pageBase + 0x20) is supported.
+            val nextBoundary = (pageKey.toInt(16) + 0x20)
+            val nextPid = "%02X".format(nextBoundary)
+            val mapSoFar = PidCapabilityMap.parseFromBitmaps(raw)
+            if (!mapSoFar.isSupported(nextPid)) break
+            pageBase = nextPid
         }
         return PidCapabilityMap.parseFromBitmaps(raw)
     }

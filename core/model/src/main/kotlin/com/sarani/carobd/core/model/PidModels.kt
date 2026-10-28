@@ -46,8 +46,13 @@ class PidCapabilityMap(
     val rawBitmapResponses: Map<String, String> = emptyMap()
 ) {
     fun isSupported(pidHex: String): Boolean {
-        val normalized = pidHex.uppercase().removePrefix("01").trim()
-        return supportedPids.contains(normalized)
+        val upper = pidHex.uppercase().trim()
+        // Accept both a bare PID ("0C", "01") and a mode-prefixed query hex
+        // ("010C", "0101"). Stripping a leading mode byte only when the input is
+        // a full command (length > 2) keeps bare PID "01" queryable (it must NOT
+        // be stripped to ""), while still supporting "01"-prefixed callers.
+        val pid = if (upper.length > 2 && upper.startsWith("01")) upper.substring(2) else upper
+        return supportedPids.contains(pid)
     }
 
     companion object {
