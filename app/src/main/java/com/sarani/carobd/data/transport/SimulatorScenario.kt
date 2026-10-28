@@ -39,5 +39,5 @@ enum class SimulatorScenario(
     /** Healthy vehicle, but the ECU prompt (">") is delayed. */
     LATE_PROMPT("late_prompt", "Late Prompt", "علامت تأخیری"),
     /** Adapter reports BUFFER FULL; subsequent writes rejected until reset (§39). */
-    BUFFER_FULL("buffer_full", "Buffer Full", "بافر پر")
+    BUFFER_FULL("buffer_full", "Buffer Full", "بافر پر"),
 }
