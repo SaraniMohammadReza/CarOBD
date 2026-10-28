@@ -163,6 +163,11 @@ class ObdRepositoryImpl(
                 com.sarani.carobd.service.ConnectionForegroundService.start(context)
             } catch (_: Exception) {}
 
+            // §11: persist the profile's last-success timestamp (restart-safe selection).
+            try {
+                connectionProfiles.save(profile.copy(lastSuccessfulAt = System.currentTimeMillis()))
+            } catch (_: Exception) {}
+
             Result.success(Unit)
         } else {
             val err = initResult.errorMessage ?: "خطا در اتصال به خودرو"
