@@ -5,6 +5,7 @@ import com.sarani.carobd.core.model.ConnectionType
 import com.sarani.carobd.core.model.DiagnosticCode
 import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.VehicleProfile
+import com.sarani.carobd.core.model.ConnectionProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -14,6 +15,13 @@ interface ObdRepository {
     val liveTelemetry: StateFlow<LiveTelemetry>
 
     suspend fun connect(type: ConnectionType, target: String): Result<Unit>
+
+    /**
+     * §11 profile-driven connection: builds the transport via the transport
+     * factory from a persisted [ConnectionProfile] (never a misrouted type).
+     * Implementations MUST use [com.sarani.carobd.data.transport.TransportFactory].
+     */
+    suspend fun connect(profile: ConnectionProfile): Result<Unit>
     suspend fun disconnect()
     suspend fun setVehicleProfile(profile: VehicleProfile)
     suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>>

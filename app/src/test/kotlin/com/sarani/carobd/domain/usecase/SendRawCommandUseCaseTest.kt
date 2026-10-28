@@ -36,6 +36,7 @@ class SendRawCommandUseCaseTest {
         override val activeVehicleProfile: StateFlow<VehicleProfile?> = veh.asStateFlow()
         override val liveTelemetry: StateFlow<LiveTelemetry> = tel.asStateFlow()
         override suspend fun connect(type: ConnectionType, target: String) = Result.success(Unit)
+        override suspend fun connect(profile: com.sarani.carobd.core.model.ConnectionProfile) = Result.success(Unit)
         override suspend fun disconnect() {}
         override suspend fun setVehicleProfile(profile: VehicleProfile) {}
         override suspend fun scanDiagnosticTroubleCodes() = Result.success(emptyList<DiagnosticCode>())

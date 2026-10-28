@@ -6,9 +6,12 @@ import com.sarani.carobd.core.adapter.ObdAdapter
 import com.sarani.carobd.core.adapter.command.AdapterResponse
 import com.sarani.carobd.core.adapter.command.DtcScanValidator
 import com.sarani.carobd.core.adapter.elm327.Elm327Adapter
+import com.sarani.carobd.core.adapter.profile.ConnectionProfileRepository
+import com.sarani.carobd.core.adapter.transport.ObdTransport
 import com.sarani.carobd.core.adapter.safety.CommandSafetyClassifier
 import com.sarani.carobd.core.model.CommandSafetyVerdict
 import com.sarani.carobd.core.model.CommandSafetyViolation
+import com.sarani.carobd.core.model.ConnectionProfile
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ConnectionType
 import com.sarani.carobd.core.model.DiagnosticCode
@@ -17,6 +20,8 @@ import com.sarani.carobd.core.model.EcuRejectionException
 import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.NotConnectedException
 import com.sarani.carobd.core.model.TelemetryPollMode
+import com.sarani.carobd.core.model.TransportConfig
+import com.sarani.carobd.core.model.TransportType
 import com.sarani.carobd.core.model.VehicleProfile
 import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
 import com.sarani.carobd.core.protocol.dtc.DtcParser
@@ -26,10 +31,7 @@ import com.sarani.carobd.core.storage.AppPreferencesManager
 import com.sarani.carobd.core.telemetry.scheduler.TelemetryProducer
 import com.sarani.carobd.core.telemetry.trip.TripComputer
 import com.sarani.carobd.data.db.CarObdDatabaseHelper
-import com.sarani.carobd.data.transport.BleTransport
-import com.sarani.carobd.data.transport.BluetoothClassicTransport
-import com.sarani.carobd.data.transport.IsolatedSimulatorTransport
-import com.sarani.carobd.data.transport.WifiTcpTransport
+import com.sarani.carobd.data.transport.TransportFactory
 import com.sarani.carobd.domain.repository.ObdRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +55,7 @@ class ObdRepositoryImpl(
     private val context: Context,
     private val activeVehicleRepository: ActiveVehicleRepository,
     private val appPreferencesManager: AppPreferencesManager,
+    private val connectionProfiles: ConnectionProfileRepository,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + Job())
 ) : ObdRepository {
 
@@ -90,12 +93,35 @@ class ObdRepositoryImpl(
         }
     }
 
-    override suspend fun connect(type: ConnectionType, target: String): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun connect(type: ConnectionType, target: String): Result<Unit> =
+        connect(profileFor(type, target))
+
+    /** §11: build a [ConnectionProfile] from the legacy (type, target) pair so the
+     *  legacy path is driven by the same factory as the profile path. */
+    private fun profileFor(type: ConnectionType, target: String): ConnectionProfile = when (type) {
+        ConnectionType.VIRTUAL_SIMULATOR ->
+            ConnectionProfile(id = "sim", name = "Simulator", transport = TransportConfig.Simulator())
+        ConnectionType.BLUETOOTH_CLASSIC ->
+            ConnectionProfile(id = "bt", name = target, transport = TransportConfig.BluetoothClassic(target))
+        ConnectionType.BLUETOOTH_LE ->
+            ConnectionProfile(id = "ble", name = target, transport = TransportConfig.Ble(target))
+        ConnectionType.WIFI_TCP -> {
+            val parts = target.split(":")
+            val host = parts.getOrNull(0) ?: "192.168.0.10"
+            val port = parts.getOrNull(1)?.toIntOrNull() ?: 35000
+            ConnectionProfile(id = "wifi", name = "$host:$port", transport = TransportConfig.Wifi(host, port))
+        }
+        ConnectionType.USB_SERIAL ->
+            ConnectionProfile(id = "usb", name = "USB", transport = TransportConfig.Usb())
+    }
+
+    override suspend fun connect(profile: ConnectionProfile): Result<Unit> = withContext(Dispatchers.IO) {
         stopTelemetryLoop()
         disconnect()
 
         // §27: Bluetooth OFF must be surfaced truthfully — never allowed to look connected.
-        if (type == ConnectionType.BLUETOOTH_CLASSIC || type == ConnectionType.BLUETOOTH_LE) {
+        val tp = profile.transport.type
+        if (tp == TransportType.BLUETOOTH_CLASSIC || tp == TransportType.BLUETOOTH_LE) {
             val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
             val btAdapter = btManager?.adapter
             if (btAdapter == null || !btAdapter.isEnabled) {
@@ -109,42 +135,23 @@ class ObdRepositoryImpl(
             }
         }
 
-        val transport = when (type) {
-            ConnectionType.VIRTUAL_SIMULATOR -> {
-                IsolatedSimulatorTransport()
-            }
-            ConnectionType.BLUETOOTH_CLASSIC -> {
-                val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-                BluetoothClassicTransport(target, btManager?.adapter)
-            }
-            ConnectionType.BLUETOOTH_LE -> {
-                val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-                BleTransport(context, target, btManager?.adapter)
-            }
-            ConnectionType.WIFI_TCP -> {
-                val parts = target.split(":")
-                val host = parts.getOrNull(0) ?: "192.168.0.10"
-                val port = parts.getOrNull(1)?.toIntOrNull() ?: 35000
-                WifiTcpTransport(host, port)
-            }
-            ConnectionType.USB_SERIAL -> {
-                com.sarani.carobd.data.transport.UsbSerialTransport(context)
-            }
-        }
+        // §11/§14: transport is selected ONLY by the profile's TransportConfig (no
+        // BLE→Classic misrouting). §15: user-persisted host/port reach the socket.
+        val transport = TransportFactory.createTransport(profile.transport, context)
+        finishConnect(profile, transport)
+    }
 
+    private suspend fun finishConnect(profile: ConnectionProfile, transport: ObdTransport): Result<Unit> {
         val elm = Elm327Adapter(transport, scope)
         activeAdapter = elm
 
-        // §26: single source of truth — relay the adapter's ECU-verified StateFlow instead of
-        // synthesizing connection state. Elm327Adapter.initialize() requires a valid Mode 01
-        // PID 00 response before emitting Connected, so this can never report "connected"
-        // while the ECU is silent.
+        // §26: single source of truth — relay the adapter's ECU-verified StateFlow.
         relayerJob = scope.launch {
             elm.state.collect { _connectionState.value = it }
         }
 
         val initResult = elm.initialize()
-        if (initResult.isSuccess) {
+        return if (initResult.isSuccess) {
             // Start Trip tracking
             currentTripComputer = TripComputer(
                 tripId = UUID.randomUUID().toString(),
