@@ -2,7 +2,10 @@ package com.sarani.carobd.core.adapter.command
 
 import com.sarani.carobd.core.model.DiagnosticResult
 import com.sarani.carobd.core.model.DiagnosticService
+import com.sarani.carobd.core.model.DtcCategory
 import com.sarani.carobd.core.model.IsoTpFraming
+import com.sarani.carobd.core.protocol.dtc.DtcFrame
+import com.sarani.carobd.core.protocol.dtc.DtcParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -165,5 +168,76 @@ class WireEnvelopeGateTest {
         val env = resp.toWireEnvelopes("01 00").single()
         assertEquals(null, env.responderId)
         assertTrue(env.result is DiagnosticResult.Positive)
+    }
+
+    // ── §10 P0-C: multi-ECU DTC scanning integration ──────────────────────
+
+    @Test
+    fun multiEcuMode03_dtcCodesTaggedWithCorrectResponder() {
+        // Two ECUs respond to Mode 03: 7E8 has one DTC, 7E9 has another.
+        // 43 <count> <DTC hi> <DTC lo> <padding>  (CAN_WITH_COUNT framing)
+        // P0300 = 03 00, P0171 = 01 71
+        val resp = success(
+            "7E8 43 01 03 00 00 00",   // 7E8: P0300
+            "7E9 43 01 01 71 00 00"    // 7E9: P0171
+        )
+        val envelopes = resp.toWireEnvelopes("03")
+        assertEquals(2, envelopes.size)
+
+        val allDtc = envelopes.mapNotNull { env ->
+            val r = env.result
+            if (r is DiagnosticResult.Positive) {
+                // §7: envelope parser strips the echo byte; reconstitute it so
+                // DtcParser.parseMode03Payload() can validate the positive echo.
+                val fullPayload = byteArrayOf(r.service.positiveResponseByte.toByte()) + r.payload
+                DtcParser.parseMode03Payload(
+                    fullPayload, DtcCategory.STORED,
+                    responderAddressHex = env.responderId,
+                    frame = DtcFrame.CAN_WITH_COUNT
+                )
+            } else null
+        }.flatten()
+
+        // Two distinct codes from two distinct responders.
+        assertEquals(2, allDtc.size)
+        val byResponder = allDtc.associate { it.responderAddressHex to it.code }
+        assertEquals("P0300", byResponder["7E8"])
+        assertEquals("P0171", byResponder["7E9"])
+
+        // ecuSource should reflect the responder, not a fabricated module name.
+        val ecu7E8 = allDtc.first { it.responderAddressHex == "7E8" }
+        assertEquals("Engine ECU", ecu7E8.ecuSource)
+        val ecu7E9 = allDtc.first { it.responderAddressHex == "7E9" }
+        assertEquals("ECU 7E9", ecu7E9.ecuSource)
+    }
+
+    @Test
+    fun multiEcuMode03_positiveAndNegativeFromDifferentResponders() {
+        // Functional request: 7E8 answers positively, 7EA NACKs (7F 03 22).
+        val resp = success(
+            "7E8 43 00 00 00 00 00 00 00",   // 7E8: no DTCs
+            "7EA 7F 03 22"                   // 7EA: rejection, NRC 0x22
+        )
+        val envelopes = resp.toWireEnvelopes("03")
+        assertEquals(2, envelopes.size)
+
+        // Positive from 7E8 — parser yields no DTCs (count = 0).
+        val pos = envelopes.first { it.responderId == "7E8" }
+        assertTrue(pos.result is DiagnosticResult.Positive)
+        val fullPayload = byteArrayOf((pos.result as DiagnosticResult.Positive).service.positiveResponseByte.toByte()) +
+            (pos.result as DiagnosticResult.Positive).payload
+        val dtcs = DtcParser.parseMode03Payload(
+            fullPayload,
+            DtcCategory.STORED,
+            responderAddressHex = "7E8",
+            frame = DtcFrame.CAN_WITH_COUNT
+        )
+        assertTrue(dtcs.isEmpty())
+
+        // Negative from 7EA — must NOT be collapsed into "no codes found".
+        val neg = envelopes.first { it.responderId == "7EA" }
+        val n = neg.result as DiagnosticResult.NegativeResponse
+        assertEquals(0x22, n.nrc)
+        assertEquals(DiagnosticService.MODE_03, n.service)
     }
 }

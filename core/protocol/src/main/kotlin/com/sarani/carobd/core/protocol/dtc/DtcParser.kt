@@ -240,7 +240,8 @@ object DtcParser {
      * generic OBD responder.
      */
     private fun ecuNameFromAddress(hex: String?): String = when (hex?.trim()?.uppercase()) {
-        "7E8", "7E9", "7E0", "7E1" -> "Engine ECU"
+        "7E8", "7E0", "7E1" -> "Engine ECU"  // §8: only 7E8/7E0/7E1 are standard OBD engine addresses
+        "7E9" -> "ECU 7E9"                    // §9: 7E9 is not proven to be engine — display generic
         null -> "Unknown ECU"
         else -> "ECU $hex"
     }

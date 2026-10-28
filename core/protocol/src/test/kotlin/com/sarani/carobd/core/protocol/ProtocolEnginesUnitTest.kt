@@ -367,7 +367,7 @@ class ProtocolEnginesUnitTest {
         val dtcs = DtcParser.parseMode03Payload(payload, responderAddressHex = "7E9")
         assertEquals(1, dtcs.size)
         assertEquals("7E9", dtcs[0].responderAddressHex) // identity preserved, not hardcoded 7E8
-        assertEquals("Engine ECU", dtcs[0].ecuSource)
+        assertEquals("ECU 7E9", dtcs[0].ecuSource)       // §9: 7E9 is generic, not assumed engine
     }
 
     @Test
