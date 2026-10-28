@@ -104,4 +104,11 @@ class IsolatedSimulatorTransportTest {
         t.connect()
         assertTrue(t.collectResponse(this, "0100").contains("41 00 BE 3F B8 11"))
     }
+
+    @Test
+    fun bufferFullScenarioResponds() = runTest {
+        val t = IsolatedSimulatorTransport(SimulatorScenario.BUFFER_FULL)
+        t.connect()
+        assertTrue(t.collectResponse(this, "0100").contains("BUFFER FULL"))
+    }
 }

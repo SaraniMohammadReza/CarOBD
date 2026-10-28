@@ -44,6 +44,8 @@ import com.sarani.carobd.ui.screens.diagnostics.DiagnosticsScreen
 import com.sarani.carobd.ui.screens.diagnostics.DiagnosticsViewModel
 import com.sarani.carobd.ui.screens.maintenance.MaintenanceScreen
 import com.sarani.carobd.ui.screens.maintenance.MaintenanceViewModel
+import com.sarani.carobd.ui.screens.simulator.SimulatorSelectorScreen
+import com.sarani.carobd.ui.screens.simulator.SimulatorSelectorViewModel
 import com.sarani.carobd.ui.screens.settings.SettingsScreen
 import com.sarani.carobd.ui.screens.terminal.TerminalScreen
 import com.sarani.carobd.ui.screens.terminal.TerminalViewModel
@@ -72,6 +74,7 @@ sealed class AppDestination(val route: String, val titleRes: Int, val icon: Imag
     data object Trip : AppDestination("trip", R.string.nav_trip, Icons.Default.Navigation)
     data object EcuProfiles : AppDestination("ecu_profiles", R.string.nav_ecu_profiles, Icons.Default.DirectionsCar)
     data object Settings : AppDestination("settings", R.string.nav_settings, Icons.Default.Settings)
+    data object Simulator : AppDestination("simulator", R.string.nav_simulator, Icons.Default.Terminal)
 }
 
 class MainActivity : ComponentActivity() {
@@ -116,7 +119,8 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
         AppDestination.Maintenance,
         AppDestination.Trip,
         AppDestination.EcuProfiles,
-        AppDestination.Settings
+        AppDestination.Settings,
+        AppDestination.Simulator
     )
 
     Scaffold(
@@ -217,6 +221,10 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
                         }
                     }
                 )
+            }
+            composable(AppDestination.Simulator.route) {
+                val vm: SimulatorSelectorViewModel = koinViewModel()
+                SimulatorSelectorScreen(viewModel = vm, onBack = { navController.popBackStack() })
             }
             composable("adapter_inspector") {
                 AdapterInspectorScreen()

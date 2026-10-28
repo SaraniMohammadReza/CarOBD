@@ -100,6 +100,7 @@ class IsolatedSimulatorTransport(
             SimulatorScenario.STORED_DTC -> if (cmd == "03") "43 02 01 33 03 00" else "NO DATA"
             SimulatorScenario.PENDING_DTC -> if (cmd == "07") "47 01 01 15" else "NO DATA"
             SimulatorScenario.HEALTHY_VEHICLE, SimulatorScenario.LATE_PROMPT -> respondOod(cmd)
+            SimulatorScenario.BUFFER_FULL -> "BUFFER FULL"
         }
     }
 

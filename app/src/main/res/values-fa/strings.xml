@@ -106,4 +106,7 @@
     <string name="cd_add_widget">اضافه کردن گیج</string>
     <string name="cd_hud">آینه نمایش</string>
     <string name="cd_remove_widget">حذف</string>
+    <string name="nav_simulator">شبیه‌ساز</string>
+    <string name="action_connect">اتصال</string>
+    <string name="simulator_scenario_picker_hint">یک سناریوی تعیین‌شده انتخاب کنید. این شبیه‌ساز به‌طور صریح «شبیه‌ساز» نمایش داده می‌شود و هرگز یک ECU فیزیکی نیست.</string>
 </resources>

@@ -5,34 +5,39 @@ package com.sarani.carobd.data.transport
  * directly to the §39 error/edge-case catalogue. Selected explicitly so the
  * simulator is never mistaken for a physical ECU (§11).
  */
-enum class SimulatorScenario {
-    /** Default healthy vehicle with running engine, codes stored/clearable. */
-    HEALTHY_VEHICLE,
+enum class SimulatorScenario(
+    val id: String,
+    val labelEn: String,
+    val labelFa: String,
+) {
+    HEALTHY_VEHICLE("healthy", "Healthy Vehicle", "خودرو سالم"),
 
     /** ECU powers off / silent bus — no response frames are emitted (timeout path). */
-    ENGINE_OFF,
+    ENGINE_OFF("engine_off", "Engine Off", "موتور خاموش"),
 
     /** ECU is silent; commands elicit no response, triggering adapter timeout. */
-    TIMEOUT,
+    TIMEOUT("timeout", "Timeout (Silent)", "تایم‌آوت (بی‌صدا)"),
 
     /** ECU responds to every OBD request with NO DATA. */
-    NO_DATA,
+    NO_DATA("no_data", "NO DATA", "NO DATA"),
 
     /** Bus initialisation fails (K-line / CAN init). */
-    BUS_INIT_ERROR,
+    BUS_INIT_ERROR("bus_init_error", "BUS INIT ERROR", "خطای راه‌اندازی شبکه"),
 
     /** CAN bus error reported by the adapter. */
-    CAN_ERROR,
+    CAN_ERROR("can_error", "CAN ERROR", "خطای CAN"),
 
     /** ECU responds but rejects requests (7F negative response). */
-    NEGATIVE_RESPONSE,
+    NEGATIVE_RESPONSE("7f_rejection", "7F Rejection", "رد 7F"),
 
     /** One or more stored DTCs present. */
-    STORED_DTC,
+    STORED_DTC("stored_dtc", "Stored DTC", "کد خطای ذخیره‌شده"),
 
     /** One or more pending DTCs present. */
-    PENDING_DTC,
+    PENDING_DTC("pending_dtc", "Pending DTC", "کد خطای معلق"),
 
     /** Healthy vehicle, but the ECU prompt (">") is delayed. */
-    LATE_PROMPT,
+    LATE_PROMPT("late_prompt", "Late Prompt", "علامت تأخیری"),
+    /** Adapter reports BUFFER FULL; subsequent writes rejected until reset (§39). */
+    BUFFER_FULL("buffer_full", "Buffer Full", "بافر پر")
 }

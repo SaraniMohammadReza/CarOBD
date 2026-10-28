@@ -40,9 +40,8 @@ object TransportFactory {
             baudRate = config.baudRate ?: 38400,
         )
         is TransportConfig.Simulator -> {
-            // Scenario resolution is a §17 concern; default to HEALTHY_VEHICLE when
-            // the profile carries no scenario id.
-            IsolatedSimulatorTransport()
+            // §17: honor persisted scenarioId; null/blank → HEALTHY_VEHICLE (documented).
+            IsolatedSimulatorTransport(simulatorScenarioFromId(config.scenarioId))
         }
     }
 }

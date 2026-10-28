@@ -19,6 +19,7 @@ import com.sarani.carobd.ui.screens.dashboard.DashboardViewModel
 import com.sarani.carobd.ui.screens.diagnostics.DiagnosticsViewModel
 import com.sarani.carobd.ui.screens.maintenance.MaintenanceViewModel
 import com.sarani.carobd.ui.screens.terminal.TerminalViewModel
+import com.sarani.carobd.ui.screens.simulator.SimulatorSelectorViewModel
 import com.sarani.carobd.ui.screens.trip.TripViewModel
 import com.sarani.carobd.ui.screens.vehicles.VehicleProfileViewModel
 import org.koin.android.ext.koin.androidContext
@@ -52,6 +53,7 @@ val appModule = module {
     viewModel { DiagnosticsViewModel(get(), get()) }
     viewModel { VehicleProfileViewModel(get(), get(), get()) }
     viewModel { TerminalViewModel(get()) }
+    viewModel { SimulatorSelectorViewModel(get(), get()) }
     viewModel { MaintenanceViewModel(get(), get()) }
     viewModel { TripViewModel(get(), get(), get()) }
 }
