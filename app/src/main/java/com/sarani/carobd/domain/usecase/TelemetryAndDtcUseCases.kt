@@ -1,10 +1,12 @@
 package com.sarani.carobd.domain.usecase
 
+import com.sarani.carobd.core.adapter.safety.CommandSafetyClassifier
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.DiagnosticCode
 import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.VehicleProfile
 import com.sarani.carobd.domain.repository.ObdRepository
+import com.sarani.carobd.core.model.CommandSafetyViolation
 import kotlinx.coroutines.flow.StateFlow
 
 class ObserveTelemetryUseCase(private val repository: ObdRepository) {
@@ -26,7 +28,21 @@ class ClearDtcUseCase(private val repository: ObdRepository) {
 }
 
 class SendRawCommandUseCase(private val repository: ObdRepository) {
+    private val safety = CommandSafetyClassifier()
+
     suspend operator fun invoke(command: String): Result<String> {
+        // §4 P0: defence-in-depth. The repository is the authoritative boundary,
+        // but fail fast here so the UI never initiates a dangerous raw command.
+        if (!safety.isSafeForTerminal(command)) {
+            return Result.failure(
+                CommandSafetyViolation(
+                    verdict = safety.classify(command),
+                    rawCommand = command,
+                    reasonFa = "این دستور از ترمینال مسدود شده است. برای واضح‌سازی دستگاه از منوی Diagnostics استفاده کنید.",
+                    reasonEn = "Blocked in raw terminal; use the Diagnostics clear flow for Mode 04."
+                )
+            )
+        }
         return repository.sendRawCommand(command)
     }
 }

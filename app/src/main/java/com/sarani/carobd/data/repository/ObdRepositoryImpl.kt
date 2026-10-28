@@ -6,6 +6,9 @@ import com.sarani.carobd.core.adapter.ObdAdapter
 import com.sarani.carobd.core.adapter.command.AdapterResponse
 import com.sarani.carobd.core.adapter.command.DtcScanValidator
 import com.sarani.carobd.core.adapter.elm327.Elm327Adapter
+import com.sarani.carobd.core.adapter.safety.CommandSafetyClassifier
+import com.sarani.carobd.core.model.CommandSafetyVerdict
+import com.sarani.carobd.core.model.CommandSafetyViolation
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ConnectionType
 import com.sarani.carobd.core.model.DiagnosticCode
@@ -285,7 +288,35 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun sendRawCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
-        val adapter = activeAdapter ?: return@withContext Result.failure(Exception("Adapter not connected"))
+        val adapter = activeAdapter ?: return@withContext Result.failure(NotConnectedException("آداپتور متصل نیست"))
+        // §4 P0: the raw terminal is NOT a safety boundary — the repository is.
+        // Mode 04 (clear) must use the dedicated confirmed Diagnostics flow; write /
+        // program / security-access services (08, 27, 2E, 2F, 31, 34, 35, 36, 37) and
+        // unknown commands are refused before reaching the adapter.
+        val verdict = CommandSafetyClassifier().classify(command)
+        if (verdict != CommandSafetyVerdict.ALLOWED_READ_ONLY &&
+            verdict != CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION) {
+            return@withContext Result.failure(
+                CommandSafetyViolation(
+                    verdict = verdict,
+                    rawCommand = command,
+                    reasonFa = when (verdict) {
+                        CommandSafetyVerdict.REQUIRES_DEDICATED_CONFIRMED_FLOW ->
+                            "دستور واضح‌سازی (Mode 04) فقط از طریق صفحهٔ Diagnostics قابل انجام است"
+                        CommandSafetyVerdict.BLOCKED_UNSAFE ->
+                            "این دستور نوشتاری/برنامه‌ریزی/دسترسی امنیتی است؛ از ترمینال مسدود شده"
+                        else -> "دستور ناشناخته در ترمینال مسدود شده"
+                    },
+                    reasonEn = when (verdict) {
+                        CommandSafetyVerdict.REQUIRES_DEDICATED_CONFIRMED_FLOW ->
+                            "Clear-DTC (Mode 04) is only available via the Diagnostics clear flow"
+                        CommandSafetyVerdict.BLOCKED_UNSAFE ->
+                            "Write/program/security-access command blocked in raw terminal"
+                        else -> "Unknown command blocked in raw terminal"
+                    }
+                )
+            )
+        }
         val resp = adapter.executeCommand(command, 2500L)
         when (resp) {
             is AdapterResponse.Success -> Result.success(resp.rawResponse)
