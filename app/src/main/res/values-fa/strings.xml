@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">کار او‌بی‌دی پرو (CarOBD Pro)</string>
     <string name="nav_dashboard">داشبورد</string>
+    <string name="nav_connection_center">اتصال</string>
     <string name="nav_diagnostics">عیب‌یابی</string>
     <string name="nav_maintenance">سرویس‌ها</string>
     <string name="nav_trip">ثبت سفر</string>

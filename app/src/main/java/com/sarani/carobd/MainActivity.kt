@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -35,6 +36,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.sarani.carobd.core.storage.AppPreferencesManager
 import com.sarani.carobd.ui.screens.adapter.AdapterInspectorScreen
+import com.sarani.carobd.ui.screens.connection.ConnectionCenterScreen
+import com.sarani.carobd.ui.screens.connection.ConnectionCenterViewModel
 import com.sarani.carobd.ui.screens.dashboard.DashboardScreen
 import com.sarani.carobd.ui.screens.dashboard.DashboardViewModel
 import com.sarani.carobd.ui.screens.diagnostics.DiagnosticsScreen
@@ -63,6 +66,7 @@ import org.koin.androidx.compose.koinViewModel
 
 sealed class AppDestination(val route: String, val titleRes: Int, val icon: ImageVector) {
     data object Dashboard : AppDestination("dashboard", R.string.nav_dashboard, Icons.Default.Speed)
+    data object ConnectionCenter : AppDestination("connect", R.string.nav_connection_center, Icons.Default.Wifi)
     data object Diagnostics : AppDestination("diagnostics", R.string.nav_diagnostics, Icons.Default.Build)
     data object Maintenance : AppDestination("maintenance", R.string.nav_maintenance, Icons.Default.Engineering)
     data object Trip : AppDestination("trip", R.string.nav_trip, Icons.Default.Navigation)
@@ -107,6 +111,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
 
     val destinations = listOf(
         AppDestination.Dashboard,
+        AppDestination.ConnectionCenter,
         AppDestination.Diagnostics,
         AppDestination.Maintenance,
         AppDestination.Trip,
@@ -178,6 +183,10 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
                         }
                     }
                 )
+            }
+            composable(AppDestination.ConnectionCenter.route) {
+                val vm: ConnectionCenterViewModel = koinViewModel()
+                ConnectionCenterScreen(viewModel = vm)
             }
             composable(AppDestination.Diagnostics.route) {
                 val vm: DiagnosticsViewModel = koinViewModel()

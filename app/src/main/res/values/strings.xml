@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">CarOBD Pro</string>
     <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_connection_center">Connect</string>
     <string name="nav_diagnostics">Diagnostics</string>
     <string name="nav_maintenance">Maintenance</string>
     <string name="nav_trip">Trip Logs</string>

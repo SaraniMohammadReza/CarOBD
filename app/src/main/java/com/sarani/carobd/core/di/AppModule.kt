@@ -14,6 +14,7 @@ import com.sarani.carobd.domain.usecase.ObserveTelemetryUseCase
 import com.sarani.carobd.domain.usecase.ScanDtcUseCase
 import com.sarani.carobd.domain.usecase.SendRawCommandUseCase
 import com.sarani.carobd.domain.usecase.SetVehicleProfileUseCase
+import com.sarani.carobd.ui.screens.connection.ConnectionCenterViewModel
 import com.sarani.carobd.ui.screens.dashboard.DashboardViewModel
 import com.sarani.carobd.ui.screens.diagnostics.DiagnosticsViewModel
 import com.sarani.carobd.ui.screens.maintenance.MaintenanceViewModel
@@ -46,6 +47,7 @@ val appModule = module {
     factory { SetVehicleProfileUseCase(get()) }
 
     // ViewModels
+    viewModel { ConnectionCenterViewModel(get(), get()) }
     viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
     viewModel { DiagnosticsViewModel(get(), get()) }
     viewModel { VehicleProfileViewModel(get(), get(), get()) }

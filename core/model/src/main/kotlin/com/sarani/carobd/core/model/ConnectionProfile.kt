@@ -82,6 +82,16 @@ data class ConnectionProfile(
  */
 sealed interface TransportConfig {
     val type: TransportType
+    /** Human-readable, stable target identifier for display (address, host:port, device, scenario). */
+    val connectionTarget: String?
+        get() = when (this) {
+            is BluetoothClassic -> deviceAddress
+            is Ble -> deviceAddress ?: serviceUuid
+            is Wifi -> "$host:$port"
+            is Usb -> deviceId?.toString()
+                ?: (if (vendorId != null && productId != null) "VID $vendorId/PID $productId" else null)
+            is Simulator -> scenarioId ?: transcriptId ?: "simulator"
+        }
 
     data class BluetoothClassic(val deviceAddress: String) : TransportConfig {
         override val type = TransportType.BLUETOOTH_CLASSIC
