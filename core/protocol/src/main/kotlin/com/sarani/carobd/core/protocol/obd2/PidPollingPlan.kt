@@ -2,16 +2,20 @@ package com.sarani.carobd.core.protocol.obd2
 
 import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.PidCapabilityMap
+import com.sarani.carobd.core.model.PidSupportState
 
 /**
- * §9 / §22: canonical, capability-gated SAE J1979 Mode 01 telemetry polling plan.
+ * §9 / §22 / §6-P0-A: canonical, capability-gated SAE J1979 Mode 01 telemetry polling plan.
  *
  * The polling set is derived from the ECU's advertised supported-PID bitmap
  * (Mode 01 PID 00/20/40/60/80/A0/C0/E0). Only PIDs the ECU declares supported are
  * queried, so the live loop never repeatedly requests known-unsupported PIDs
- * (§21/§22 truthfulness). When the capability map is unavailable or unreadable,
- * [supported] degrades to the full [BASELINE] set — no regression vs.
- * pre-capability polling.
+ * (§21/§22 truthfulness).
+ *
+ * §6-P0-A truthfulness: discovery failure (timeout, NO DATA, 7F, malformed,
+ * disconnect) yields [PidSupportState.Unknown] — NOT a fallback to [BASELINE].
+ * When capability is unknown or empty, [supported] returns an empty list, so the
+ * producer does NOT poll blindly. The ECU must explicitly advertise each PID.
  *
  * Decode logic ([decodePoll]) is isolated here as a pure function so the
  * telemetry truthfulness rules are unit-tested independently of the transport.
@@ -35,48 +39,93 @@ object PidPollingPlan {
     )
 
     /**
-     * Capability-gated plan. Returns the baseline subset that the ECU supports.
-     * A null or empty map yields the full baseline (graceful fallback).
+     * Capability-gated plan. Returns the baseline subset that the ECU supports,
+     * derived from a [PidSupportState]:
+     * - [PidSupportState.NotDiscovered]: discovery not yet attempted — conservative empty set.
+     * - [PidSupportState.Unknown]: capability undetermined (timeout/NO DATA/7F/malformed) —
+     *   conservative empty set. The ECU did NOT prove baseline support.
+     * - [PidSupportState.Known]: only PIDs the ECU explicitly advertised are queried.
+     *   An empty bitmap (ECU answered but advertises nothing) also yields an empty set.
      */
-    fun supported(caps: PidCapabilityMap?): List<TelemetryPollSpec> {
-        if (caps == null || caps.supportedPids.isEmpty()) return BASELINE
-        return BASELINE.filter { caps.isSupported(it.pidHex) }
+    fun supported(state: PidSupportState): List<TelemetryPollSpec> = when (state) {
+        is PidSupportState.NotDiscovered -> emptyList()
+        is PidSupportState.Unknown -> emptyList()
+        is PidSupportState.Known -> {
+            if (state.map.supportedPids.isEmpty()) emptyList()
+            else BASELINE.filter { state.map.isSupported(it.pidHex) }
+        }
     }
 
     /**
-     * Probes Mode 01 PID 00/20/40/60/80/A0/C0/E0 and builds a [PidCapabilityMap],
+     * Probes Mode 01 PID 00/20/40/60/80/A0/C0/E0 and builds a [PidSupportState],
      * following the J1979 extension bit lazily (§6): only request page `0120` if
      * the previous page advertised its boundary PID (`0x20`) as supported, and so
-     * on. This avoids hammering unsupported pages. Malformed, 7F/NO_DATA, absent or
-     * unreadable pages are skipped; a fully unreadable bus yields an empty map
-     * (the caller's [supported] then falls back to [BASELINE]).
+     * on. This avoids hammering unsupported pages.
+     *
+     * §6-P0-A truthfulness:
+     * - 0100 times out (null) / NO DATA / disconnect → [PidSupportState.Unknown].
+     * - 0100 returns 7F (NRC rejection) → [PidSupportState.Unknown].
+     * - 0100 malformed (wrong SID, too short, PID mismatch) → [PidSupportState.Unknown].
+     * - 0100 succeeds → [PidSupportState.Known] with the parsed capability bitmap.
+     *
+     * A fully unreadable bus does NOT fall back to BASELINE. It returns Unknown,
+     * and [supported] returns an empty polling set.
      */
     suspend fun discover(
         respond: suspend (command: String) -> String?
-    ): PidCapabilityMap {
+    ): PidSupportState {
         val raw = mutableMapOf<String, List<Int>>()
         var pageBase = "00"                       // page "0100" baseline = PIDs 01..20
+        var firstPage = true
         while (pageBase.toInt(16) <= 0xE0) {
             val pageKey = pageBase                    // "00".."E0"
             val cmd = "01$pageKey"                    // "0100".."01E0"
-            val resp = respond(cmd) ?: break
+            val resp = respond(cmd)
+
+            if (resp == null) {
+                // NO DATA / timeout / disconnect on this page.
+                if (firstPage) {
+                    return PidSupportState.Unknown(
+                        "no response to $cmd (NO DATA/timeout/disconnect)"
+                    )
+                }
+                break  // later page unreadable — keep what we learned from earlier pages
+            }
+
             val bytes = PidCodec.cleanResponseHex(resp)
-            // Need at least: 0x41, PID echo, 4 data bytes (6 bytes total).
-            if (bytes.size >= 6 &&
+            val valid = bytes.size >= 6 &&
                 (bytes[0].toInt() and 0xFF) == 0x41 &&
                 (bytes[1].toInt() and 0xFF) == pageKey.toInt(16)
-            ) {
-                raw[pageKey] = listOf(
-                    bytes[2].toInt() and 0xFF,
-                    bytes[3].toInt() and 0xFF,
-                    bytes[4].toInt() and 0xFF,
-                    bytes[5].toInt() and 0xFF,
-                )
-            } else {
-                // 7F / NO DATA / wrong PID / malformed / too short: stop probing
-                // further pages — the ECU has no/cannot answer here.
-                break
+
+            when {
+                valid -> {
+                    raw[pageKey] = listOf(
+                        bytes[2].toInt() and 0xFF,
+                        bytes[3].toInt() and 0xFF,
+                        bytes[4].toInt() and 0xFF,
+                        bytes[5].toInt() and 0xFF,
+                    )
+                }
+                firstPage && bytes.isNotEmpty() &&
+                    (bytes[0].toInt() and 0xFF) == 0x7F -> {
+                    val nrc = bytes.getOrNull(2)?.toInt()?.let { it and 0xFF }
+                    return PidSupportState.Unknown(
+                        "7F negative response for $cmd (NRC=0x${nrc?.toString(16) ?: "?"})"
+                    )
+                }
+                firstPage -> {
+                    return PidSupportState.Unknown(
+                        "malformed or invalid 0100 response: ${resp.take(80)}"
+                    )
+                }
+                else -> {
+                    // Non-first page malformed/7F — stop probing further pages.
+                    break
+                }
             }
+
+            firstPage = false
+
             // Extension bit: the next page exists only if this page's boundary
             // PID (pageBase + 0x20) is supported.
             val nextBoundary = (pageKey.toInt(16) + 0x20)
@@ -85,7 +134,7 @@ object PidPollingPlan {
             if (!mapSoFar.isSupported(nextPid)) break
             pageBase = nextPid
         }
-        return PidCapabilityMap.parseFromBitmaps(raw)
+        return PidSupportState.Known(PidCapabilityMap.parseFromBitmaps(raw))
     }
 
     /**

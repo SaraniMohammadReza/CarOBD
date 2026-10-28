@@ -1,7 +1,7 @@
 package com.sarani.carobd.core.telemetry.scheduler
 
 import com.sarani.carobd.core.model.LiveTelemetry
-import com.sarani.carobd.core.model.PidCapabilityMap
+import com.sarani.carobd.core.model.PidSupportState
 import com.sarani.carobd.core.model.TelemetryPollMode
 import com.sarani.carobd.core.protocol.obd2.PidCodec
 import com.sarani.carobd.core.protocol.obd2.PidPollingPlan
@@ -72,7 +72,8 @@ class TelemetryProducer(
     private suspend fun produceLoop() {
         // §8: vehicle metadata (engine displacement / VE) is NOT carried on
         // LiveTelemetry, so fuel rate is MAF-only; never assume TU5/VE=0.80.
-        var capabilityMap: PidCapabilityMap? = null
+        // §6-P0-A: discovery failure yields Unknown, NOT a fallback to BASELINE.
+        var supportState: PidSupportState = PidSupportState.NotDiscovered
         var atsrvCycle = 0L
         while (coroutineContext.isActive && isConnected()) {
             val delayMs = pollMode.value.delayMs
@@ -81,8 +82,8 @@ class TelemetryProducer(
                 val measured = current.measuredPids.toMutableSet()
 
                 // §9/§22: discover capability once per session (lazy extension bit).
-                if (capabilityMap == null) {
-                    capabilityMap = runCatching {
+                if (supportState is PidSupportState.NotDiscovered) {
+                    supportState = runCatching {
                         PidPollingPlan.discover { cmd ->
                             executeCommand(cmd, 2000L)?.takeIf {
                                 // treat 7F/NO DATA as absent (null)
@@ -90,10 +91,10 @@ class TelemetryProducer(
                                 b.size >= 6 && (b[0].toInt() and 0xFF) == 0x41
                             }
                         }
-                    }.getOrDefault(PidCapabilityMap())
+                    }.getOrDefault(PidSupportState.Unknown("discovery exception"))
                 }
 
-                val pollPlan = PidPollingPlan.supported(capabilityMap)
+                val pollPlan = PidPollingPlan.supported(supportState)
 
                 // Periodic adapter battery voltage (ATRV), decoupled from vehicle PID
                 // pacing — §20: UI redraw may differ from vehicle polling rate.

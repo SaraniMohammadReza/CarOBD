@@ -27,13 +27,63 @@ class CommandSafetyClassifierTest {
     }
 
     @Test
-    fun allowedAdapterConfiguration() {
+    fun allowedAdapterIdentityCommands() {
+        // §11: safe identity / read-only AT commands.
         c.classify("ATI").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
         c.classify("ATRV").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
         c.classify("ATDP").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
         c.classify("ATDPN").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
         c.classify("ATE0").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
-        c.classify("AT SH 7E8").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATE1").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATH0").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATH1").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATS0").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATS1").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATL0").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATL1").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATZ").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATAT0").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("ATAT1").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("AT@1").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+        c.classify("AT@2").assertIs(CommandSafetyVerdict.ALLOWED_ADAPTER_CONFIGURATION)
+    }
+
+    @Test
+    fun blockedRoutingAndProtocolATCommands() {
+        // §11: routing / filtering / protocol commands block the terminal.
+        c.classify("ATSH 7E8").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATSH")
+        c.classify("ATSH7E8").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATSH compact")
+        c.classify("ATCRA 7E8").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATCRA")
+        c.classify("ATSP0").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATSP")
+        c.classify("ATSP 6").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATSP with arg")
+        c.classify("ATTP 6").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATTP")
+        c.classify("ATCAF1").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATCAF")
+        c.classify("ATCFC0").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATCFC")
+        c.classify("ATAF0").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATAF")
+        c.classify("ATEXST0").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATEXST")
+        c.classify("ATST50").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATST")
+        c.classify("ATCM0").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATCM")
+        c.classify("ATCS0").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATCS")
+        c.classify("ATCF0").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATCF")
+        c.classify("ATCSM0").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATCSM")
+        c.classify("ATAL").assertIs(CommandSafetyVerdict.BLOCKED_UNSAFE, "ATAL")
+        // None of these are terminal-safe.
+        assertFalse(c.isSafeForTerminal("ATSH 7E8"))
+        assertFalse(c.isSafeForTerminal("ATSP0"))
+        assertFalse(c.isSafeForTerminal("ATCAF1"))
+    }
+
+    @Test
+    fun unknownATCommandsAreBlockedByDefault() {
+        // §11: unknown AT commands must NOT be blindly allowed.
+        c.classify("ATXYZ").assertIs(CommandSafetyVerdict.UNKNOWN_BLOCKED, "ATXYZ")
+        c.classify("ATXYZ999").assertIs(CommandSafetyVerdict.UNKNOWN_BLOCKED, "ATXYZ999")
+        c.classify("ATX").assertIs(CommandSafetyVerdict.UNKNOWN_BLOCKED, "ATX")
+        c.classify("ATBRK").assertIs(CommandSafetyVerdict.UNKNOWN_BLOCKED, "ATBRK")
+        c.classify("AT0").assertIs(CommandSafetyVerdict.UNKNOWN_BLOCKED, "AT0")
+        // Just "AT" with no mnemonic → unknown.
+        c.classify("AT").assertIs(CommandSafetyVerdict.UNKNOWN_BLOCKED, "AT alone")
+        assertFalse(c.isSafeForTerminal("ATXYZ"))
     }
 
     @Test
@@ -70,6 +120,6 @@ class CommandSafetyClassifierTest {
     }
 
     private fun CommandSafetyVerdict.assertIs(expected: CommandSafetyVerdict, label: String = "") {
-        assertEquals("$label :: ", expected, this)
+        assertEquals("$label :: expected $expected but was $this", expected, this)
     }
 }

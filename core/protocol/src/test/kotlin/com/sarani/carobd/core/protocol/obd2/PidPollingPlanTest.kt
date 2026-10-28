@@ -2,6 +2,7 @@ package com.sarani.carobd.core.protocol.obd2
 
 import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.PidCapabilityMap
+import com.sarani.carobd.core.model.PidSupportState
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,11 +18,13 @@ class PidPollingPlanTest {
     private fun decode(h: String, bytesHex: String): LiveTelemetry? =
         PidPollingPlan.decodePoll(spec(h), hex(bytesHex), LiveTelemetry())
 
-    // ---- §22 discovery scenarios ----
+    // ---- §6-P0-A / §22 discovery scenarios ----
 
     @Test
     fun discoverParsesPage00AndAdvertisesCorePids() = runTest {
-        val caps = PidPollingPlan.discover { cmd -> if (cmd == "0100") "41 00 BE 3E B8 11" else null }
+        val state = PidPollingPlan.discover { cmd -> if (cmd == "0100") "41 00 BE 3E B8 11" else null }
+        assertTrue(state is PidSupportState.Known)
+        val caps = (state as PidSupportState.Known).map
         // 0x3E byte advertises pids 11-15 (incl. 0C/0D/0B); 0xB8 advertises 17/19/20/21.
         assertTrue(caps.isSupported("0C"))
         assertTrue(caps.isSupported("0D"))
@@ -35,14 +38,28 @@ class PidPollingPlanTest {
     }
 
     @Test
+    fun discover0100SuccessNoExtension() = runTest {
+        // 0100 succeeds, 0x20 NOT advertised → no 0120 probe.
+        val requested = mutableListOf<String>()
+        val state = PidPollingPlan.discover { cmd ->
+            requested.add(cmd)
+            if (cmd == "0100") "41 00 BE 3E B8 00" else null
+        }
+        assertEquals(listOf("0100"), requested)
+        assertTrue(state is PidSupportState.Known)
+    }
+
+    @Test
     fun discoverMultiPageAggregatesAcrossBitmaps() = runTest {
-        val caps = PidPollingPlan.discover { cmd ->
+        val state = PidPollingPlan.discover { cmd ->
             when (cmd) {
                 "0100" -> "41 00 BE 3E B8 11"
                 "0120" -> "41 20 80 05 B0 11" // byte0 0x80 -> pid 0x21 (33)
                 else -> null
             }
         }
+        assertTrue(state is PidSupportState.Known)
+        val caps = (state as PidSupportState.Known).map
         assertTrue(caps.isSupported("0C"))   // from page 00
         assertTrue(caps.isSupported("21"))   // from page 20
     }
@@ -52,7 +69,7 @@ class PidPollingPlanTest {
         // §6 lazy extension: each page must advertise its boundary PID (0x20, 0x40,
         // 0x60) for the next page to be requested. byte3 bit0 of each page carries
         // that boundary PID.
-        val caps = PidPollingPlan.discover { cmd ->
+        val state = PidPollingPlan.discover { cmd ->
             when (cmd) {
                 "0100" -> "41 00 00 00 00 01"   // advertises 0x20 -> next page
                 "0120" -> "41 20 00 00 00 01"   // advertises 0x40 -> next page
@@ -61,6 +78,8 @@ class PidPollingPlanTest {
                 else -> null
             }
         }
+        assertTrue(state is PidSupportState.Known)
+        val caps = (state as PidSupportState.Known).map
         // base 0x60; byte0 0x80 (bit7) -> pid 0x61
         assertTrue(caps.isSupported("61"))
     }
@@ -69,12 +88,14 @@ class PidPollingPlanTest {
     fun discoverProbesLazilyAndNeverRequestsUnsupportedPages() = runTest {
         val requested = mutableListOf<String>()
         // 0100 advertises pids 01-08 only (byte0=0xFF); 0x20 NOT supported.
-        val caps = PidPollingPlan.discover { cmd ->
+        val state = PidPollingPlan.discover { cmd ->
             requested.add(cmd)
             if (cmd == "0100") "41 00 FF 00 00 00" else null
         }
         // Only the baseline page was asked — 0120/0140.. were NOT probed.
         assertEquals(listOf("0100"), requested)
+        assertTrue(state is PidSupportState.Known)
+        val caps = (state as PidSupportState.Known).map
         assertTrue(caps.isSupported("01"))
         assertTrue(caps.isSupported("08"))
         assertFalse(caps.isSupported("20"))
@@ -92,39 +113,47 @@ class PidPollingPlanTest {
         assertEquals(listOf("0100"), requested)
     }
 
+    // ---- §6 failure scenarios: result is Unknown, NOT baseline ----
+
     @Test
-    fun discoverNoDataOr7FStopsProbing() = runTest {
-        // NO DATA (null) and 7F on the baseline page both terminate discovery —
-        // no further pages are hammered, and the map is empty (degrades to BASELINE
-        // via [supported], never pretends baseline is supported).
-        for (firstPageReply in listOf<String?>(null, "7F 00 7F 12")) {
-            val caps = PidPollingPlan.discover { cmd ->
-                if (cmd == "0100") firstPageReply else null
-            }
-            assertTrue(caps.supportedPids.isEmpty())
+    fun discoverNoDataAndTimeoutYieldUnknown() = runTest {
+        // NO DATA (null) on baseline page → Unknown, no further pages probed.
+        val requested = mutableListOf<String>()
+        val state = PidPollingPlan.discover { cmd ->
+            requested.add(cmd)
+            null  // simulates timeout / NO DATA
         }
+        assertEquals(listOf("0100"), requested)
+        assertTrue("NO DATA/timeout must yield Unknown, not Known", state is PidSupportState.Unknown)
     }
 
     @Test
-    fun discoverAllPagesAbsentYieldsEmptyMap() = runTest {
-        val caps = PidPollingPlan.discover { null }
-        assertTrue(caps.supportedPids.isEmpty())
+    fun discover7FOn0100YieldsUnknown() = runTest {
+        // 7F is an ECU rejection, not a capability denial.
+        val state = PidPollingPlan.discover { cmd ->
+            if (cmd == "0100") "7F 00 7F 12 13 14" else null
+        }
+        assertTrue("7F must yield Unknown", state is PidSupportState.Unknown)
     }
 
     @Test
-    fun discoverNegativeResponse7FYieldsEmptyMap() = runTest {
-        // 7F is an ECU rejection, not a capability denial; the page is skipped.
-        val caps = PidPollingPlan.discover { cmd -> if (cmd == "0100") "7F 00 7F 12 13 14" else null }
-        assertTrue(caps.supportedPids.isEmpty())
+    fun discoverMalformed0100YieldsUnknown() = runTest {
+        val state = PidPollingPlan.discover { cmd ->
+            if (cmd == "0100") "41 00 BE" else null  // too short (3 bytes)
+        }
+        assertTrue("malformed 0100 must yield Unknown", state is PidSupportState.Unknown)
     }
 
     @Test
-    fun discoverMalformedShortFrameIsSkipped() = runTest {
-        val caps = PidPollingPlan.discover { cmd -> if (cmd == "0100") "41 00 BE" else null }
-        assertTrue(caps.supportedPids.isEmpty())
+    fun discoverWrongSID0100YieldsUnknown() = runTest {
+        // 0xC3 is the negative echo for Mode 03, not a valid 0100 response.
+        val state = PidPollingPlan.discover { cmd ->
+            if (cmd == "0100") "C3 00 00 00 00 00" else null
+        }
+        assertTrue("wrong-SID 0100 must yield Unknown", state is PidSupportState.Unknown)
     }
 
-    // ---- §9 gating ----
+    // ---- §6-P0-A gating: capability unknown != baseline supported ----
 
     @Test
     fun supportedGatingDropsUnsupportedPids() {
@@ -132,25 +161,55 @@ class PidPollingPlanTest {
         val caps = PidCapabilityMap.parseFromBitmaps(
             mapOf("00" to listOf(0xBE, 0x3E, 0xB8, 0x11))
         )
-        val plan = PidPollingPlan.supported(caps)
+        val plan = PidPollingPlan.supported(PidSupportState.Known(caps))
         assertFalse("MAF (pid 10) not advertised -> must be gated out (§21)", plan.any { it.pidHex == "10" })
         assertTrue("RPM (pid 0C) advertised -> must remain", plan.any { it.pidHex == "0C" })
         assertEquals("all baseline PIDs except MAF", PidPollingPlan.BASELINE.size - 1, plan.size)
     }
 
     @Test
-    fun supportedFallsBackToBaselineWhenEmptyOrUnknown() {
-        assertEquals(PidPollingPlan.BASELINE, PidPollingPlan.supported(null))
-        assertEquals(PidPollingPlan.BASELINE, PidPollingPlan.supported(PidCapabilityMap()))
+    fun supportedUnknownReturnsEmptyNotBaseline() {
+        // §6-P0-A: Unknown capability must NOT fall back to BASELINE.
+        assertEquals(emptyList<TelemetryPollSpec>(), PidPollingPlan.supported(PidSupportState.Unknown("test")))
     }
 
     @Test
-    fun supportedEmptyMapFallsBackToBaseline() {
-        // An ECU that answered 0100 but advertised nothing still gets the
-        // baseline set so telemetry is never silently dropped below prior behaviour.
+    fun supportedNotDiscoveredReturnsEmpty() {
+        // §6-P0-A: discovery not yet attempted → conservative empty set.
+        assertEquals(emptyList<TelemetryPollSpec>(), PidPollingPlan.supported(PidSupportState.NotDiscovered))
+    }
+
+    @Test
+    fun supportedKnownEmptyMapReturnsEmpty() {
+        // An ECU that answered 0100 but advertised nothing (all-zero bitmap).
         val caps = PidCapabilityMap.parseFromBitmaps(mapOf("00" to listOf(0, 0, 0, 0)))
         assertTrue(caps.supportedPids.isEmpty())
-        assertEquals(PidPollingPlan.BASELINE, PidPollingPlan.supported(caps))
+        assertEquals(emptyList<TelemetryPollSpec>(), PidPollingPlan.supported(PidSupportState.Known(caps)))
+    }
+
+    @Test
+    fun supportedKnownFullMapReturnsAllBaseline() {
+        // ECU advertises ALL baseline PIDs → full BASELINE set.
+        val caps = PidCapabilityMap.parseFromBitmaps(
+            mapOf("00" to listOf(0xFF, 0xFF, 0xFF, 0xFF))
+        )
+        val plan = PidPollingPlan.supported(PidSupportState.Known(caps))
+        assertEquals(PidPollingPlan.BASELINE.toSet(), plan.toSet())
+        assertEquals(PidPollingPlan.BASELINE.size, plan.size)
+    }
+
+    @Test
+    fun noRepeatedUnsupportedRequestLoop() = runTest {
+        // §6: when capability is Unknown, the producer must NOT poll any PIDs.
+        // Simulate a session where 0100 fails: only 1 command sent, 0 polled.
+        val requested = mutableListOf<String>()
+        val state = PidPollingPlan.discover { cmd ->
+            requested.add(cmd)
+            null  // 0100 fails → Unknown
+        }
+        assertEquals(listOf("0100"), requested)
+        val plan = PidPollingPlan.supported(state)
+        assertTrue("Unknown capability → no polling commands", plan.isEmpty())
     }
 
     // ---- decodePoll round-trips & truthfulness (no 0 from unknown) ----

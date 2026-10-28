@@ -14,7 +14,7 @@ data class TelemetrySample(
     val value: Float,
     val unit: String,
     val rawHex: String,
-    val sourceEcu: String = "7E8",
+    val sourceEcu: String? = null,
     val quality: SignalQuality = SignalQuality.GOOD
 )
 

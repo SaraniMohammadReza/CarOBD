@@ -40,7 +40,7 @@ object DtcParser {
         byte1: Byte,
         byte2: Byte,
         category: DtcCategory = DtcCategory.STORED,
-        responderAddressHex: String = "7E8"
+        responderAddressHex: String? = null
     ): DiagnosticCode? {
         val b1 = byte1.toInt() and 0xFF
         val b2 = byte2.toInt() and 0xFF
@@ -114,7 +114,7 @@ object DtcParser {
     fun parseMode03Payload(
         payload: ByteArray,
         category: DtcCategory = DtcCategory.STORED,
-        responderAddressHex: String = "7E8",
+        responderAddressHex: String? = null,
         frame: DtcFrame = DtcFrame.CAN_WITH_COUNT
     ): List<DiagnosticCode> {
         val dtcs = mutableListOf<DiagnosticCode>()
@@ -155,7 +155,7 @@ object DtcParser {
         lowByte: Byte,
         failureTypeByte: Byte,
         statusMask: Int = 0,
-        responderAddressHex: String = "7E8"
+        responderAddressHex: String? = null
     ): DiagnosticCode? {
         val b1 = highByte.toInt() and 0xFF
         val b2 = lowByte.toInt() and 0xFF
@@ -239,8 +239,9 @@ object DtcParser {
      * is kept neutral ("ECU <id>") — never ABS/SRS/BCM manufacturer claims from a
      * generic OBD responder.
      */
-    private fun ecuNameFromAddress(hex: String): String = when (hex.trim().uppercase()) {
+    private fun ecuNameFromAddress(hex: String?): String = when (hex?.trim()?.uppercase()) {
         "7E8", "7E9", "7E0", "7E1" -> "Engine ECU"
+        null -> "Unknown ECU"
         else -> "ECU $hex"
     }
 

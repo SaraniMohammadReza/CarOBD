@@ -38,8 +38,8 @@ data class DiagnosticCode(
     val category: DtcCategory = DtcCategory.STORED,
     val likelyCausesFa: List<String> = emptyList(),
     val diagnosticStepsFa: List<String> = emptyList(),
-    val ecuSource: String = "Engine ECU",
-    val responderAddressHex: String = "7E8",
+    val ecuSource: String = "Unknown ECU",
+    val responderAddressHex: String? = null,
     val freezeFrame: FreezeFrameData? = null,
     val confidence: ConfidenceLevel = ConfidenceLevel.VERIFIED_STANDARD
 )
