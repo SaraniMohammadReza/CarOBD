@@ -15,15 +15,15 @@ import com.sarani.carobd.core.model.DiagnosticCode
 import com.sarani.carobd.core.model.DtcCategory
 import com.sarani.carobd.core.model.EcuRejectionException
 import com.sarani.carobd.core.model.LiveTelemetry
-import com.sarani.carobd.core.model.PidCapabilityMap
 import com.sarani.carobd.core.model.NotConnectedException
+import com.sarani.carobd.core.model.TelemetryPollMode
 import com.sarani.carobd.core.model.VehicleProfile
 import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
 import com.sarani.carobd.core.protocol.dtc.DtcParser
 import com.sarani.carobd.core.protocol.dtc.DtcFrame
 import com.sarani.carobd.core.protocol.obd2.PidCodec
-import com.sarani.carobd.core.protocol.obd2.PidPollingPlan
-import com.sarani.carobd.core.telemetry.fuel.FuelEconomyCalculator
+import com.sarani.carobd.core.storage.AppPreferencesManager
+import com.sarani.carobd.core.telemetry.scheduler.TelemetryProducer
 import com.sarani.carobd.core.telemetry.trip.TripComputer
 import com.sarani.carobd.data.db.CarObdDatabaseHelper
 import com.sarani.carobd.data.transport.BleTransport
@@ -34,15 +34,12 @@ import com.sarani.carobd.domain.repository.ObdRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -55,6 +52,7 @@ import java.util.UUID
 class ObdRepositoryImpl(
     private val context: Context,
     private val activeVehicleRepository: ActiveVehicleRepository,
+    private val appPreferencesManager: AppPreferencesManager,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + Job())
 ) : ObdRepository {
 
@@ -74,7 +72,13 @@ class ObdRepositoryImpl(
     private val _liveTelemetry = MutableStateFlow(LiveTelemetry())
     override val liveTelemetry: StateFlow<LiveTelemetry> = _liveTelemetry.asStateFlow()
 
-    private var pollingJob: Job? = null
+    /** §7: persisted polling cadence, observed by the producer each cycle. */
+    private val pollModeState: StateFlow<TelemetryPollMode> =
+        appPreferencesManager.telemetryPollMode
+            .stateIn(scope, SharingStarted.WhileSubscribed(5_000), TelemetryPollMode.NORMAL)
+
+    // §5: exactly ONE producer per session. The cold flow + internal collector is gone.
+    private var telemetryProducer: TelemetryProducer? = null
     private var relayerJob: Job? = null
 
     init {
@@ -325,107 +329,36 @@ class ObdRepositoryImpl(
     }
 
     override fun startTelemetryLoop(): Flow<LiveTelemetry> {
-        pollingJob?.cancel()
+        // §5: exactly ONE producer per active connection. startIn cancels any prior
+        // producer (reconnect), so reconnect never leaves an orphan loop, and the
+        // legacy cold-flow + internal-collector double-subscription hazard is gone.
+        val adapter = activeAdapter
+        if (adapter == null) return _liveTelemetry
 
-        val flowStream = flow {
-            var current = _liveTelemetry.value
-            // §8 TRUTHFULNESS: vehicle metadata (engine displacement, volumetric
-            // efficiency) is NOT carried on LiveTelemetry / VehicleProfile, so we
-            // do NOT fabricate a TU5/1.6/1.587L default or assume VE=0.80. Fuel
-            // economy is computed ONLY from a measured MAF reading (PID 10); when
-            // MAF is absent the rate is unavailable and the banner renders "—".
-            var cycleCount = 0
-            // §9 / §22: probe the ECU's supported-PID bitmap once per session
-            // (Mode 01 PID 00/20/40/60/80/A0/C0/E0). Discovery failure degrades to
-            // the full baseline plan, so an unreadable bus never reduces coverage.
-            var capabilityMap: PidCapabilityMap? = null
-            while (currentCoroutineContext().isActive && _connectionState.value is ConnectionState.Connected) {
-                val adapter = activeAdapter ?: break
-
-                try {
-                    val measured = current.measuredPids.toMutableSet()
-
-                    if (capabilityMap == null) {
-                        capabilityMap = runCatching {
-                            PidPollingPlan.discover { cmd ->
-                                val r = adapter.executeCommand(cmd, 2000L)
-                                if (r is AdapterResponse.Success) r.rawResponse else null
-                            }
-                        }.getOrNull()
-                    }
-                    val pollPlan = PidPollingPlan.supported(capabilityMap)
-
-                    // Periodic battery voltage reading (every 15 cycles ~ 2-3 sec)
-                    if (cycleCount % 15 == 0) {
-                        val voltResp = adapter.executeCommand("ATRV", 500L)
-                        if (voltResp is AdapterResponse.Success) {
-                            val vStr = voltResp.rawResponse.replace("V", "", ignoreCase = true).trim()
-                            val v = vStr.toFloatOrNull()
-                            if (v != null && v > 0f) {
-                                measured.add("ATRV")
-                                current = current.copy(batteryVoltage = v)
-                            }
-                        }
-                    }
-                    cycleCount++
-
-                    // §9 / §22 capability-gated polling: only PIDs the ECU advertised
-                    // as supported are queried; unsupported PIDs are never repeatedly
-                    // requested (§21). Unknown/empty map degrades to full baseline.
-                    for (spec in pollPlan) {
-                        val resp = adapter.executeCommand(spec.command, 600L)
-                        if (resp is AdapterResponse.Success) {
-                            val bytes = PidCodec.cleanResponseHex(resp.rawResponse)
-                            PidPollingPlan.decodePoll(spec, bytes, current)?.let {
-                                measured.add(spec.pidHex)
-                                current = it
-                            }
-                        }
-                    }
-
-                    // 7. §8 TRUTHFULNESS: fuel rate ONLY from measured inputs.
-                    //     Previously fabricated displacement (TU5 fallback) + VE(0.80)
-                    //     + IAT(0, never queried) -> fake L/h fed to TripComputer.
-                    val fuelRateLitersPerHour = FuelEconomyCalculator.fuelRateIfMeasurable(
-                        mafGramsPerSec = if ("10" in measured) current.mafGramsPerSec.toDouble() else null,
-                        rpm = if ("0C" in measured && current.rpm > 0) current.rpm.toDouble() else null,
-                        mapKpa = if ("0B" in measured && current.intakeManifoldPressureKpa > 0) current.intakeManifoldPressureKpa.toDouble() else null,
-                        iatCelsius = if ("0F" in measured) current.intakeAirTempCelsius.toDouble() else null,
-                        displacementLiters = null, // §8: not on VehicleProfile -> never assume TU5/1.6
-                        volumetricEfficiency = null // §8: unknown -> never assume 0.80
-                    )
-
-                    // Feed Trip Computer — 0.0 when unmeasured (NO fabricated fuel).
-                    currentTripComputer?.processSample(
-                        speedKmh = current.speedKmh,
-                        rpm = current.rpm,
-                        fuelRateLitersPerHour = fuelRateLitersPerHour ?: 0.0,
-                        timestampMs = System.currentTimeMillis()
-                    )
-
-                    current = current.copy(
-                        measuredPids = measured,
-                        timestamp = System.currentTimeMillis()
-                    )
-                    _liveTelemetry.value = current
-                    emit(current)
-
-                    delay(60) // Smooth refresh rate
-                } catch (_: Exception) {
-                    delay(300)
-                }
-            }
-        }
-
-        pollingJob = scope.launch {
-            flowStream.collect { /* collect for live state */ }
-        }
-
-        return flowStream
+        val producer = TelemetryProducer(
+            pollMode = pollModeState,
+            executeCommand = { cmd, ms ->
+                val r = adapter.executeCommand(cmd, ms)
+                if (r is AdapterResponse.Success) r.rawResponse else null
+            },
+            isConnected = {
+                _connectionState.value is ConnectionState.Connected && activeAdapter == adapter
+            },
+            tripComputer = currentTripComputer,
+            onTelemetry = { updated -> _liveTelemetry.value = updated }
+        )
+        telemetryProducer = producer
+        producer.startIn(scope)
+        // Return the producer's hot StateFlow. Consumers observe; they never start
+        // their own loop. _liveTelemetry stays in lockstep via onTelemetry, so
+        // existing StateFlow observers see no behaviour change.
+        return producer.liveTelemetry
     }
 
     override fun stopTelemetryLoop() {
-        pollingJob?.cancel()
-        pollingJob = null
+        // §8 P0 / §9: cancel the single producer and drop the reference so a
+        // reconnect builds a clean session (no stale job/buffers/inherited values).
+        telemetryProducer?.stop()
+        telemetryProducer = null
     }
 }

@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.sarani.carobd.core.model.DashboardWidgetConfig
+import com.sarani.carobd.core.model.TelemetryPollMode
 import com.sarani.carobd.core.model.WidgetSize
 import com.sarani.carobd.core.model.WidgetType
 import kotlinx.coroutines.flow.Flow
@@ -65,6 +66,7 @@ class AppPreferencesManager(private val context: Context) {
         private val KEY_IS_MOTORCYCLE = booleanPreferencesKey("is_motorcycle")
         private val KEY_ACTIVE_VEHICLE_ID = stringPreferencesKey("active_vehicle_id")
         private val KEY_SERVICE_LAST_CHANGED = stringSetPreferencesKey("service_last_changed")
+        private val KEY_TELEMETRY_POLL_MODE = stringPreferencesKey("telemetry_poll_mode")
     }
 
     val isOnboardingDone: Flow<Boolean> = context.dataStore.data.map { prefs ->
@@ -105,6 +107,16 @@ class AppPreferencesManager(private val context: Context) {
         id?.takeIf { it.isNotBlank() }
     }
 
+    /**
+     * §7: persisted telemetry polling cadence (ECO/NORMAL/FAST). The producer
+     * scheduler reads this each cycle; the placebo "refresh rate" UI is gone.
+     * Unknown/corrupt stored values degrade safely to [TelemetryPollMode.NORMAL]
+     * via [TelemetryPollMode.fromStored] (never crashes, never spams).
+     */
+    val telemetryPollMode: Flow<TelemetryPollMode> = context.dataStore.data.map { prefs ->
+        TelemetryPollMode.fromStored(prefs[KEY_TELEMETRY_POLL_MODE])
+    }
+
     suspend fun setOnboardingDone(done: Boolean) {
         context.dataStore.edit { it[KEY_ONBOARDING_DONE] = done }
     }
@@ -119,6 +131,11 @@ class AppPreferencesManager(private val context: Context) {
 
     suspend fun setLanguage(language: AppLanguage) {
         context.dataStore.edit { it[KEY_LANGUAGE] = language.name }
+    }
+
+    /** §7: persist the selected telemetry polling cadence. */
+    suspend fun setTelemetryPollMode(mode: TelemetryPollMode) {
+        context.dataStore.edit { it[KEY_TELEMETRY_POLL_MODE] = mode.name }
     }
 
     suspend fun saveVehicleSetup(setup: UserVehicleSetup) {

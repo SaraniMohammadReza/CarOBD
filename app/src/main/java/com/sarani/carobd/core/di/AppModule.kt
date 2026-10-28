@@ -27,7 +27,7 @@ import org.koin.dsl.module
 val appModule = module {
     // Repositories, Loggers, Scanners & Storage
     single { val p = get<com.sarani.carobd.core.storage.AppPreferencesManager>(); ActiveVehicleRepository(p.activeVehicleId, { p.setActiveVehicleId(it) }, { p.clearActiveVehicleId() }) }
-    single<ObdRepository> { ObdRepositoryImpl(androidContext(), get()) }
+    single<ObdRepository> { ObdRepositoryImpl(androidContext(), get(), get()) }
     single { CarObdDatabaseHelper(androidContext()) }
     single { BluetoothDeviceScanner(androidContext()) }
     single { TripLogger() }
