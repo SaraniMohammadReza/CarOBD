@@ -3,7 +3,7 @@ package com.sarani.carobd.data.transport
 import com.sarani.carobd.core.adapter.transport.ObdTransport
 import com.sarani.carobd.core.model.FeatureMaturity
 import com.sarani.carobd.core.model.TransportType
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -19,7 +19,9 @@ import kotlin.math.sin
  * [SimulatorScenario.HEALTHY_VEHICLE] preserves the original behaviour.
  */
 class IsolatedSimulatorTransport(
-    val scenario: SimulatorScenario = SimulatorScenario.HEALTHY_VEHICLE
+    val scenario: SimulatorScenario = SimulatorScenario.HEALTHY_VEHICLE,
+    parentScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+    private val latePromptDelayMs: Long = 750L,
 ) : ObdTransport {
 
     val maturity: FeatureMaturity = FeatureMaturity.SIMULATOR_ONLY
@@ -34,32 +36,35 @@ class IsolatedSimulatorTransport(
     private val _incomingBytes = MutableSharedFlow<ByteArray>(extraBufferCapacity = 64)
     override val incomingBytes: Flow<ByteArray> = _incomingBytes.asSharedFlow()
 
+    private val owner = SupervisorJob(parentScope.coroutineContext[Job])
+    private val scope = CoroutineScope(parentScope.coroutineContext + owner)
     private var simulationStep = 0.0
     private var isDtcsCleared = false
 
     override suspend fun connect() {
+        check(owner.isActive) { "Simulator retired; create a new session" }
         _isConnected = true
         isDtcsCleared = false
     }
 
     override suspend fun disconnect() {
         _isConnected = false
+        owner.cancelAndJoin()
     }
 
     override suspend fun write(data: ByteArray) {
         if (!_isConnected) return
 
-        // Scenarios that model "no ECU response" (timeout / engine off) emit
-        // nothing on the wire; the adapter's own timeout governs the outcome.
-        if (scenario == SimulatorScenario.TIMEOUT || scenario == SimulatorScenario.ENGINE_OFF) return
-
         val cmd = String(data, Charsets.US_ASCII).trim().uppercase()
+        if (!cmd.startsWith("AT") && (scenario == SimulatorScenario.TIMEOUT || scenario == SimulatorScenario.ENGINE_OFF)) return
+        if (scenario == SimulatorScenario.DISCONNECT && cmd == "010C") { _isConnected = false; return }
         val response = processCommand(cmd)
-        if (scenario == SimulatorScenario.LATE_PROMPT) delay(500)
-        val fullOutput = "$response\r\r>"
-        // tryEmit (non-suspending) so producers here are not blocked waiting for a
-        // collector to be actively running; buffered frames reach any collector.
-        _incomingBytes.tryEmit(fullOutput.toByteArray(Charsets.US_ASCII))
+        val bytes = "$response\r\r>".toByteArray(Charsets.US_ASCII)
+        if (scenario == SimulatorScenario.LATE_PROMPT && cmd == "010C") {
+            // write returns now. The adapter's receive deadline runs before this
+            // independently owned response/prompt arrives.
+            scope.launch { delay(latePromptDelayMs); if (_isConnected) _incomingBytes.emit(bytes) }
+        } else _incomingBytes.emit(bytes)
     }
 
     private fun processCommand(cmd: String): String {
@@ -95,11 +100,12 @@ class IsolatedSimulatorTransport(
             SimulatorScenario.NO_DATA -> "NO DATA"
             SimulatorScenario.BUS_INIT_ERROR -> "BUS INIT: ERROR"
             SimulatorScenario.CAN_ERROR -> "CAN ERROR"
-            SimulatorScenario.NEGATIVE_RESPONSE -> "7F 01 12" // ECU responded and rejected (mode 01, NRC 0x12)
+            SimulatorScenario.NEGATIVE_RESPONSE -> "7F ${cmd.take(2)} 12" // ECU responded and rejected (mode 01, NRC 0x12)
             SimulatorScenario.TIMEOUT, SimulatorScenario.ENGINE_OFF -> "" // no wire response; see write()
-            SimulatorScenario.STORED_DTC -> if (cmd == "03") "43 02 01 33 03 00" else "NO DATA"
-            SimulatorScenario.PENDING_DTC -> if (cmd == "07") "47 01 01 15" else "NO DATA"
-            SimulatorScenario.HEALTHY_VEHICLE, SimulatorScenario.LATE_PROMPT -> respondOod(cmd)
+            SimulatorScenario.MALFORMED -> if (cmd == "03") "43 FFFFFFFF" else respondOod(cmd)
+            SimulatorScenario.MULTI_ECU -> if (cmd == "03") "7E8 43 01 01 33\r7E9 43 01 01 33\r7EA 7F 03 12" else respondOod(cmd)
+            SimulatorScenario.STORED_DTC, SimulatorScenario.PENDING_DTC, SimulatorScenario.PERMANENT_DTC,
+            SimulatorScenario.DISCONNECT, SimulatorScenario.HEALTHY_VEHICLE, SimulatorScenario.LATE_PROMPT -> respondOod(cmd)
             SimulatorScenario.BUFFER_FULL -> "BUFFER FULL"
         }
     }
@@ -116,7 +122,7 @@ class IsolatedSimulatorTransport(
         cmd == "0140" -> "41 40 7A D0 80 00"
 
         // Mode 01 PID 01 (Monitor status)
-        cmd == "0101" -> if (!isDtcsCleared) "41 01 82 07 65 00" else "41 01 00 07 65 00"
+        cmd == "0101" -> if (scenario == SimulatorScenario.STORED_DTC && !isDtcsCleared) "41 01 82 07 65 00" else "41 01 00 07 65 00"
 
         // Mode 01 PID 0C (RPM: 800 - 3200 with sine oscillation)
         cmd == "010C" -> {
@@ -192,25 +198,9 @@ class IsolatedSimulatorTransport(
             String.format("41 0E %02X", raw)
         }
 
-        // Mode 03 (Request Stored DTCs)
-        cmd == "03" -> {
-            if (isDtcsCleared) {
-                "43 00" // No codes
-            } else {
-                // 2 codes: P0133 (0x01, 0x33) and P0300 (0x03, 0x00)
-                "43 02 01 33 03 00"
-            }
-        }
-
-        // Mode 07 (Request Pending DTCs)
-        cmd == "07" -> {
-            if (isDtcsCleared) {
-                "47 00"
-            } else {
-                // P0115 (0x01, 0x15)
-                "47 01 01 15"
-            }
-        }
+        cmd == "03" -> if (scenario == SimulatorScenario.STORED_DTC && !isDtcsCleared) "43 02 01 33 03 00" else "43 00"
+        cmd == "07" -> if (scenario == SimulatorScenario.PENDING_DTC && !isDtcsCleared) "47 01 01 15" else "47 00"
+        cmd == "0A" -> if (scenario == SimulatorScenario.PERMANENT_DTC) "4A 01 01 33" else "4A 00"
 
         // Mode 04 (Clear DTCs)
         cmd == "04" -> {

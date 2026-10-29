@@ -1,12 +1,8 @@
 package com.sarani.carobd.data.transport
 
-/**
- * §17: resolve a persisted scenario id to [SimulatorScenario].
- *
- * Null/blank/unknown → [SimulatorScenario.HEALTHY_VEHICLE] (documented default),
- * so a missing/invalid scenario never silently becomes a physical ECU and never
- * silently re-routes to a non-simulator transport (§14).
- */
-fun simulatorScenarioFromId(id: String?): SimulatorScenario =
-    id?.trim()?.lowercase()?.let { SimulatorScenario.values().find { s -> s.id == it } }
-        ?: SimulatorScenario.HEALTHY_VEHICLE
+/** Missing legacy scenario uses the explicit simulator default; unknown IDs fail. */
+fun simulatorScenarioFromId(id: String?): SimulatorScenario {
+    if (id.isNullOrBlank()) return SimulatorScenario.HEALTHY_VEHICLE
+    return SimulatorScenario.entries.find { it.id == id.trim().lowercase() }
+        ?: throw IllegalArgumentException("Unknown simulator scenario: $id")
+}

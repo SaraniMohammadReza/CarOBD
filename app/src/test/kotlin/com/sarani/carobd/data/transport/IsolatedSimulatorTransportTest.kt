@@ -3,6 +3,8 @@ package com.sarani.carobd.data.transport
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -111,4 +113,64 @@ class IsolatedSimulatorTransportTest {
         t.connect()
         assertTrue(t.collectResponse(this, "0100").contains("BUFFER FULL"))
     }
+    @Test fun healthyContainsNoHiddenDiagnosticCodes() = runTest {
+        val t = IsolatedSimulatorTransport(parentScope = backgroundScope)
+        val a = com.sarani.carobd.core.adapter.elm327.Elm327Adapter(t, backgroundScope)
+        assertTrue(a.initialize().isSuccess)
+        val scan = com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(a).scan()
+        assertEquals(com.sarani.carobd.core.model.ScanCompleteness.COMPLETE, scan.completeness)
+        assertTrue(scan.codes.isEmpty())
+        a.disconnect()
+    }
+    @Test fun dtcScenariosConnectAndPreserveTheirCategory() = runTest {
+        val scenarios = listOf(SimulatorScenario.STORED_DTC to com.sarani.carobd.core.model.DtcCategory.STORED,
+            SimulatorScenario.PENDING_DTC to com.sarani.carobd.core.model.DtcCategory.PENDING,
+            SimulatorScenario.PERMANENT_DTC to com.sarani.carobd.core.model.DtcCategory.PERMANENT)
+        for ((scenario, category) in scenarios) {
+            val t = IsolatedSimulatorTransport(scenario, backgroundScope)
+            val a = com.sarani.carobd.core.adapter.elm327.Elm327Adapter(t, backgroundScope)
+            assertTrue(scenario.id, a.initialize().isSuccess)
+            val scan = com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(a).scan()
+            assertEquals(com.sarani.carobd.core.model.ScanCompleteness.COMPLETE, scan.completeness)
+            assertTrue(scan.codes.isNotEmpty()); assertTrue(scan.codes.all { it.category == category })
+            a.disconnect()
+        }
+    }
+    @Test fun latePromptWriteReturnsBeforeIndependentlyScheduledResponse() = runTest {
+        val t = IsolatedSimulatorTransport(SimulatorScenario.LATE_PROMPT, backgroundScope, 150)
+        t.connect()
+        val frames = mutableListOf<String>()
+        val reader = backgroundScope.launch { t.incomingBytes.collect { frames.add(it.toString(Charsets.US_ASCII)) } }
+        runCurrent()
+        val before = testScheduler.currentTime
+        t.write("010C".toByteArray())
+        assertEquals(before, testScheduler.currentTime)
+        assertTrue(frames.isEmpty())
+        advanceTimeBy(149); runCurrent()
+        assertTrue(frames.isEmpty())
+        advanceTimeBy(1); runCurrent()
+        assertTrue(frames.single().contains("41 0C"))
+        reader.cancel(); t.disconnect()
+    }
+    @Test fun productionAdapterQuarantinesSimulatorLatePrompt() = runTest {
+        val t = IsolatedSimulatorTransport(SimulatorScenario.LATE_PROMPT, backgroundScope, 150)
+        t.connect()
+        val a = com.sarani.carobd.core.adapter.elm327.Elm327Adapter(t, backgroundScope)
+        assertTrue(a.executeCommand("010C", 100) is com.sarani.carobd.core.adapter.command.AdapterResponse.Error)
+        val next = a.executeCommand("010D") as com.sarani.carobd.core.adapter.command.AdapterResponse.Success
+        assertTrue(next.rawResponse.startsWith("41 0D")); assertTrue(!next.rawResponse.contains("41 0C"))
+        a.disconnect()
+    }
+    @Test fun multiEcuAndMalformedScenariosRetainFailureEvidence() = runTest {
+        for (scenario in listOf(SimulatorScenario.MULTI_ECU, SimulatorScenario.MALFORMED)) {
+            val t = IsolatedSimulatorTransport(scenario, backgroundScope)
+            val a = com.sarani.carobd.core.adapter.elm327.Elm327Adapter(t, backgroundScope)
+            assertTrue(a.initialize().isSuccess)
+            val scan = com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(a).scan()
+            assertEquals(com.sarani.carobd.core.model.ScanCompleteness.PARTIAL, scan.completeness)
+            if (scenario == SimulatorScenario.MULTI_ECU) assertEquals(setOf("7E8", "7E9"), scan.codes.map { it.responderAddressHex }.toSet())
+            a.disconnect()
+        }
+    }
+
 }

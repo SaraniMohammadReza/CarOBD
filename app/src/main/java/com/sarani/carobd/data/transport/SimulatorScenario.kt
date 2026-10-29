@@ -36,6 +36,11 @@ enum class SimulatorScenario(
     /** One or more pending DTCs present. */
     PENDING_DTC("pending_dtc", "Pending DTC", "کد خطای معلق"),
 
+    PERMANENT_DTC("permanent_dtc", "Permanent DTC", "کد خطای دائمی"),
+    MALFORMED("malformed", "Malformed DTC response", "پاسخ نامعتبر خطا"),
+    DISCONNECT("disconnect", "Disconnect during RPM read", "قطع ارتباط هنگام خواندن"),
+    MULTI_ECU("multi_ecu", "Multi ECU with negative responder", "چند ECU با پاسخ منفی"),
+
     /** Healthy vehicle, but the ECU prompt (">") is delayed. */
     LATE_PROMPT("late_prompt", "Late Prompt", "علامت تأخیری"),
     /** Adapter reports BUFFER FULL; subsequent writes rejected until reset (§39). */

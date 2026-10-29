@@ -19,7 +19,7 @@ class SimulatorScenarioTest {
         assertEquals(SimulatorScenario.HEALTHY_VEHICLE, simulatorScenarioFromId(null))
         assertEquals(SimulatorScenario.HEALTHY_VEHICLE, simulatorScenarioFromId(""))
         assertEquals(SimulatorScenario.HEALTHY_VEHICLE, simulatorScenarioFromId("   "))
-        assertEquals(SimulatorScenario.HEALTHY_VEHICLE, simulatorScenarioFromId("unknown"))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { simulatorScenarioFromId("unknown") }
     }
 
     @Test
