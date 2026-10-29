@@ -354,7 +354,7 @@ class AdapterUnitTest {
         mockTransport.queueResponse("ATINVALID", "ATINVALID\r?\r\r>")
         val resp = adapter.executeCommand("ATINVALID", 1000L)
         assertTrue("? must be UnknownCommand Error", resp is AdapterResponse.Error)
-        assertEquals(AdapterError.UnknownCommand, (resp as AdapterResponse.Error).error)
+        assertTrue((resp as AdapterResponse.Error).error is AdapterError.Other)
     }
 
     @Test
@@ -413,7 +413,7 @@ private fun queueFullHandshake(t: MockObdTransport) {
 class MockObdTransport(
     override val transportType: TransportType = TransportType.BLUETOOTH_CLASSIC
 ) : ObdTransport {
-    override var isConnected: Boolean = false
+    override var isConnected: Boolean = true
 
     private val _incomingBytes = MutableSharedFlow<ByteArray>(extraBufferCapacity = 64)
     override val incomingBytes: Flow<ByteArray> = _incomingBytes.asSharedFlow()

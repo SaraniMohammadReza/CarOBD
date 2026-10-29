@@ -13,6 +13,11 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,6 +57,9 @@ open class Elm327Adapter(
         get() = _currentProtocol?.isCanBus == true
 
     private val commandMutex = Mutex()
+    private val admission = Semaphore(8) // Bound callers waiting for the wire mutex.
+    @Volatile private var retired = false
+    private var lastDispatchAt = 0L
     // §5 bounded buffering (was UNLIMITED): caps memory so a flooded/stuck adapter
     // cannot grow the inbound channel without limit.
     private val incomingCharsChannel = Channel<Char>(4096)
@@ -79,6 +87,9 @@ open class Elm327Adapter(
                 }
             } catch (_: CancellationException) {
                 // Normal job shutdown
+            } catch (e: CancellationException) {
+                retire("Initialization canceled")
+                throw e
             } catch (e: Exception) {
                 _state.value = ConnectionState.Failure(
                     stage = "STREAM_READ",
@@ -92,11 +103,10 @@ open class Elm327Adapter(
 
     override suspend fun initialize(forcedProtocol: ProtocolStandard?): AdapterInitializationResult =
         commandMutex.withLock {
-            // §5: (re)initialisation is a recovery boundary — clear any compromised
-            // stream state from a prior timeout so the handshake begins clean.
-            resyncCompromised = false
-            commandSequence = 0L
+            // A retired stream may never be reused. Reconnect requires a new adapter/transport.
             try {
+                check(!retired) { "Session retired; create a new adapter" }
+                commandSequence = 0L
                 _state.value = ConnectionState.TransportConnecting(transport.transportType.name)
                 if (!transport.isConnected) {
                     transport.connect()
@@ -235,12 +245,13 @@ open class Elm327Adapter(
             }
         }
 
-    override suspend fun executeCommand(command: String, timeoutMs: Long): AdapterResponse =
-        commandMutex.withLock {
-            val authorized = AuthorizedDiagnosticCommand.readOnly(command)
-                ?: return@withLock deniedCommand()
-            dispatch(authorized, timeoutMs)
-        }
+    override suspend fun executeCommand(command: String, timeoutMs: Long): AdapterResponse {
+        val authorized = AuthorizedDiagnosticCommand.readOnly(command) ?: return deniedCommand()
+        if (!admission.tryAcquire()) return AdapterResponse.Error(AdapterError.BusBusy, "", 0L)
+        try {
+            return commandMutex.withLock { dispatch(authorized, timeoutMs) }
+        } finally { admission.release() }
+    }
 
     // Routing changes require a new verified session; arbitrary header strings are disabled.
     override suspend fun setHeader(headerHex: String): Boolean = false
@@ -255,12 +266,23 @@ open class Elm327Adapter(
         AdapterError.Other("Command disabled by read-only safety policy"), "", 0L)
 
     override suspend fun disconnect() {
-        commandMutex.withLock {
-            try {
-                readerJob?.cancel()
-                transport.disconnect()
-            } catch (_: Exception) {}
+        retired = true // Prevent queued commands before waiting for the in-flight owner.
+        withContext(NonCancellable) {
+            transport.disconnect()
+            readerJob?.cancelAndJoin()
+            commandMutex.withLock { drainPendingBuffer() }
             _state.value = ConnectionState.Disconnected
+        }
+    }
+
+    private suspend fun retire(reason: String) {
+        retired = true
+        resyncCompromised = true
+        _state.value = ConnectionState.Failure("COMMAND_OWNERSHIP", "نشست ارتباطی متوقف شد", reason, false)
+        withContext(NonCancellable) {
+            runCatching { transport.disconnect() }
+            readerJob?.cancelAndJoin()
+            drainPendingBuffer()
         }
     }
 
@@ -274,52 +296,52 @@ open class Elm327Adapter(
         val startTime = System.currentTimeMillis()
         // §5: a prior timeout that could not be resynchronised leaves the inbound
         // stream unverified — refuse to issue until (re)initialisation resets it.
-        if (resyncCompromised) {
+        if (retired || resyncCompromised || !transport.isConnected) {
             return AdapterResponse.Error(
                 AdapterError.Timeout(timeoutMs),
                 "unverified stream after prior timeout; re-initialise adapter",
                 System.currentTimeMillis() - startTime
             )
         }
-        commandSequence++
-        drainPendingBuffer()
-
-        val outgoing = (command.trim() + "\r").toByteArray(Charsets.US_ASCII)
         try {
-            transport.write(outgoing)
-        } catch (e: Exception) {
-            return AdapterResponse.Error(
-                AdapterError.TransportFault(e.message ?: "Write failure"),
-                "",
-                System.currentTimeMillis() - startTime
-            )
-        }
-
-        val sb = StringBuilder()
-        val receivedPrompt = withTimeoutOrNull(timeoutMs) {
-            while (true) {
-                val c = incomingCharsChannel.receive()
-                sb.append(c)
-                if (c == Elm327BufferParser.PROMPT_CHAR) {
-                    return@withTimeoutOrNull true
-                }
+            commandSequence++
+            drainPendingBuffer()
+            // Global per-adapter minimum spacing, including manual reads and scans.
+            val waitMs = 50L - (System.currentTimeMillis() - lastDispatchAt)
+            if (waitMs > 0) delay(waitMs)
+            if (retired || !transport.isConnected) return AdapterResponse.Error(AdapterError.TransportFault("Disconnected"), "", 0L)
+            lastDispatchAt = System.currentTimeMillis()
+            withTimeoutOrNull(timeoutMs.coerceIn(100L, 30_000L)) {
+                transport.write((command + "\r").toByteArray(Charsets.US_ASCII))
+                true
+            } ?: run {
+                retire("Write timeout; response ownership unknown")
+                return AdapterResponse.Error(AdapterError.Timeout(timeoutMs), "", System.currentTimeMillis() - startTime)
             }
-            false
+            val sb = StringBuilder()
+            val receivedPrompt = withTimeoutOrNull(timeoutMs.coerceIn(1L, 30_000L)) {
+                while (true) {
+                    val c = incomingCharsChannel.receive()
+                    sb.append(c)
+                    if (sb.length > 16_384) error("Response exceeds bounded buffer")
+                    if (c == Elm327BufferParser.PROMPT_CHAR) return@withTimeoutOrNull true
+                }
+                @Suppress("UNREACHABLE_CODE") false
+            }
+            val elapsed = System.currentTimeMillis() - startTime
+            if (receivedPrompt == true) return Elm327BufferParser.parseBuffer(sb.toString(), command, elapsed)
+            // Ordinary timeout retains the existing bounded late-prompt quarantine.
+            resyncAfterTimeout(500L)
+            if (resyncCompromised) retire("Timeout without a verified prompt boundary")
+            return AdapterResponse.Error(AdapterError.Timeout(timeoutMs), sb.toString(), elapsed)
+        } catch (e: CancellationException) {
+            // No next command can reuse this stream, regardless of when late bytes arrive.
+            retire("Command canceled; response ownership invalidated")
+            throw e
+        } catch (e: Exception) {
+            retire("Transport/reader failure: ${e.message}")
+            return AdapterResponse.Error(AdapterError.TransportFault(e.message ?: "Transport failure"), "", System.currentTimeMillis() - startTime)
         }
-
-        val elapsed = System.currentTimeMillis() - startTime
-        if (receivedPrompt == true) {
-            return Elm327BufferParser.parseBuffer(sb.toString(), command, elapsed)
-        }
-
-        // §5 late-prompt isolation: this command timed out WITHOUT a prompt. Quarantine
-        // its late payload + late '>' so the NEXT command can never consume them.
-        resyncAfterTimeout(resyncWindowMs = 500L)
-        return AdapterResponse.Error(
-            AdapterError.Timeout(timeoutMs),
-            sb.toString(),
-            elapsed
-        )
     }
 
     /**
