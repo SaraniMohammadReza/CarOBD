@@ -2,13 +2,9 @@ package com.sarani.carobd.data.repository
 
 import android.bluetooth.BluetoothManager
 import android.content.Context
-import com.sarani.carobd.core.adapter.ObdAdapter
 import com.sarani.carobd.core.adapter.command.AdapterResponse
-import com.sarani.carobd.core.adapter.command.DtcScanValidator
 import com.sarani.carobd.core.adapter.command.toWireEnvelopes
-import com.sarani.carobd.core.adapter.elm327.Elm327Adapter
 import com.sarani.carobd.core.adapter.profile.ConnectionProfileRepository
-import com.sarani.carobd.core.adapter.transport.ObdTransport
 import com.sarani.carobd.core.adapter.safety.CommandSafetyClassifier
 import com.sarani.carobd.core.model.CommandSafetyVerdict
 import com.sarani.carobd.core.model.CommandSafetyViolation
@@ -18,31 +14,24 @@ import com.sarani.carobd.core.model.ConnectionType
 import com.sarani.carobd.core.model.DiagnosticCode
 import com.sarani.carobd.core.model.DiagnosticResult
 import com.sarani.carobd.core.model.DiagnosticService
-import com.sarani.carobd.core.model.DtcCategory
 import com.sarani.carobd.core.model.EcuRejectionException
 import com.sarani.carobd.core.model.LiveTelemetry
 import com.sarani.carobd.core.model.NegativeResponse
 import com.sarani.carobd.core.model.NotConnectedException
 import com.sarani.carobd.core.model.ObdNrc
 import com.sarani.carobd.core.model.ProtocolMode
-import com.sarani.carobd.core.model.ProtocolStandard
 import com.sarani.carobd.core.model.TelemetryPollMode
 import com.sarani.carobd.core.model.protocolFromManualCode
 import com.sarani.carobd.core.model.TransportConfig
 import com.sarani.carobd.core.model.TransportType
 import com.sarani.carobd.core.model.VehicleProfile
-import com.sarani.carobd.core.protocol.dtc.DtcLookupEngine
-import com.sarani.carobd.core.protocol.dtc.DtcParser
-import com.sarani.carobd.core.protocol.dtc.DtcFrame
 import com.sarani.carobd.core.storage.AppPreferencesManager
-import com.sarani.carobd.core.telemetry.scheduler.TelemetryProducer
 import com.sarani.carobd.core.telemetry.trip.TripComputer
 import com.sarani.carobd.data.db.CarObdDatabaseHelper
 import com.sarani.carobd.data.transport.TransportFactory
 import com.sarani.carobd.domain.repository.ObdRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -52,6 +41,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import com.sarani.carobd.data.session.DiagnosticSession
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
 
 /**
  * Enterprise-grade OBD Repository implementation.
@@ -59,16 +52,23 @@ import java.util.UUID
  * physical FuelEconomyCalculator, TripComputer, and SQLite database persistence.
  */
 class ObdRepositoryImpl(
-    private val context: Context,
+    private val context: Context?,
     private val activeVehicleRepository: ActiveVehicleRepository,
-    private val appPreferencesManager: AppPreferencesManager,
+    appPreferencesManager: AppPreferencesManager?,
     private val connectionProfiles: ConnectionProfileRepository,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + Job())
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob()),
+    pollModeFlow: Flow<TelemetryPollMode> = requireNotNull(appPreferencesManager).telemetryPollMode,
+    private val createTransport: (TransportConfig) -> com.sarani.carobd.core.adapter.transport.ObdTransport = {
+        TransportFactory.createTransport(it, requireNotNull(context))
+    },
+    private val startService: () -> Unit = { com.sarani.carobd.service.ConnectionForegroundService.start(requireNotNull(context)) },
+    private val stopService: () -> Unit = { com.sarani.carobd.service.ConnectionForegroundService.stop(requireNotNull(context)) },
 ) : ObdRepository {
 
-    val database = CarObdDatabaseHelper(context)
+    val database by lazy { CarObdDatabaseHelper(requireNotNull(context)) }
 
-    private var activeAdapter: ObdAdapter? = null
+    @Volatile private var activeSession: DiagnosticSession? = null
+    private val sessionMutex = Mutex()
     private var currentTripComputer: TripComputer? = null
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -84,12 +84,9 @@ class ObdRepositoryImpl(
 
     /** §7: persisted polling cadence, observed by the producer each cycle. */
     private val pollModeState: StateFlow<TelemetryPollMode> =
-        appPreferencesManager.telemetryPollMode
-            .stateIn(scope, SharingStarted.WhileSubscribed(5_000), TelemetryPollMode.NORMAL)
+        pollModeFlow.stateIn(scope, SharingStarted.Eagerly, TelemetryPollMode.NORMAL)
 
-    // §5: exactly ONE producer per session. The cold flow + internal collector is gone.
-    private var telemetryProducer: TelemetryProducer? = null
-    private var relayerJob: Job? = null
+    // Reader, producer and in-flight requests belong to activeSession, not repository scope.
 
     init {
         // §B3: restore the persisted active vehicle from the single source of truth on startup.
@@ -123,140 +120,95 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun connect(profile: ConnectionProfile): Result<Unit> = withContext(Dispatchers.IO) {
-        stopTelemetryLoop()
-        disconnect()
-
-        // §27: Bluetooth OFF must be surfaced truthfully — never allowed to look connected.
-        val tp = profile.transport.type
-        if (tp == TransportType.BLUETOOTH_CLASSIC || tp == TransportType.BLUETOOTH_LE) {
-            val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-            val btAdapter = btManager?.adapter
-            if (btAdapter == null || !btAdapter.isEnabled) {
-                _connectionState.value = ConnectionState.Failure(
-                    stage = "BLUETOOTH",
-                    humanMessageFa = "بلوتوث خاموش است",
-                    technicalMessage = "BluetoothAdapter disabled or unavailable",
-                    isRecoverable = true
-                )
-                return@withContext Result.failure(Exception("بلوتوث خاموش است"))
-            }
-        }
-
-        // §11/§14: transport is selected ONLY by the profile's TransportConfig (no
-        // BLE→Classic misrouting). §15: user-persisted host/port reach the socket.
-        val transport = TransportFactory.createTransport(profile.transport, context)
-        finishConnect(profile, transport)
-    }
-
-    /** §18: surface the selected MANUAL protocol to the adapter via initialize()/.
-     *  AUTO and VEHICLE_PROFILE resolve to null (adapter auto-detects). An
-     *  unsupported manual code (e.g. B/C) is ProtocolConfigurationFailed — never
-     *  a silent AT SP 0 fallback. */
-    private fun resolveForcedProtocol(profile: ConnectionProfile): ProtocolStandard? {
-        return when (profile.protocolMode) {
-            ProtocolMode.MANUAL -> {
-                val code = profile.manualProtocolCode?.trim()?.uppercase()
-                if (code == null) null
-                else {
-                    val mapped = protocolFromManualCode(code)
-                    if (mapped == null) {
-                        _connectionState.value = ConnectionState.Failure(
-                            stage = "PROTOCOL",
-                            humanMessageFa = "پروتکل دستی ناشناخته",
-                            technicalMessage = "unsupported manual protocol code: $code",
-                            isRecoverable = true,
-                        )
-                        return null
-                    }
-                    mapped
+        sessionMutex.withLock {
+            disconnectLocked()
+            var created: DiagnosticSession? = null
+            try {
+                require(profile.validate().isEmpty()) { "Invalid connection profile: ${profile.validate()}" }
+                val forced = when (profile.protocolMode) {
+                    ProtocolMode.AUTO -> null
+                    ProtocolMode.MANUAL -> requireNotNull(profile.manualProtocolCode?.let { protocolFromManualCode(it) }) { "Unsupported manual protocol" }
+                    ProtocolMode.VEHICLE_PROFILE -> error("Vehicle-profile protocol initialization is disabled pending validation; choose AUTO or MANUAL")
                 }
-            }
-            ProtocolMode.AUTO, ProtocolMode.VEHICLE_PROFILE -> null
-        }
-    }
-
-    private suspend fun finishConnect(profile: ConnectionProfile, transport: ObdTransport): Result<Unit> {
-        val elm = Elm327Adapter(transport, scope)
-        activeAdapter = elm
-
-        // §26: single source of truth — relay the adapter's ECU-verified StateFlow.
-        relayerJob = scope.launch {
-            elm.state.collect { _connectionState.value = it }
-        }
-
-        val forcedProtocol = resolveForcedProtocol(profile)
-        // A non-recoverable protocol misconfiguration: surface and abort.
-        if (profile.protocolMode == ProtocolMode.MANUAL && profile.manualProtocolCode != null && forcedProtocol == null) {
-            return Result.failure(Exception("unsupported manual protocol: ${profile.manualProtocolCode}"))
-        }
-        val initResult = elm.initialize(forcedProtocol)
-        return if (initResult.isSuccess) {
-            // Start Trip tracking
-            currentTripComputer = TripComputer(
-                tripId = UUID.randomUUID().toString(),
-                vehicleId = _activeVehicleProfile.value?.id ?: "unselected"
-            )
-
-            startTelemetryLoop()
-            try {
-                com.sarani.carobd.service.ConnectionForegroundService.start(context)
-            } catch (_: Exception) {}
-
-            // §11: persist the profile's last-success timestamp (restart-safe selection).
-            try {
+                val tp = profile.transport.type
+                if (tp == TransportType.BLUETOOTH_CLASSIC || tp == TransportType.BLUETOOTH_LE) {
+                    val bt = (requireNotNull(context).getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+                    require(bt != null && bt.isEnabled) { "Bluetooth disabled or unavailable" }
+                }
+                val transport = createTransport(profile.transport)
+                check(transport.transportType == profile.transport.type) { "Transport identity mismatch" }
+                lateinit var session: DiagnosticSession
+                session = DiagnosticSession(transport, scope,
+                    onState = { state -> created?.let { if (activeSession === it) _connectionState.value = state } },
+                    onTelemetry = { sample -> created?.let { if (activeSession === it && it.isOpen) _liveTelemetry.value = sample } },
+                    onLoss = {
+                        val lost = created
+                        scope.launch { sessionMutex.withLock { if (lost != null && activeSession === lost) disconnectLocked() } }
+                    })
+                created = session
+                activeSession = session
+                val result = session.execute { it.initialize(forced) }
+                check(result.isSuccess) { result.errorMessage ?: "Initialization failed" }
+                currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
+                _connectionState.value = session.adapter.state.value
+                startTelemetryLoop()
+                try { startService() } catch (_: Exception) {
+                    error("Foreground diagnostics unavailable; session stopped")
+                }
                 connectionProfiles.save(profile.copy(lastSuccessfulAt = System.currentTimeMillis()))
-            } catch (_: Exception) {}
-
-            Result.success(Unit)
-        } else {
-            val err = initResult.errorMessage ?: "خطا در اتصال به خودرو"
-            Result.failure(Exception(err))
+                Result.success(Unit)
+            } catch (e: CancellationException) {
+                if (activeSession === created) activeSession = null
+                created?.close()
+                _connectionState.value = ConnectionState.Disconnected
+                throw e
+            } catch (e: Exception) {
+                if (activeSession === created) activeSession = null
+                created?.close()
+                _liveTelemetry.value = LiveTelemetry()
+                _connectionState.value = ConnectionState.Failure("CONNECTION", "اتصال برقرار نشد", e.message.orEmpty(), true)
+                Result.failure(e)
+            }
         }
     }
 
-    override suspend fun disconnect() = withContext(Dispatchers.IO) {
-        try {
-            com.sarani.carobd.service.ConnectionForegroundService.stop(context)
-        } catch (_: Exception) {}
+    override suspend fun disconnect() {
+        val captured = activeSession
+        captured?.invalidate() // Stop dispatch before waiting for connection serialization.
+        captured?.close() // Release a blocking physical connect/write before acquiring the mutex.
+        withContext(Dispatchers.IO) {
+            sessionMutex.withLock { disconnectLocked() }
+        }
+    }
 
-        stopTelemetryLoop()
-
-        // Finalize active trip if any
-        currentTripComputer?.let { tc ->
-            val record = tc.getTripRecord()
-            if (record.distanceKm > 0.05 || record.durationSeconds > 30) {
-                database.insertTripRecord(record)
-            }
+    private suspend fun disconnectLocked() {
+        val old = activeSession
+        activeSession = null // Generation guard closes BEFORE cancellation/join.
+        old?.close()
+        currentTripComputer?.getTripRecord()?.let { record ->
+            if (record.distanceKm > 0.05 || record.durationSeconds > 30) runCatching { database.insertTripRecord(record) }
         }
         currentTripComputer = null
-
-        relayerJob?.cancel()
-        relayerJob = null
-        activeAdapter?.disconnect()
-        activeAdapter = null
         _connectionState.value = ConnectionState.Disconnected
         _liveTelemetry.value = LiveTelemetry()
+        try { stopService() } catch (_: Exception) {}
     }
 
     override suspend fun setVehicleProfile(profile: VehicleProfile) {
         _activeVehicleProfile.value = profile
         activeVehicleRepository.selectVehicle(profile)
-        // If profile defines custom target ECU header, apply it to the active adapter
-        val adapter = activeAdapter
-        if (adapter != null) {
-            val headerCmd = profile.ecuProtocol.initSequence.firstOrNull { it.startsWith("AT SH", ignoreCase = true) }
-            if (headerCmd != null) {
-                val hex = headerCmd.removePrefix("AT SH").removePrefix("ATSH").trim()
-                adapter.setHeader(hex)
-            }
-        }
+        // Changing vehicle metadata never changes live routing. A new verified
+        // connection is required for any protocol configuration.
     }
 
     override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = withContext(Dispatchers.IO) {
-        val adapter = activeAdapter ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
-        val report = com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(adapter) {
-            activeAdapter === adapter && _connectionState.value is ConnectionState.Connected
-        }.scan()
+        val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
+        val report = session.execute { adapter ->
+            com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(adapter) {
+                activeSession === session && session.isOpen && _connectionState.value is ConnectionState.Connected
+            }.scan()
+        }
+        if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
         if (report.completeness != com.sarani.carobd.core.model.ScanCompleteness.COMPLETE) {
             return@withContext Result.failure(com.sarani.carobd.core.model.DiagnosticScanException(report))
         }
@@ -266,14 +218,15 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun clearDiagnosticTroubleCodes(): Result<Unit> = withContext(Dispatchers.IO) {
-        val adapter = activeAdapter ?: return@withContext Result.failure(Exception("Adapter not connected"))
+        val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(Exception("Adapter not connected"))
 
         if (_connectionState.value !is ConnectionState.Connected ||
             (_connectionState.value as? ConnectionState.Connected)?.isSimulator != true) {
             return@withContext Result.failure(IllegalStateException("Physical DTC clearing is disabled by read-only safety policy"))
         }
-        val response = adapter.clearSimulatorDiagnosticState()
+        val response = session.execute { it.clearSimulatorDiagnosticState() }
         // §7: canonical envelope path — classify through ElmResponseEnvelopeParser
+        if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
         val envelopes = response.toWireEnvelopes("04")
 
         // §8.4: a real 0x44 positive echo is required for success.
@@ -306,8 +259,8 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun sendRawCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
-        val adapter = activeAdapter ?: return@withContext Result.failure(NotConnectedException("آداپتور متصل نیست"))
-        // §4 P0: the raw terminal is NOT a safety boundary — the repository is.
+        val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
+        // Repository feedback mirrors the mandatory adapter authorization boundary.
         // Mode 04 (clear) must use the dedicated confirmed Diagnostics flow; write /
         // program / security-access services (08, 27, 2E, 2F, 31, 34, 35, 36, 37) and
         // unknown commands are refused before reaching the adapter.
@@ -327,7 +280,7 @@ class ObdRepositoryImpl(
                     },
                     reasonEn = when (verdict) {
                         CommandSafetyVerdict.REQUIRES_DEDICATED_CONFIRMED_FLOW ->
-                            "Clear-DTC (Mode 04) is only available via the Diagnostics clear flow"
+                            "Physical DTC clearing is disabled; simulator clearing requires the dedicated flow"
                         CommandSafetyVerdict.BLOCKED_UNSAFE ->
                             "Write/program/security-access command blocked in raw terminal"
                         else -> "Unknown command blocked in raw terminal"
@@ -335,7 +288,8 @@ class ObdRepositoryImpl(
                 )
             )
         }
-        val resp = adapter.executeCommand(command, 2500L)
+        val resp = session.execute { it.executeCommand(command, 2500L) }
+        if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
         when (resp) {
             is AdapterResponse.Success -> Result.success(resp.rawResponse)
             is AdapterResponse.Error -> Result.failure(Exception(resp.error.messageFa))
@@ -343,36 +297,9 @@ class ObdRepositoryImpl(
     }
 
     override fun startTelemetryLoop(): Flow<LiveTelemetry> {
-        // §5: exactly ONE producer per active connection. startIn cancels any prior
-        // producer (reconnect), so reconnect never leaves an orphan loop, and the
-        // legacy cold-flow + internal-collector double-subscription hazard is gone.
-        val adapter = activeAdapter
-        if (adapter == null) return _liveTelemetry
-
-        val producer = TelemetryProducer(
-            pollMode = pollModeState,
-            executeCommand = { cmd, ms ->
-                val r = adapter.executeCommand(cmd, ms)
-                if (r is AdapterResponse.Success) r.rawResponse else null
-            },
-            isConnected = {
-                _connectionState.value is ConnectionState.Connected && activeAdapter == adapter
-            },
-            tripComputer = currentTripComputer,
-            onTelemetry = { updated -> _liveTelemetry.value = updated }
-        )
-        telemetryProducer = producer
-        producer.startIn(scope)
-        // Return the producer's hot StateFlow. Consumers observe; they never start
-        // their own loop. _liveTelemetry stays in lockstep via onTelemetry, so
-        // existing StateFlow observers see no behaviour change.
-        return producer.liveTelemetry
+        activeSession?.startTelemetry(pollModeState, currentTripComputer)
+        return liveTelemetry
     }
 
-    override fun stopTelemetryLoop() {
-        // §8 P0 / §9: cancel the single producer and drop the reference so a
-        // reconnect builds a clean session (no stale job/buffers/inherited values).
-        telemetryProducer?.stop()
-        telemetryProducer = null
-    }
+    override fun stopTelemetryLoop() { activeSession?.stopTelemetry(); _liveTelemetry.value = LiveTelemetry() }
 }

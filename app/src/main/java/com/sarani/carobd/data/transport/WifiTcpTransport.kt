@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
@@ -36,21 +37,25 @@ class WifiTcpTransport(
     private val _incomingBytes = MutableSharedFlow<ByteArray>(extraBufferCapacity = 128)
     override val incomingBytes: Flow<ByteArray> = _incomingBytes.asSharedFlow()
 
-    private var socket: Socket? = null
+    @Volatile private var closed = false
+    @Volatile private var socket: Socket? = null
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
     private var readerThread: Thread? = null
 
     override suspend fun connect() = withContext(ioDispatcher) {
+        check(!closed) { "Transport retired; create a new transport" }
         if (_isConnected) return@withContext
 
         try {
             val sock = Socket()
             sock.tcpNoDelay = true // Immediate packet delivery without Nagle buffering
             sock.soTimeout = 0 // Infinite read timeout (managed by adapter coroutine timeouts)
-            sock.connect(InetSocketAddress(host, port), connectTimeoutMs)
-
             socket = sock
+            check(!closed) { "Transport retired" }
+            sock.connect(InetSocketAddress(host, port), connectTimeoutMs)
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            check(!closed) { "Transport retired" }
             inputStream = sock.getInputStream()
             outputStream = sock.getOutputStream()
             _isConnected = true
@@ -62,7 +67,8 @@ class WifiTcpTransport(
         }
     }
 
-    override suspend fun disconnect() = withContext(ioDispatcher) {
+    override suspend fun disconnect() = withContext(ioDispatcher + kotlinx.coroutines.NonCancellable) {
+        closed = true
         _isConnected = false
         try {
             readerThread?.interrupt()

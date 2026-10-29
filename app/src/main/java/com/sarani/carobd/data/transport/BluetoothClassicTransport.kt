@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.io.OutputStream
@@ -43,13 +44,15 @@ class BluetoothClassicTransport(
     private val _incomingBytes = MutableSharedFlow<ByteArray>(extraBufferCapacity = 128)
     override val incomingBytes: Flow<ByteArray> = _incomingBytes.asSharedFlow()
 
-    private var socket: BluetoothSocket? = null
+    @Volatile private var closed = false
+    @Volatile private var socket: BluetoothSocket? = null
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
     private var readerThread: Thread? = null
 
     @SuppressLint("MissingPermission")
     override suspend fun connect() = withContext(ioDispatcher) {
+        check(!closed) { "Transport retired; create a new transport" }
         if (_isConnected) return@withContext
 
         val adapter = bluetoothAdapter ?: throw ConnectionFailedException("Bluetooth adapter is not available on this device")
@@ -70,8 +73,11 @@ class BluetoothClassicTransport(
 
         try {
             val sock = device.createRfcommSocketToServiceRecord(SPP_UUID)
+            socket = sock // Publish before blocking so disconnect can close an in-flight connect.
+            check(!closed) { "Transport retired" }
             sock.connect()
-            socket = sock
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            check(!closed) { "Transport retired" }
             inputStream = sock.inputStream
             outputStream = sock.outputStream
             _isConnected = true
@@ -83,7 +89,8 @@ class BluetoothClassicTransport(
         }
     }
 
-    override suspend fun disconnect() = withContext(ioDispatcher) {
+    override suspend fun disconnect() = withContext(ioDispatcher + kotlinx.coroutines.NonCancellable) {
+        closed = true
         _isConnected = false
         try {
             readerThread?.interrupt()

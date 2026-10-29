@@ -42,12 +42,12 @@ class TelemetryProducerTest {
             if (!connected) null
             else {
                 calls.add(cmd)
-                if (calls.size >= 8) connected = false   // stop after exactly one cycle
+                // The sample callback ends the session after one complete cycle.
                 responses[cmd]
             }
         }
         val mode = MutableStateFlow(TelemetryPollMode.NORMAL)
-        val prod = TelemetryProducer(mode, exec, { connected })
+        val prod = TelemetryProducer(mode, exec, { connected }, onTelemetry = { connected = false })
 
         // Two observers attach BEFORE the producer starts. StateFlow emits its
         // current value on collect, so each collector first sees the initial
@@ -115,12 +115,11 @@ class TelemetryProducerTest {
             if (!connected) null
             else {
                 calls.add(cmd)
-                if (calls.size >= 8) connected = false
-                responses[cmd]
+                                responses[cmd]
             }
         }
         val mode = MutableStateFlow(TelemetryPollMode.FAST)
-        val prod = TelemetryProducer(mode, exec, { connected })
+        val prod = TelemetryProducer(mode, exec, { connected }, onTelemetry = { connected = false })
         launch { prod.liveTelemetry.take(2).collect { } }
         launch { prod.liveTelemetry.take(2).collect { } }
         prod.startIn(this)
@@ -129,30 +128,19 @@ class TelemetryProducerTest {
     }
 
     @Test
-    fun connectionDropsMidCycleStopsProducer() = runTest {
-        // §10: On disconnect, the telemetry loop must terminate. A dropped
-        // connection predicate (isConnected == false) causes produceLoop()
-        // to exit its while-condition without starting a new cycle.
+    fun producer_disconnectMidCycleStopsFurtherDispatchOrEmission() = runTest {
         val calls = mutableListOf<String>()
         var connected = true
-        val exec: suspend (String, Long) -> String? = { cmd, _ ->
-            if (!connected) null else {
-                calls.add(cmd)
-                // Simulate disconnect mid-cycle (after capability probe)
-                if (cmd == "0100") {
-                    connected = false
-                }
-                responses[cmd]
-            }
-        }
-        val mode = MutableStateFlow(TelemetryPollMode.NORMAL)
-        val prod = TelemetryProducer(mode, exec, { connected })
+        var emissions = 0
+        val prod = TelemetryProducer(MutableStateFlow(TelemetryPollMode.NORMAL), { cmd, _ ->
+            calls.add(cmd)
+            if (cmd == "0100") connected = false
+            responses[cmd]
+        }, { connected }, onTelemetry = { emissions++ })
         prod.startIn(this)
         advanceUntilIdle()
-
-        // Only the discovery probe ran; disconnect stopped the loop.
-        assertEquals(1, calls.size)
-        assertEquals("0100", calls[0])
-        assertFalse("producer must stop after disconnect", prod.isRunning)
+        assertEquals(listOf("0100"), calls)
+        assertEquals(0, emissions)
+        assertFalse(prod.isRunning)
     }
 }

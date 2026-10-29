@@ -79,21 +79,21 @@ class TelemetryProducer(
             val delayMs = pollMode.value.delayMs
             try {
                 var current = _liveTelemetry.value
-                val measured = current.measuredPids.toMutableSet()
+                val measured = mutableSetOf<String>() // Each cycle must re-establish measurement evidence.
 
                 // §9/§22: discover capability once per session (lazy extension bit).
                 if (supportState is PidSupportState.NotDiscovered) {
                     supportState = runCatching {
                         PidPollingPlan.discover { cmd ->
-                            executeCommand(cmd, 2000L)?.takeIf {
-                                // treat 7F/NO DATA as absent (null)
-                                val b = com.sarani.carobd.core.protocol.obd2.PidCodec.cleanResponseHex(it)
-                                b.size >= 6 && (b[0].toInt() and 0xFF) == 0x41
+                            if (!coroutineContext.isActive || !isConnected()) return@discover null
+                            executeCommand(cmd, 2000L)?.let { raw ->
+                                canonicalPayload(cmd, raw)?.joinToString("") { "%02X".format(it) }
                             }
                         }
                     }.getOrDefault(PidSupportState.Unknown("discovery exception"))
                 }
 
+                if (!coroutineContext.isActive || !isConnected()) break
                 val pollPlan = PidPollingPlan.supported(supportState)
 
                 // Periodic adapter battery voltage (ATRV), decoupled from vehicle PID
@@ -113,8 +113,9 @@ class TelemetryProducer(
 
                 // Capability-gated live PID polling.
                 for (spec in pollPlan) {
+                    if (!coroutineContext.isActive || !isConnected()) return
                     val raw = executeCommand(spec.command, 600L) ?: continue
-                    val bytes = com.sarani.carobd.core.protocol.obd2.PidCodec.cleanResponseHex(raw)
+                    val bytes = canonicalPayload(spec.command, raw) ?: continue
                     PidPollingPlan.decodePoll(spec, bytes, current)?.let { next ->
                         measured.add(spec.pidHex)
                         current = next
@@ -131,7 +132,8 @@ class TelemetryProducer(
                     volumetricEfficiency = null // §8: unknown -> never assume 0.80
                 )
 
-                tripComputer?.processSample(
+                if (!coroutineContext.isActive || !isConnected()) return
+                if ("0D" in measured && "0C" in measured) tripComputer?.processSample(
                     speedKmh = current.speedKmh,
                     rpm = current.rpm,
                     fuelRateLitersPerHour = fuelRateLph ?: 0.0,
@@ -143,6 +145,8 @@ class TelemetryProducer(
                 onTelemetry(current)
 
                 kotlinx.coroutines.delay(delayMs)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (_: Exception) {
                 // Transient adapter error: brief back-off, do not kill the producer
                 // (the connection predicate / stop handles termination).
@@ -150,4 +154,12 @@ class TelemetryProducer(
             }
         }
     }
+    private fun canonicalPayload(command: String, raw: String): ByteArray? {
+        val env = com.sarani.carobd.core.protocol.obd2.ElmResponseEnvelopeParser.parse(
+            command, raw.lines().flatMap { it.split('\r') }, System.currentTimeMillis(), 0)
+        // LiveTelemetry has no multi-responder schema: never merge ECUs into one signal.
+        val positive = env.singleOrNull()?.result as? com.sarani.carobd.core.model.DiagnosticResult.Positive ?: return null
+        return byteArrayOf(positive.service.positiveResponseByte.toByte()) + positive.payload
+    }
+
 }
