@@ -327,10 +327,12 @@ class ObdRepositoryImpl(
         }
     }
 
-    override suspend fun readEvidence(command: String): Result<List<com.sarani.carobd.core.model.DiagnosticWireResponse>> = withContext(ioDispatcher) {
+    override suspend fun readEvidence(command: String, expectedSessionId: String?): Result<List<com.sarani.carobd.core.model.DiagnosticWireResponse>> = withContext(ioDispatcher) {
         if (com.sarani.carobd.core.adapter.safety.AuthorizedDiagnosticCommand.readOnly(command) == null)
             return@withContext Result.failure(IllegalArgumentException("Read-only command required"))
         val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Disconnected"))
+        if (expectedSessionId != null && _foregroundSessionId.value != expectedSessionId)
+            return@withContext Result.failure(NotConnectedException("Session changed"))
         val response = sessionResult(session) { it.executeCommand(command, activeCommandTimeoutMs) }
             .getOrElse { return@withContext Result.failure(it) }
         if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))

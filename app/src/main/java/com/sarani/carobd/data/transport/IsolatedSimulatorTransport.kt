@@ -208,9 +208,14 @@ class IsolatedSimulatorTransport(
             "44"
         }
 
-        // Mode 09 PID 02 (VIN)
+        cmd == "0900" -> "49 00 FC C0 00 00"
+        cmd in setOf("0901", "0903", "0905", "0909") -> "49 ${cmd.drop(2)} 01"
+        cmd == "0904" -> "490401" + "SIM-CAL".padEnd(16, '\u0000').toByteArray().joinToString("") { "%02X".format(it) }
+        cmd == "0906" -> "49 06 01 12 34 AB CD"
+        cmd == "090A" -> "490A01" + "SIMULATED ECU".padEnd(20, '\u0000').toByteArray().joinToString("") { "%02X".format(it) }
+        // Mode 09 PID 02 (synthetic fixture; no vehicle provenance claim)
         cmd == "0902" -> {
-            // Returns Peugeot 206 Iranian VIN: VF32AKFWF12345678
+            // Synthetic VIN-shaped test data only.
             "49 02 01 56 46 33 32 41 4B 46 57 46 31 32 33 34 35 36 37 38"
         }
         else -> "NO DATA"

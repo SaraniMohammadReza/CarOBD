@@ -127,4 +127,5 @@
     <string name="monitor_incomplete">تکمیل نشده</string>
     <string name="evidence_limitations">نبود کد خطا به معنی سلامت خودرو نیست. منبع نامشخص، نامشخص می‌ماند.</string>
     <string name="open_evidence">عیب‌یابی فقط خواندنی</string>
+    <string name="vehicle_information">اطلاعات خودرو</string>
 </resources>

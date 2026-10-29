@@ -249,19 +249,8 @@ object PidCodec {
      * Handles ASCII bytes, filtering out unprintable characters or leading count bytes.
      */
     fun decodeVin(payload: ByteArray): String? {
-        if (payload.isEmpty()) return null
-        val sb = StringBuilder()
-
-        for (byte in payload) {
-            val charCode = byte.toInt() and 0xFF
-            if (charCode in 0x20..0x7E) {
-                sb.append(charCode.toChar())
-            }
-        }
-
-        val cleaned = sb.toString().trim()
-        val match = Regex("[A-HJ-NPR-Z0-9]{17}").find(cleaned)
-        return match?.value ?: if (cleaned.length >= 10) cleaned else null
+        if (payload.size != 17 || payload.any { (it.toInt() and 0xFF) !in 0x20..0x7E }) return null
+        return payload.toString(Charsets.US_ASCII).takeIf { it.matches(Regex("[A-HJ-NPR-Z0-9]{17}")) }
     }
 
     /**
@@ -293,7 +282,9 @@ object PidCodec {
             if (chunk.size < 4) null
             else chunk.joinToString("") { "%02X".format(it.toInt() and 0xFF) }
         }.filterNotNull()
-        return CalibrationVerificationNumber(values)
+        return CalibrationVerificationNumber(values,
+            quality = if (payload.isEmpty()) com.sarani.carobd.core.model.ReadingState.NoData else if (payload.size % 4 != 0) com.sarani.carobd.core.model.ReadingState.Partial else com.sarani.carobd.core.model.ReadingState.Success,
+            trailingBytes = payload.takeLast(payload.size % 4).map { it.toInt() and 0xFF })
     }
 
     private fun mode09Result(
@@ -325,7 +316,7 @@ object PidCodec {
             responder = responder,
             messageCount = messageCount,
             multiFrameComplete = multiFrameComplete,
-            decoded = decodeVin(payload)?.let { Mode09Decoded.Vin(it) }
+            decoded = if ((messageCount == null || messageCount == 1) && multiFrameComplete != false) decodeVin(payload)?.let { Mode09Decoded.Vin(it) } else null
         )
 
     /** §7 P0.7: typed Mode 09 PID 0904 (Calibration ID) — textual ASCII identifier. */

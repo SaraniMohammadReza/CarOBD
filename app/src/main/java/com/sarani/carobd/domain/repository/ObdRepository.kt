@@ -35,7 +35,7 @@ interface ObdRepository {
             .finishFailure("Connection testing not implemented")
     suspend fun disconnect()
     suspend fun setVehicleProfile(profile: VehicleProfile)
-    suspend fun readEvidence(command: String): Result<List<com.sarani.carobd.core.model.DiagnosticWireResponse>> = Result.failure(UnsupportedOperationException("Evidence reads unavailable"))
+    suspend fun readEvidence(command: String, expectedSessionId: String? = null): Result<List<com.sarani.carobd.core.model.DiagnosticWireResponse>> = Result.failure(UnsupportedOperationException("Evidence reads unavailable"))
     suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>>
     suspend fun clearDiagnosticTroubleCodes(): Result<Unit>
     suspend fun sendRawCommand(command: String): Result<String>

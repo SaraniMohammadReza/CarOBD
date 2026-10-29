@@ -12,14 +12,16 @@ package com.sarani.carobd.core.model
  * 4-byte binary values — they are NOT generic ASCII text. Treating CVN as
  * ASCII is a truthfulness defect: it would re-label "F1234ABCD5" as a string
  * instead of recognising two distinct calibration IDs. Each CVN is preserved
- * as an 8-char hex string ("1234ABCD"). Trailing partial groups are dropped.
+ * as an 8-char hex string ("1234ABCD"). Trailing partial groups are retained with Partial quality.
  */
 data class CalibrationVerificationNumber(
-    val values: List<String>
+    val values: List<String>,
+    val quality: ReadingState = ReadingState.Success,
+    val trailingBytes: List<Int> = emptyList(),
 ) {
     init {
         values.forEach { raw ->
-            require(raw.length == 8) {
+            require(raw.matches(Regex("[0-9A-F]{8}"))) {
                 "CVN must be exactly 4 bytes (8 hex chars): $raw"
             }
         }

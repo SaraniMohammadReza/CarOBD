@@ -7,10 +7,31 @@ import com.sarani.carobd.core.model.*
  * they are not silently merged or double-reassembled. Unknown source stays null. */
 object ElmResponseEnvelopeParser {
     private val errors = listOf("STOPPED", "UNABLE TO CONNECT", "BUS INIT", "BUS BUSY", "CAN ERROR", "BUFFER FULL", "LV RESET", "?")
-    fun parse(request: String, rawLines: List<String>, timestampMs: Long, elapsedMs: Long): List<DiagnosticWireResponse> =
-        rawLines.filter { it.isNotBlank() && !it.trim().equals("SEARCHING...", true) }.map { line ->
-            parseLine(request, line.trim().removePrefix("SEARCHING...").trim(), timestampMs, elapsedMs)
+    fun parse(request: String, rawLines: List<String>, timestampMs: Long, elapsedMs: Long): List<DiagnosticWireResponse> {
+        val lines = rawLines.filter { it.isNotBlank() && !it.trim().equals("SEARCHING...", true) }
+        // ELM CAF1 numbered CAN output: explicit total length and sequence, one
+        // headerless assembly only. Never infer a responder or merge ECU streams.
+        if (request.startsWith("09") && lines.firstOrNull()?.trim()?.matches(Regex("[0-9A-Fa-f]{3}")) == true && lines.drop(1).any { it.contains(":") }) {
+            val total = lines.first().trim().toInt(16)
+            val bytes = mutableListOf<Byte>()
+            var valid = total in 3..4095 && lines.size <= 600
+            lines.drop(1).forEachIndexed { index, line ->
+                val part = Regex("^([0-9A-Fa-f]):\\s*(.*)$").matchEntire(line.trim())
+                if (part == null || part.groupValues[1].toInt(16) != index % 16) valid = false
+                val data = part?.groupValues?.get(2)?.replace(" ", "").orEmpty()
+                if (data.isEmpty() || data.length % 2 != 0 || data.length > 14 || !data.matches(Regex("[0-9A-Fa-f]+"))) valid = false
+                else bytes.addAll(data.chunked(2).map { it.toInt(16).toByte() })
+            }
+            if (valid && bytes.size == total) {
+                val decoded = parseLine(request, bytes.joinToString("") { "%02X".format(it) }, timestampMs, elapsedMs)
+                val result = (decoded.result as? DiagnosticResult.Positive)?.copy(rawLines = lines) ?: decoded.result
+                return listOf(decoded.copy(rawLines = lines, result = result))
+            }
+            return listOf(DiagnosticWireResponse(request, null, lines, byteArrayOf(), DiagnosticService.MODE_09, IsoTpFraming.RAW,
+                timestampMs, elapsedMs, DiagnosticResult.Malformed("Invalid numbered ELM assembly", lines)))
         }
+        return lines.map { line -> parseLine(request, line.trim().removePrefix("SEARCHING...").trim(), timestampMs, elapsedMs) }
+    }
 
     private fun parseLine(request: String, line: String, ts: Long, elapsed: Long): DiagnosticWireResponse {
         var responder: String? = null

@@ -127,4 +127,5 @@
     <string name="monitor_incomplete">Incomplete</string>
     <string name="evidence_limitations">No codes does not mean a healthy vehicle. Unknown source stays unknown.</string>
     <string name="open_evidence">Read-only diagnostics</string>
+    <string name="vehicle_information">Vehicle information</string>
 </resources>

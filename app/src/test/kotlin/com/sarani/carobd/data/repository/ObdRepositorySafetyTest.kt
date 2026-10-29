@@ -204,4 +204,21 @@ class ObdRepositorySafetyTest {
         assertEquals(ReadingState.Disconnected, read().single().state)
     }
 
+    @Test fun mode09ProductionPathPreservesVinCvnAndNegativePeer() = runTest {
+        val t = Physical()
+        val vin = "1D4GP00R55B123456"
+        fun hex(s: String) = s.toByteArray().joinToString("") { "%02X".format(it) }
+        t.overrides = mapOf("0900" to "4900FCC00000", "0901" to "490101", "0902" to "7E8 490201${hex(vin)}\r7E9 7F 09 12",
+            "0903" to "490301", "0904" to "490401${hex("CAL-A".padEnd(16, '\u0000'))}", "0905" to "490501",
+            "0906" to "4906011234ABCD", "0909" to "490901", "090A" to "490A01${hex("Engine ECU".padEnd(20, '\u0000'))}")
+        val repo = repository(backgroundScope, t)
+        assertTrue(repo.connect(profile).isSuccess)
+        val result = com.sarani.carobd.domain.usecase.VehicleInformationUseCase(repo)()
+        assertEquals(listOf(vin), result.first { it.pid == 2 && it.reading.state == ReadingState.Success }.reading.value!!.values)
+        assertTrue(result.any { it.pid == 2 && it.reading.state == ReadingState.NegativeResponse && it.reading.evidence.single().responderId == "7E9" })
+        assertEquals(listOf("1234ABCD"), result.first { it.pid == 6 }.reading.value!!.values)
+        assertFalse(t.writes.any { it == "04" || it.startsWith("08") })
+        repo.disconnect()
+    }
+
 }
