@@ -138,7 +138,12 @@ class WireEnvelopeGateTest {
         val resp = error(AdapterError.Timeout(600L), raw = "41 0C")
         val env = resp.toWireEnvelopes("01 0C").single()
         // "41 0C" has a valid hex structure but incomplete payload.
-        // The envelope parser creates a Positive with empty payload.
+        // Primary timeout classification wins over any partial payload.
+        assertTrue(env.result is DiagnosticResult.Timeout)
+    }
+
+    @Test fun timeoutPartialClearEchoNeverBecomesPositive() {
+        val env = error(AdapterError.Timeout(600L), "44").toWireEnvelopes("04").single()
         assertTrue(env.result is DiagnosticResult.Timeout)
     }
 

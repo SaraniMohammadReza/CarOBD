@@ -11,7 +11,7 @@ data class ResponderScanResult(
     val detail: String? = null,
 )
 data class DiagnosticScanReport(val responders: List<ResponderScanResult>) {
-    val codes: List<DiagnosticCode> get() = responders.flatMap { it.codes }
+    val codes: List<DiagnosticCode> get() = responders.flatMap { it.codes }.distinctBy { Triple(it.responderAddressHex, it.category, it.code) }
     val completeness: ScanCompleteness get() {
         val successful = responders.count { it.outcome == ScanOutcome.CODES || it.outcome == ScanOutcome.NO_CODES }
         return when {

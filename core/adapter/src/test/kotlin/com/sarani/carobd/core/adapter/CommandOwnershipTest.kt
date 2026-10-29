@@ -71,4 +71,54 @@ class CommandOwnershipTest {
         assertTrue(a.executeCommand("010D") is AdapterResponse.Error)
         a.disconnect(); b.disconnect()
     }
+    @Test fun readerFailureRetiresWithoutJoiningItself() = runTest {
+        val physical = Physical(backgroundScope)
+        val broken = object : ObdTransport by physical {
+            override val incomingBytes: Flow<ByteArray> = flow {
+                delay(20)
+                error("reader failed")
+            }
+        }
+        val adapter = Elm327Adapter(broken, backgroundScope)
+        advanceTimeBy(30); runCurrent()
+        assertFalse(physical.isConnected)
+        assertTrue(adapter.executeCommand("010D") is AdapterResponse.Error)
+        assertTrue(physical.writes.isEmpty())
+        adapter.disconnect()
+    }
+    @Test fun initializationCancellationRetiresTransport() = runTest {
+        val physical = Physical(backgroundScope, true)
+        val adapter = Elm327Adapter(physical, backgroundScope)
+        val job = launch { adapter.initialize() }
+        runCurrent()
+        job.cancelAndJoin()
+        assertFalse(physical.isConnected)
+        assertEquals(listOf("ATZ"), physical.writes)
+        assertTrue(adapter.executeCommand("010D") is AdapterResponse.Error)
+        adapter.disconnect()
+    }
+
+    @Test fun cancellationDuringTimeoutQuarantineRetiresStream() = runTest {
+        val physical = Physical(backgroundScope)
+        val adapter = Elm327Adapter(physical, backgroundScope)
+        val job = launch { adapter.executeCommand("010C", 100) }
+        runCurrent(); advanceTimeBy(120); runCurrent()
+        job.cancelAndJoin()
+        advanceTimeBy(100); runCurrent()
+        assertTrue(adapter.executeCommand("010D") is AdapterResponse.Error)
+        assertEquals(listOf("010C"), physical.writes)
+        adapter.disconnect()
+    }
+    @Test fun manualAdmissionQueueIsBounded() = runTest {
+        val physical = Physical(backgroundScope, true)
+        val adapter = Elm327Adapter(physical, backgroundScope)
+        val jobs = (1..12).map { async { adapter.executeCommand("010C") } }
+        runCurrent()
+        assertEquals(4, jobs.count { it.isCompleted })
+        assertEquals(1, physical.writes.size)
+        jobs.forEach { it.cancel() }; jobs.forEach { it.join() }
+        assertFalse(physical.isConnected)
+        adapter.disconnect()
+    }
+
 }

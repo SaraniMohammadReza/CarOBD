@@ -9,6 +9,7 @@ import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ProtocolStandard
 import com.sarani.carobd.core.protocol.obd2.PidCodec
 import com.sarani.carobd.core.adapter.safety.AuthorizedDiagnosticCommand
+import com.sarani.carobd.core.adapter.command.toWireEnvelopes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,19 +79,18 @@ open class Elm327Adapter(
 
     private fun startIncomingReader() {
         readerJob?.cancel()
-        readerJob = scope.launch {
+        readerJob = scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
             try {
                 transport.incomingBytes.collect { chunk ->
                     for (b in chunk) {
                         incomingCharsChannel.send(b.toInt().toChar())
                     }
                 }
-            } catch (_: CancellationException) {
-                // Normal job shutdown
             } catch (e: CancellationException) {
-                retire("Initialization canceled")
                 throw e
             } catch (e: Exception) {
+                retire("Stream reader failed: ${e.message}")
+                _currentProtocol = null
                 _state.value = ConnectionState.Failure(
                     stage = "STREAM_READ",
                     humanMessageFa = "خطا در دریافت جریان داده از آداپتور",
@@ -116,21 +116,21 @@ open class Elm327Adapter(
                 drainPendingBuffer()
 
                 // 1. Reset chip: ATZ
-                executeInternal("ATZ", 2500L)
+                check(executeInternal("ATZ", 2500L) is AdapterResponse.Success) { "Adapter reset failed" }
                 kotlinx.coroutines.delay(200)
                 drainPendingBuffer()
 
                 // 2. Disable echo: ATE0
-                executeInternal("ATE0", 1000L)
+                checkOk("ATE0", 1000L)
 
                 // 3. Disable linefeeds: ATL0
-                executeInternal("ATL0", 1000L)
+                checkOk("ATL0", 1000L)
 
                 // 4. Disable spaces for faster transmission: ATS0
-                executeInternal("ATS0", 1000L)
+                checkOk("ATS0", 1000L)
 
                 // 5. Adaptive timing auto 1: ATAT1
-                executeInternal("ATAT1", 1000L)
+                checkOk("ATAT1", 1000L)
 
                 // 6. Run hardware probe (ATI, ATRV, Clone check)
                 val prober = Elm327Prober { cmd, timeout -> executeInternal(cmd, timeout) }
@@ -145,10 +145,10 @@ open class Elm327Adapter(
                 )
                 if (forcedProtocol != null) {
                     val atspCmd = getElmProtocolCommand(forcedProtocol)
-                    executeInternal(atspCmd, 1500L)
+                    checkOk(atspCmd, 1500L)
                     _currentProtocol = forcedProtocol
                 } else {
-                    executeInternal("ATSP0", 1500L)
+                    checkOk("ATSP0", 1500L)
                 }
 
                 // 8. Issue first query (0100) to trigger vehicle handshake.
@@ -178,8 +178,8 @@ open class Elm327Adapter(
                         )
                     }
                     init0100 is AdapterResponse.Success -> {
-                        val pid00 = PidCodec.cleanResponseHex(init0100.rawResponse)
-                        val validResponse = PidCodec.verifyResponseHeader(pid00, 0x41, 0x00) && pid00.size >= 6
+                        val replies = init0100.toWireEnvelopes("0100")
+                        val validResponse = replies.isNotEmpty() && replies.all { it.result is com.sarani.carobd.core.model.DiagnosticResult.Positive }
                         if (!validResponse) {
                             _state.value = ConnectionState.Failure(
                                 stage = "ECU_HANDSHAKE",
@@ -203,9 +203,12 @@ open class Elm327Adapter(
 
                 // 9. Read back detected protocol using ATDPN
                 val dpnResp = executeInternal("ATDPN", 1000L)
-                if (dpnResp is AdapterResponse.Success && dpnResp.cleanedLines.isNotEmpty()) {
-                    val protoNum = dpnResp.cleanedLines.first().removePrefix("A").trim()
-                    _currentProtocol = mapElmProtocolNumber(protoNum)
+                val readback = (dpnResp as? AdapterResponse.Success)?.cleanedLines?.singleOrNull()?.trim()?.uppercase()
+                val code = readback?.let { if (it.length == 2 && it.startsWith("A")) it.drop(1) else it }
+                _currentProtocol = code?.let { mapElmProtocolNumber(it) }
+                check(_currentProtocol != null && _currentProtocol != ProtocolStandard.AUTO) { "Unknown protocol readback: $readback" }
+                if (forcedProtocol != null && forcedProtocol != ProtocolStandard.AUTO) {
+                    check(_currentProtocol == forcedProtocol) { "Manual protocol mismatch: requested $forcedProtocol, observed $_currentProtocol" }
                 }
 
                 _state.value = ConnectionState.Connected(
@@ -226,7 +229,13 @@ open class Elm327Adapter(
                     quality = probeResult.quality
                 )
 
+            } catch (e: CancellationException) {
+                retire("Initialization canceled")
+                _currentProtocol = null
+                throw e
             } catch (e: Exception) {
+                retire("Initialization failed: ${e.message}")
+                _currentProtocol = null
                 _state.value = ConnectionState.Failure(
                     stage = "INITIALIZATION",
                     humanMessageFa = "خطا در آماده‌سازی آداپتور عیب‌یابی",
@@ -279,9 +288,11 @@ open class Elm327Adapter(
         retired = true
         resyncCompromised = true
         _state.value = ConnectionState.Failure("COMMAND_OWNERSHIP", "نشست ارتباطی متوقف شد", reason, false)
+        val reader = readerJob
+        val retiringReaderItself = reader === kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
         withContext(NonCancellable) {
             runCatching { transport.disconnect() }
-            readerJob?.cancelAndJoin()
+            if (!retiringReaderItself) reader?.cancelAndJoin()
             drainPendingBuffer()
         }
     }
@@ -367,35 +378,23 @@ open class Elm327Adapter(
         }
     }
 
-    private fun getElmProtocolCommand(standard: ProtocolStandard): String {
-        return when (standard) {
-            ProtocolStandard.SAE_J1850_PWM -> "ATSP1"
-            ProtocolStandard.SAE_J1850_VPW -> "ATSP2"
-            ProtocolStandard.ISO_9141_2 -> "ATSP3"
-            ProtocolStandard.ISO_14230_4_KWP_5BAUD -> "ATSP4"
-            ProtocolStandard.ISO_14230_4_KWP_FAST -> "ATSP5"
-            ProtocolStandard.ISO_15765_4_CAN_11_500 -> "ATSP6"
-            ProtocolStandard.ISO_15765_4_CAN_29_500 -> "ATSP7"
-            ProtocolStandard.ISO_15765_4_CAN_11_250 -> "ATSP8"
-            ProtocolStandard.ISO_15765_4_CAN_29_250 -> "ATSP9"
-            ProtocolStandard.SAE_J1939_CAN -> "ATSPB"
-            else -> "ATSP0"
+    private suspend fun checkOk(command: String, timeoutMs: Long) {
+        val r = executeInternal(command, timeoutMs)
+        check(r is AdapterResponse.Success && r.cleanedLines.singleOrNull()?.trim()?.uppercase() == "OK") {
+            "Adapter rejected $command"
         }
     }
 
-    private fun mapElmProtocolNumber(numStr: String): ProtocolStandard {
-        return when (numStr) {
-            "1" -> ProtocolStandard.SAE_J1850_PWM
-            "2" -> ProtocolStandard.SAE_J1850_VPW
-            "3" -> ProtocolStandard.ISO_9141_2
-            "4" -> ProtocolStandard.ISO_14230_4_KWP_5BAUD
-            "5" -> ProtocolStandard.ISO_14230_4_KWP_FAST
-            "6" -> ProtocolStandard.ISO_15765_4_CAN_11_500
-            "7" -> ProtocolStandard.ISO_15765_4_CAN_29_500
-            "8" -> ProtocolStandard.ISO_15765_4_CAN_11_250
-            "9" -> ProtocolStandard.ISO_15765_4_CAN_29_250
-            "B", "b" -> ProtocolStandard.SAE_J1939_CAN
-            else -> ProtocolStandard.ISO_15765_4_CAN_11_500
+    private fun getElmProtocolCommand(standard: ProtocolStandard): String {
+        require(standard in setOf(ProtocolStandard.AUTO, ProtocolStandard.SAE_J1850_PWM, ProtocolStandard.SAE_J1850_VPW,
+            ProtocolStandard.ISO_9141_2, ProtocolStandard.ISO_14230_4_KWP_5BAUD, ProtocolStandard.ISO_14230_4_KWP_FAST,
+            ProtocolStandard.ISO_15765_4_CAN_11_500, ProtocolStandard.ISO_15765_4_CAN_29_500,
+            ProtocolStandard.ISO_15765_4_CAN_11_250, ProtocolStandard.ISO_15765_4_CAN_29_250, ProtocolStandard.SAE_J1939_CAN)) {
+            "Unsupported protocol selection"
         }
+        return standard.elmCommand.replace(" ", "")
     }
+
+    private fun mapElmProtocolNumber(code: String): ProtocolStandard? =
+        com.sarani.carobd.core.model.protocolFromManualCode(code)
 }

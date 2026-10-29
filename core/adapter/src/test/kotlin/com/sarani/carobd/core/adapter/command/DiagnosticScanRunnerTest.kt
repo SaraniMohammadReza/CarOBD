@@ -33,7 +33,7 @@ class DiagnosticScanRunnerTest {
     @Test fun repository_pendingP0133PreservesCategory() = runTest { assertEquals("P0133", DiagnosticScanRunner(nonCan()).scan().codes.single { it.category == DtcCategory.PENDING }.code) }
     @Test fun repository_permanentP0133PreservesCategory() = runTest { assertEquals("P0133", DiagnosticScanRunner(nonCan()).scan().codes.single { it.category == DtcCategory.PERMANENT }.code) }
     @Test fun repository_malformedNeverBecomesNoCodes() = runTest {
-        for (raw in listOf("43", "43 02 01", "43 FFFFFFFF", "410C1AF8", "NO DATA")) {
+        for (raw in listOf("43", "43 02 01", "43 01 00 00", "43 FFFFFFFF", "410C1AF8", "NO DATA")) {
             val r = DiagnosticScanRunner(Adapter(true, mapOf("03" to listOf(raw)))).scan()
             assertNotEquals(raw, ScanCompleteness.COMPLETE, r.completeness)
         }

@@ -42,6 +42,8 @@ class DiagnosticScanRunner(private val adapter: ObdAdapter, private val active: 
                 } else r.payload.isNotEmpty() && r.payload.size % 2 == 0
                 if (!valid) return result(ScanOutcome.MALFORMED, "Truncated/invalid DTC framing")
                 val codes = DtcParser.parseMode03Payload(full, category, env.responderId, frame)
+                if (frame == DtcFrame.CAN_WITH_COUNT && codes.size != (r.payload[0].toInt() and 0xFF))
+                    return result(ScanOutcome.MALFORMED, "DTC count does not match decoded evidence")
                 result(if (codes.isEmpty()) ScanOutcome.NO_CODES else ScanOutcome.CODES, codes = codes)
             }
             is DiagnosticResult.NegativeResponse -> result(ScanOutcome.NEGATIVE_RESPONSE, "NRC ${r.nrc}")

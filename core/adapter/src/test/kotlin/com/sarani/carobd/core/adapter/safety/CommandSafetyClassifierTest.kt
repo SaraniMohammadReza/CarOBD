@@ -45,4 +45,26 @@ class CommandSafetyClassifierTest {
     @Test fun physicalDispatch_deniesMode08() = assertDenied("08", "0800")
     @Test fun physicalDispatch_deniesUdsWritesProgrammingSecurity() = assertDenied("1002", "11", "14FFFFFF", "2701", "2EF19001", "2F0100", "3101", "3400", "3500", "3601", "37", "3B0100", "8501")
     @Test fun rawTerminal_cannotInjectSecondCommand() = assertDenied("ATI\r04", "0902\r08", "0100\r2701")
+    @Test fun simulatorDedicatedClearIsIsolatedFromRawDispatch() = runTest {
+        val rx = kotlinx.coroutines.flow.MutableSharedFlow<ByteArray>(extraBufferCapacity = 8)
+        val attempts = mutableListOf<String>()
+        val simulator = object : ObdTransport {
+            override val transportType = TransportType.SIMULATOR
+            override var isConnected = true
+            override val incomingBytes = rx
+            override suspend fun connect() { isConnected = true }
+            override suspend fun disconnect() { isConnected = false }
+            override suspend fun write(data: ByteArray) {
+                attempts.add(data.toString(Charsets.US_ASCII))
+                rx.emit("44\r>".toByteArray())
+            }
+        }
+        val adapter = Elm327Adapter(simulator, backgroundScope)
+        assertTrue(adapter.executeCommand("04") is com.sarani.carobd.core.adapter.command.AdapterResponse.Error)
+        assertTrue(attempts.isEmpty())
+        assertTrue(adapter.clearSimulatorDiagnosticState() is com.sarani.carobd.core.adapter.command.AdapterResponse.Success)
+        assertEquals(listOf("04\r"), attempts)
+        adapter.disconnect()
+    }
+
 }
