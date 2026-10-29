@@ -253,138 +253,16 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = withContext(Dispatchers.IO) {
-        val adapter = activeAdapter ?: return@withContext Result.failure(NotConnectedException("آداپتور متصل نیست"))
-
-        val dtcList = mutableListOf<DiagnosticCode>()
-        // §2 protocol-aware framing: CAN carries the J1979 count byte after the echo;
-        // non-CAN classic (J1850/ISO-9141/KWP) emits DTC pairs directly (no count byte).
-        val dtcFrame = if (adapter.isCanTransport) DtcFrame.CAN_WITH_COUNT else DtcFrame.NON_CAN_PAIRS
-
-        // 1. Request Mode 03 (Stored DTCs).
-        val mode03Resp = adapter.executeCommand("03", 4000L)
-        // §28 / §4.4 / §4.3 truth gate: Mode 03 is the canonical "ECU is answering"
-        // signal. An unreachable ECU surfaces as NotConnected; a 7F rejection
-        // surfaces as EcuRejectionException. Neither may collapse into an empty
-        // "no codes found" success.
-        DtcScanValidator.scanFailure(mode03Resp)?.let { return@withContext Result.failure(it) }
-        if (mode03Resp is AdapterResponse.Success) {
-            // §7: canonical envelope path — raw response becomes responder-aware envelopes
-            //     before DtcParser consumes the payload. This preserves responder identity
-            //     (§9/§4.3 multi-ECU) and lets the envelope parser classify 7F / NO-DATA /
-            //     errors instead of flattening bytes via PidCodec.cleanResponseHex().
-            val envelopes03 = mode03Resp.toWireEnvelopes("03")
-            for (env in envelopes03) {
-                when (val r = env.result) {
-                    is DiagnosticResult.Positive -> {
-                        // §4.3: parseMode03Payload validates the 0x43 echo + count byte.
-                        dtcList.addAll(
-                            DtcParser.parseMode03Payload(
-                                r.payload, DtcCategory.STORED,
-                                responderAddressHex = env.responderId,
-                                frame = dtcFrame
-                            )
-                        )
-                    }
-                    // DtcScanValidator already handles most 7F/error cases above.
-                    // This is a defensive safety-net for responder-tagged 7F lines.
-                    is DiagnosticResult.NegativeResponse -> {
-                        val nrcCode = r.nrc ?: 0
-                        return@withContext Result.failure(
-                            EcuRejectionException(
-                                NegativeResponse(
-                                    requestedService = 0x03,
-                                    nrc = ObdNrc.fromCode(nrcCode),
-                                    nrcCode = nrcCode,
-                                    rawLine = env.rawLines.joinToString(" "),
-                                    responder = env.responderId
-                                )
-                            )
-                        )
-                    }
-                    // Timeout / AdapterFailure / NoData / Malformed → no DTCs for this responder
-                    else -> {}
-                }
-            }
+        val adapter = activeAdapter ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
+        val report = com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(adapter) {
+            activeAdapter === adapter && _connectionState.value is ConnectionState.Connected
+        }.scan()
+        if (report.completeness != com.sarani.carobd.core.model.ScanCompleteness.COMPLETE) {
+            return@withContext Result.failure(com.sarani.carobd.core.model.DiagnosticScanException(report))
         }
-
-        // 2. Request Mode 07 (Pending DTCs). A 7F here is an explicit ECU rejection
-        //    (this responder does not answer pending-DTC requests) and MUST surface
-        //    as a failure — never silently become an empty "no pending codes" success.
-        val mode07Resp = adapter.executeCommand("07", 4000L)
-        val envelopes07 = mode07Resp.toWireEnvelopes("07")
-        for (env in envelopes07) {
-            when (val r = env.result) {
-                is DiagnosticResult.Positive -> {
-                    dtcList.addAll(
-                        DtcParser.parseMode03Payload(
-                            r.payload, DtcCategory.PENDING,
-                            responderAddressHex = env.responderId,
-                            frame = dtcFrame
-                        )
-                    )
-                }
-                is DiagnosticResult.NegativeResponse -> {
-                    val nrcCode = r.nrc ?: 0
-                    return@withContext Result.failure(
-                        EcuRejectionException(
-                            NegativeResponse(
-                                requestedService = 0x07,
-                                nrc = ObdNrc.fromCode(nrcCode),
-                                nrcCode = nrcCode,
-                                rawLine = env.rawLines.joinToString(" "),
-                                responder = env.responderId
-                            )
-                        )
-                    )
-                }
-                // Timeout / AdapterFailure / NoData → no pending DTCs for this responder
-                else -> {}
-            }
-        }
-
-        // 3. Request Mode 0A (Permanent DTCs). Same 7F-rejection semantics as Mode 07.
-        val mode0aResp = adapter.executeCommand("0A", 4000L)
-        val envelopes0A = mode0aResp.toWireEnvelopes("0A")
-        for (env in envelopes0A) {
-            when (val r = env.result) {
-                is DiagnosticResult.Positive -> {
-                    dtcList.addAll(
-                        DtcParser.parseMode03Payload(
-                            r.payload, DtcCategory.PERMANENT,
-                            responderAddressHex = env.responderId,
-                            frame = dtcFrame
-                        )
-                    )
-                }
-                is DiagnosticResult.NegativeResponse -> {
-                    val nrcCode = r.nrc ?: 0
-                    return@withContext Result.failure(
-                        EcuRejectionException(
-                            NegativeResponse(
-                                requestedService = 0x0A,
-                                nrc = ObdNrc.fromCode(nrcCode),
-                                nrcCode = nrcCode,
-                                rawLine = env.rawLines.joinToString(" "),
-                                responder = env.responderId
-                            )
-                        )
-                    )
-                }
-                // Timeout / AdapterFailure / NoData → no permanent DTCs for this responder
-                else -> {}
-            }
-        }
-
-        // Save scan session to database
-        if (dtcList.isNotEmpty()) {
-            database.saveDtcScan(
-                sessionId = UUID.randomUUID().toString(),
-                vehicleId = _activeVehicleProfile.value?.id ?: "unselected",
-                codes = dtcList
-            )
-        }
-
-        Result.success(dtcList)
+        // Persistence must not invent MIL/category/protocol facts. Durable scan storage
+        // remains off until the existing database schema can retain those facts.
+        Result.success(report.codes)
     }
 
     override suspend fun clearDiagnosticTroubleCodes(): Result<Unit> = withContext(Dispatchers.IO) {
@@ -407,7 +285,7 @@ class ObdRepositoryImpl(
         val rejection = envelopes.firstOrNull { it.result is DiagnosticResult.NegativeResponse }
 
         return@withContext when {
-            positiveClear -> Result.success(Unit)
+            positiveClear && envelopes.all { it.result is DiagnosticResult.Positive && it.service == DiagnosticService.MODE_04 } -> Result.success(Unit)
             rejection != null -> {
                 val r = rejection.result as DiagnosticResult.NegativeResponse
                 val nrcCode = r.nrc ?: 0

@@ -31,7 +31,7 @@
     <string name="dtc_scan_button">اسکن کدهای خطای ECU (DTC)</string>
     <string name="dtc_clear_button">پاک‌کردن خطاهای شبیه‌ساز (خودرو غیرفعال)</string>
     <string name="dtc_scanning">در حال اسکن حافظه خطاهای ECU...</string>
-    <string name="dtc_no_codes">هیچ کد خطایی یافت نشد! وضعیت ECU کاملاً نرمال است.</string>
+    <string name="dtc_no_codes">در اسکن کامل‌شده کد خطایی گزارش نشد. این نتیجه به معنی سلامت کامل خودرو نیست.</string>
     <string name="dtc_codes_found">%d کد خطا شناسایی شد</string>
     <string name="dtc_clear_confirm_title">آیا از پاک کردن خطاها اطمینان دارید؟</string>
     <string name="dtc_clear_confirm_msg">فقط اطلاعات تشخیصی شبیه‌ساز پاک می‌شود. پاک‌سازی خودروی واقعی در این نسخهٔ فقط‌خواندنی غیرفعال است.</string>

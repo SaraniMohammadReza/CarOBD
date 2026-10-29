@@ -16,7 +16,8 @@ data class DiagnosticsState(
     val isClearing: Boolean = false,
     val showConfirmDialog: Boolean = false,
     val lastScanMessage: String? = null,
-    val scanCompletedSuccessfully: Boolean = false
+    val scanCompletedSuccessfully: Boolean = false,
+    val responderEvidence: List<String> = emptyList()
 ) : UiState
 
 sealed interface DiagnosticsIntent : UiIntent {
@@ -46,7 +47,7 @@ class DiagnosticsViewModel(
 
     private fun performScan() {
         viewModelScope.launch {
-            setState { copy(isScanning = true, lastScanMessage = null, scanCompletedSuccessfully = false) }
+            setState { copy(isScanning = true, lastScanMessage = null, responderEvidence = emptyList(), scanCompletedSuccessfully = false) }
             val result = scanDtcUseCase()
             result.fold(
                 onSuccess = { codes ->
@@ -63,7 +64,11 @@ class DiagnosticsViewModel(
                     setState {
                         copy(
                             isScanning = false,
-                            lastScanMessage = "خطا در اسکن: ${err.message}",
+                            lastScanMessage = "Scan incomplete: ${err.message}",
+                            troubleCodes = (err as? com.sarani.carobd.core.model.DiagnosticScanException)?.report?.codes ?: emptyList(),
+                            responderEvidence = (err as? com.sarani.carobd.core.model.DiagnosticScanException)?.report?.responders?.map {
+                                "${it.request} / ${it.responder ?: "Unknown ECU"}: ${it.outcome}"
+                            } ?: emptyList(),
                             scanCompletedSuccessfully = false
                         )
                     }

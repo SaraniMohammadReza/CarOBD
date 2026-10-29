@@ -118,6 +118,9 @@ fun DiagnosticsScreen(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
+            state.responderEvidence.forEach { evidence ->
+                Text(evidence, color = TextMuted, fontSize = 12.sp)
+            }
             // Results List
             if (state.troubleCodes.isEmpty()) {
                 // Truthful empty state (§28): a green "no codes" confirmation is shown

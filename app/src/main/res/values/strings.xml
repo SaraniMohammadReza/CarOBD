@@ -31,7 +31,7 @@
     <string name="dtc_scan_button">Scan Trouble Codes (DTC)</string>
     <string name="dtc_clear_button">Clear simulator codes (physical clear disabled)</string>
     <string name="dtc_scanning">Scanning ECU Trouble Codes...</string>
-    <string name="dtc_no_codes">No trouble codes found! ECU status: Normal</string>
+    <string name="dtc_no_codes">No DTCs reported by the completed scan. This does not establish vehicle health.</string>
     <string name="dtc_codes_found">%d Trouble Code(s) Detected</string>
     <string name="dtc_clear_confirm_title">Clear Diagnostic Codes?</string>
     <string name="dtc_clear_confirm_msg">Only simulator diagnostic state can be cleared. Physical vehicle clearing is disabled in this read-only build.</string>
