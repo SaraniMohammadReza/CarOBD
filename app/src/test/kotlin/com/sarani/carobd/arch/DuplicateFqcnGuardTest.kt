@@ -25,6 +25,12 @@ import org.junit.Test
 class DuplicateFqcnGuardTest {
 
     @Test
+    fun maintenanceModelsResolveCanonical() {
+        assertEquals(6, com.sarani.carobd.core.model.ServiceType.ENGINE_OIL.defaultIntervalMonths)
+        assertEquals("sources", com.sarani.carobd.core.model.VehicleSpecSheet::sources.name)
+    }
+
+    @Test
     fun protocolStandardResolvesToCanonicalNotShadow() {
         val values = ProtocolStandard.entries
         // core/model canonical defines 15 variants (incl. advanced A/B/C and
