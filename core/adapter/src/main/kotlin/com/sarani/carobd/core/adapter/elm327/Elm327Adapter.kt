@@ -8,6 +8,7 @@ import com.sarani.carobd.core.adapter.transport.ObdTransport
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ProtocolStandard
 import com.sarani.carobd.core.protocol.obd2.PidCodec
+import com.sarani.carobd.core.adapter.safety.AuthorizedDiagnosticCommand
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -236,26 +237,22 @@ open class Elm327Adapter(
 
     override suspend fun executeCommand(command: String, timeoutMs: Long): AdapterResponse =
         commandMutex.withLock {
-            executeInternal(command, timeoutMs)
+            val authorized = AuthorizedDiagnosticCommand.readOnly(command)
+                ?: return@withLock deniedCommand()
+            dispatch(authorized, timeoutMs)
         }
 
-    override suspend fun setHeader(headerHex: String): Boolean =
-        commandMutex.withLock {
-            val resp = executeInternal("ATSH $headerHex", 1000L)
-            resp is AdapterResponse.Success
-        }
+    // Routing changes require a new verified session; arbitrary header strings are disabled.
+    override suspend fun setHeader(headerHex: String): Boolean = false
+    override suspend fun selectProtocol(protocol: ProtocolStandard): Boolean = false
 
-    override suspend fun selectProtocol(protocol: ProtocolStandard): Boolean =
-        commandMutex.withLock {
-            val cmd = getElmProtocolCommand(protocol)
-            val resp = executeInternal(cmd, 1500L)
-            if (resp is AdapterResponse.Success) {
-                _currentProtocol = protocol
-                true
-            } else {
-                false
-            }
-        }
+    override suspend fun clearSimulatorDiagnosticState(): AdapterResponse = commandMutex.withLock {
+        if (transport.transportType != com.sarani.carobd.core.model.TransportType.SIMULATOR) return@withLock deniedCommand()
+        dispatch(AuthorizedDiagnosticCommand.simulatorClear(), 1000L)
+    }
+
+    private fun deniedCommand(): AdapterResponse = AdapterResponse.Error(
+        AdapterError.Other("Command disabled by read-only safety policy"), "", 0L)
 
     override suspend fun disconnect() {
         commandMutex.withLock {
@@ -268,6 +265,12 @@ open class Elm327Adapter(
     }
 
     private suspend fun executeInternal(command: String, timeoutMs: Long): AdapterResponse {
+        val authorized = AuthorizedDiagnosticCommand.initialization(command) ?: return deniedCommand()
+        return dispatch(authorized, timeoutMs)
+    }
+
+    private suspend fun dispatch(authorized: AuthorizedDiagnosticCommand, timeoutMs: Long): AdapterResponse {
+        val command = authorized.canonical
         val startTime = System.currentTimeMillis()
         // §5: a prior timeout that could not be resynchronised leaves the inbound
         // stream unverified — refuse to issue until (re)initialisation resets it.

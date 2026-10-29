@@ -45,6 +45,9 @@ interface ObdAdapter {
     /**
      * Sets target CAN header / ECU physical address (e.g. "7E0" or "18DB33F1").
      */
+    suspend fun clearSimulatorDiagnosticState(): AdapterResponse = AdapterResponse.Error(
+        com.sarani.carobd.core.adapter.command.AdapterError.Other("Physical clear disabled"), "", 0L)
+
     suspend fun setHeader(headerHex: String): Boolean
 
     /**

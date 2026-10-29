@@ -390,7 +390,11 @@ class ObdRepositoryImpl(
     override suspend fun clearDiagnosticTroubleCodes(): Result<Unit> = withContext(Dispatchers.IO) {
         val adapter = activeAdapter ?: return@withContext Result.failure(Exception("Adapter not connected"))
 
-        val response = adapter.executeCommand("04", 5000L)
+        if (_connectionState.value !is ConnectionState.Connected ||
+            (_connectionState.value as? ConnectionState.Connected)?.isSimulator != true) {
+            return@withContext Result.failure(IllegalStateException("Physical DTC clearing is disabled by read-only safety policy"))
+        }
+        val response = adapter.clearSimulatorDiagnosticState()
         // §7: canonical envelope path — classify through ElmResponseEnvelopeParser
         val envelopes = response.toWireEnvelopes("04")
 

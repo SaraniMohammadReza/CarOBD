@@ -29,12 +29,12 @@
     <!-- Diagnostics Strings -->
     <string name="dtc_title">ECU Diagnostics</string>
     <string name="dtc_scan_button">Scan Trouble Codes (DTC)</string>
-    <string name="dtc_clear_button">Clear Trouble Codes (MIL Off)</string>
+    <string name="dtc_clear_button">Clear simulator codes (physical clear disabled)</string>
     <string name="dtc_scanning">Scanning ECU Trouble Codes...</string>
     <string name="dtc_no_codes">No trouble codes found! ECU status: Normal</string>
     <string name="dtc_codes_found">%d Trouble Code(s) Detected</string>
     <string name="dtc_clear_confirm_title">Clear Diagnostic Codes?</string>
-    <string name="dtc_clear_confirm_msg">This will turn off the Check Engine Light (MIL) and reset ECU readiness monitors. Are you sure?</string>
+    <string name="dtc_clear_confirm_msg">Only simulator diagnostic state can be cleared. Physical vehicle clearing is disabled in this read-only build.</string>
     <string name="dtc_severity_high">Critical</string>
     <string name="dtc_severity_medium">Moderate</string>
     <string name="dtc_severity_low">Info / Pending</string>

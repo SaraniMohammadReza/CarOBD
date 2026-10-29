@@ -139,8 +139,7 @@ class WireEnvelopeGateTest {
         val env = resp.toWireEnvelopes("01 0C").single()
         // "41 0C" has a valid hex structure but incomplete payload.
         // The envelope parser creates a Positive with empty payload.
-        assertTrue(env.result is DiagnosticResult.Positive ||
-                   env.result is DiagnosticResult.Malformed)
+        assertTrue(env.result is DiagnosticResult.Timeout)
     }
 
     // ── Preservation ─────────────────────────────────────────────────────

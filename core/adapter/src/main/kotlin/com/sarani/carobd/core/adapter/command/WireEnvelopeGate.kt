@@ -27,15 +27,12 @@ fun AdapterResponse.toWireEnvelopes(request: String): List<DiagnosticWireRespons
 
         is AdapterResponse.Error -> {
             val lines = if (rawResponse.isNotBlank()) listOf(rawResponse) else emptyList()
-            val parsed = ElmResponseEnvelopeParser.parse(request, lines, ts, executionTimeMs)
-            if (parsed.isNotEmpty()) {
-                parsed
-            } else {
                 // Nothing decodable: synthesize a canonical failure envelope.
-                val result = if (error is AdapterError.Timeout)
-                    DiagnosticResult.Timeout
-                else
-                    DiagnosticResult.AdapterFailure(error.messageEn, lines)
+                val result = when (error) {
+                    is AdapterError.Timeout -> DiagnosticResult.Timeout
+                    AdapterError.NoData -> DiagnosticResult.NoData(lines)
+                    else -> DiagnosticResult.AdapterFailure(error.messageEn, lines)
+                }
                 listOf(
                     DiagnosticWireResponse(
                         request = request,
@@ -49,7 +46,6 @@ fun AdapterResponse.toWireEnvelopes(request: String): List<DiagnosticWireRespons
                         result = result
                     )
                 )
-            }
         }
     }
 }

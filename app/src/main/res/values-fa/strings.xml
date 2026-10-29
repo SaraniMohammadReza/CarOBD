@@ -29,12 +29,12 @@
     <!-- Diagnostics Strings -->
     <string name="dtc_title">عیب‌یابی تخصصی ECU</string>
     <string name="dtc_scan_button">اسکن کدهای خطای ECU (DTC)</string>
-    <string name="dtc_clear_button">پاک‌کردن خطاها و خاموش‌کردن چراغ چک</string>
+    <string name="dtc_clear_button">پاک‌کردن خطاهای شبیه‌ساز (خودرو غیرفعال)</string>
     <string name="dtc_scanning">در حال اسکن حافظه خطاهای ECU...</string>
     <string name="dtc_no_codes">هیچ کد خطایی یافت نشد! وضعیت ECU کاملاً نرمال است.</string>
     <string name="dtc_codes_found">%d کد خطا شناسایی شد</string>
     <string name="dtc_clear_confirm_title">آیا از پاک کردن خطاها اطمینان دارید؟</string>
-    <string name="dtc_clear_confirm_msg">این عملیات خطاهای ذخیره شده در ECU را ریست کرده و چراغ چک را خاموش می‌کند. ادامه می‌دهید؟</string>
+    <string name="dtc_clear_confirm_msg">فقط اطلاعات تشخیصی شبیه‌ساز پاک می‌شود. پاک‌سازی خودروی واقعی در این نسخهٔ فقط‌خواندنی غیرفعال است.</string>
     <string name="dtc_severity_high">بحرانی / نیازمند تعمیر فوری</string>
     <string name="dtc_severity_medium">متوسط / پایش عملکرد</string>
     <string name="dtc_severity_low">اطلاعی / خطای موقت</string>
