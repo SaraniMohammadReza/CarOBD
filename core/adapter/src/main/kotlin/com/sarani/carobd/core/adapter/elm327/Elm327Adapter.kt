@@ -63,7 +63,7 @@ open class Elm327Adapter(
     private val commandMutex = Mutex()
     private val admission = Semaphore(8) // Bound callers waiting for the wire mutex.
     @Volatile private var retired = false
-    private var lastDispatchAt = 0L
+    private var lastDispatchNanos = 0L
     // §5 bounded buffering (was UNLIMITED): caps memory so a flooded/stuck adapter
     // cannot grow the inbound channel without limit.
     private val incomingCharsChannel = Channel<Char>(4096)
@@ -86,6 +86,7 @@ open class Elm327Adapter(
                         incomingCharsChannel.send(b.toInt().toChar())
                     }
                 }
+                retire("Incoming stream ended")
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -343,10 +344,10 @@ open class Elm327Adapter(
         try {
             drainPendingBuffer()
             // Global per-adapter minimum spacing, including manual reads and scans.
-            val waitMs = 50L - (System.currentTimeMillis() - lastDispatchAt)
+            val waitMs = 50L - java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - lastDispatchNanos)
             if (waitMs > 0) delay(waitMs)
             if (retired || !transport.isConnected) return AdapterResponse.Error(AdapterError.TransportFault("Disconnected"), "", 0L)
-            lastDispatchAt = System.currentTimeMillis()
+            lastDispatchNanos = System.nanoTime()
             withTimeoutOrNull(timeoutMs.coerceIn(100L, maxCommandTimeoutMs.coerceIn(100L, 30_000L))) {
                 transport.write((command + "\r").toByteArray(Charsets.US_ASCII))
                 true
@@ -387,14 +388,13 @@ open class Elm327Adapter(
      * arrives the stream cannot be resynchronised and is marked compromised.
      */
     private suspend fun resyncAfterTimeout(resyncWindowMs: Long) {
-        val deadline = System.currentTimeMillis() + resyncWindowMs
-        while (System.currentTimeMillis() < deadline) {
-            val remaining = (deadline - System.currentTimeMillis()).coerceAtLeast(0L)
-            val c = withTimeoutOrNull(remaining) { incomingCharsChannel.receive() } ?: break
-            if (c == Elm327BufferParser.PROMPT_CHAR) return
+        val prompt = withTimeoutOrNull(resyncWindowMs) {
+            while (true) {
+                if (incomingCharsChannel.receive() == Elm327BufferParser.PROMPT_CHAR) return@withTimeoutOrNull true
+            }
+            @Suppress("UNREACHABLE_CODE") false
         }
-        // Prompt never observed within the window: stream is unverifiable.
-        resyncCompromised = true
+        resyncCompromised = prompt != true
     }
 
     private fun drainPendingBuffer() {

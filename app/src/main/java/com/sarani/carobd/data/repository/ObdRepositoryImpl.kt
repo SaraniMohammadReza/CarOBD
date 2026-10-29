@@ -150,64 +150,64 @@ class ObdRepositoryImpl(
         val connectionJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
         connecting.set(connectionJob)
         try {
-        sessionMutex.withLock {
-            disconnectLocked()
-            var created: DiagnosticSession? = null
-            try {
-                require(profile.validate().isEmpty()) { "Invalid connection profile: ${profile.validate()}" }
-                val forced = when (profile.protocolMode) {
-                    ProtocolMode.AUTO -> null
-                    ProtocolMode.MANUAL -> requireNotNull(profile.manualProtocolCode?.let { protocolFromManualCode(it) }) { "Unsupported manual protocol" }
-                    ProtocolMode.VEHICLE_PROFILE -> error("Vehicle-profile protocol initialization is disabled pending validation; choose AUTO or MANUAL")
+            sessionMutex.withLock {
+                disconnectLocked()
+                var created: DiagnosticSession? = null
+                try {
+                    require(profile.validate().isEmpty()) { "Invalid connection profile: ${profile.validate()}" }
+                    val forced = when (profile.protocolMode) {
+                        ProtocolMode.AUTO -> null
+                        ProtocolMode.MANUAL -> requireNotNull(profile.manualProtocolCode?.let { protocolFromManualCode(it) }) { "Unsupported manual protocol" }
+                        ProtocolMode.VEHICLE_PROFILE -> error("Vehicle-profile protocol initialization is disabled pending validation; choose AUTO or MANUAL")
+                    }
+                    val tp = profile.transport.type
+                    if (tp == TransportType.BLUETOOTH_CLASSIC || tp == TransportType.BLUETOOTH_LE) {
+                        val bt = (requireNotNull(context).getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
+                        require(bt != null && bt.isEnabled) { "Bluetooth disabled or unavailable" }
+                    }
+                    val transport = createTransport(profile.transport)
+                    check(transport.transportType == profile.transport.type) { "Transport identity mismatch" }
+                    lateinit var session: DiagnosticSession
+                    session = DiagnosticSession(transport, scope,
+                        onState = { state -> created?.let { if (activeSession === it) _connectionState.value = state } },
+                        onTelemetry = { sample -> created?.let { if (activeSession === it && it.isOpen) _liveTelemetry.value = sample } },
+                        onLoss = {
+                            val lost = created
+                            scope.launch { sessionMutex.withLock { if (lost != null && activeSession === lost) disconnectLocked() } }
+                        }, connectTimeoutMs = profile.connectTimeoutMs,
+                        commandTimeoutMs = profile.commandTimeoutMs, onEvidence = onEvidence)
+                    created = session
+                    activeSession = session
+                    val result = session.execute { it.initialize(forced) }
+                    check(result.isSuccess) { result.errorMessage ?: "Initialization failed" }
+                    connectionProfiles.save(profile.copy(lastSuccessfulAt = System.currentTimeMillis()))
+                    if (testOnly) {
+                        disconnectLocked()
+                    } else {
+                        currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
+                        _connectionState.value = session.adapter.state.value
+                        startTelemetryLoop()
+                        try { startService() } catch (_: Exception) { error("Foreground diagnostics unavailable; session stopped") }
+                    }
+                    Result.success(Unit)
+                } catch (e: CancellationException) {
+                    if (activeSession === created) activeSession = null
+                    created?.close()
+                    _liveTelemetry.value = LiveTelemetry()
+                    currentTripComputer = null
+                    runCatching { stopService() }
+                    _connectionState.value = ConnectionState.Disconnected
+                    throw e
+                } catch (e: Exception) {
+                    if (activeSession === created) activeSession = null
+                    created?.close()
+                    _liveTelemetry.value = LiveTelemetry()
+                    currentTripComputer = null
+                    runCatching { stopService() }
+                    _connectionState.value = ConnectionState.Failure("CONNECTION", "اتصال برقرار نشد", e.message.orEmpty(), true)
+                    Result.failure(e)
                 }
-                val tp = profile.transport.type
-                if (tp == TransportType.BLUETOOTH_CLASSIC || tp == TransportType.BLUETOOTH_LE) {
-                    val bt = (requireNotNull(context).getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
-                    require(bt != null && bt.isEnabled) { "Bluetooth disabled or unavailable" }
-                }
-                val transport = createTransport(profile.transport)
-                check(transport.transportType == profile.transport.type) { "Transport identity mismatch" }
-                lateinit var session: DiagnosticSession
-                session = DiagnosticSession(transport, scope,
-                    onState = { state -> created?.let { if (activeSession === it) _connectionState.value = state } },
-                    onTelemetry = { sample -> created?.let { if (activeSession === it && it.isOpen) _liveTelemetry.value = sample } },
-                    onLoss = {
-                        val lost = created
-                        scope.launch { sessionMutex.withLock { if (lost != null && activeSession === lost) disconnectLocked() } }
-                    }, connectTimeoutMs = profile.connectTimeoutMs,
-                    commandTimeoutMs = profile.commandTimeoutMs, onEvidence = onEvidence)
-                created = session
-                activeSession = session
-                val result = session.execute { it.initialize(forced) }
-                check(result.isSuccess) { result.errorMessage ?: "Initialization failed" }
-                connectionProfiles.save(profile.copy(lastSuccessfulAt = System.currentTimeMillis()))
-                if (testOnly) {
-                    disconnectLocked()
-                } else {
-                    currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
-                    _connectionState.value = session.adapter.state.value
-                    startTelemetryLoop()
-                    try { startService() } catch (_: Exception) { error("Foreground diagnostics unavailable; session stopped") }
-                }
-                Result.success(Unit)
-            } catch (e: CancellationException) {
-                if (activeSession === created) activeSession = null
-                created?.close()
-                _liveTelemetry.value = LiveTelemetry()
-                currentTripComputer = null
-                runCatching { stopService() }
-                _connectionState.value = ConnectionState.Disconnected
-                throw e
-            } catch (e: Exception) {
-                if (activeSession === created) activeSession = null
-                created?.close()
-                _liveTelemetry.value = LiveTelemetry()
-                currentTripComputer = null
-                runCatching { stopService() }
-                _connectionState.value = ConnectionState.Failure("CONNECTION", "اتصال برقرار نشد", e.message.orEmpty(), true)
-                Result.failure(e)
             }
-        }
         } finally {
             connecting.compareAndSet(connectionJob, null)
             connectionAdmission.release()

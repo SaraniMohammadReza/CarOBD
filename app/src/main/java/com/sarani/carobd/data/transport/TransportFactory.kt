@@ -22,7 +22,9 @@ object TransportFactory {
         context: Context,
         bluetoothAdapter: BluetoothAdapter? =
             (context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter,
-    ): ObdTransport = when (config) {
+    ): ObdTransport {
+        require(config.validate().isEmpty()) { config.validate().joinToString("; ") }
+        return when (config) {
         is TransportConfig.BluetoothClassic -> {
             if (config.deviceAddress.isBlank()) error("bluetooth address required")
             BluetoothClassicTransport(config.deviceAddress, bluetoothAdapter)
@@ -44,5 +46,6 @@ object TransportFactory {
             // §17: honor persisted scenarioId; null/blank → HEALTHY_VEHICLE (documented).
             IsolatedSimulatorTransport(simulatorScenarioFromId(config.scenarioId))
         }
+    }
     }
 }

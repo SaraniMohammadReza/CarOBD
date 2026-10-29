@@ -78,4 +78,15 @@ class Sprint2AdversarialTest {
         adapter.disconnect()
     }
 
+    @Test fun completedInboundStreamRetiresEvenIfTransportFlagWasNotCleared() = runTest {
+        val wire = Wire()
+        val ended = object : ObdTransport by wire { override val incomingBytes = emptyFlow<ByteArray>() }
+        val adapter = Elm327Adapter(ended, backgroundScope)
+        runCurrent()
+        assertFalse(wire.isConnected)
+        assertTrue(adapter.executeCommand("0100") is AdapterResponse.Error)
+        assertTrue(wire.attempts.isEmpty())
+        adapter.disconnect()
+    }
+
 }

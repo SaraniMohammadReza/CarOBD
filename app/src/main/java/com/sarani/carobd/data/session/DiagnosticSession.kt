@@ -62,12 +62,12 @@ class DiagnosticSession(
         check(isOpen) { "Diagnostic session closed" }
         check(requestAdmission.tryAcquire()) { "Diagnostic session busy (maximum 8 requests)" }
         try {
-        val work = scope.async { check(isOpen); block(adapter) }
-        try { return work.await() }
-        catch (e: CancellationException) {
-            withContext(NonCancellable) { work.cancelAndJoin() }
-            throw e
-        }
+            val work = scope.async { check(isOpen); block(adapter) }
+            try { return work.await() }
+            catch (e: CancellationException) {
+                withContext(NonCancellable) { work.cancelAndJoin() }
+                throw e
+            }
         } finally { requestAdmission.release() }
     }
 

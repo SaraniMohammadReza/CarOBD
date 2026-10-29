@@ -51,7 +51,8 @@ class UsbSerialTransport(
     private val _incomingBytes = MutableSharedFlow<ByteArray>(extraBufferCapacity = 128)
     override val incomingBytes: Flow<ByteArray> = _incomingBytes.asSharedFlow()
 
-    private var usbConnection: UsbDeviceConnection? = null
+    @Volatile private var retired = false
+    @Volatile private var usbConnection: UsbDeviceConnection? = null
     private var usbInterface: UsbInterface? = null
     private var endpointIn: UsbEndpoint? = null
     private var endpointOut: UsbEndpoint? = null
@@ -84,6 +85,7 @@ class UsbSerialTransport(
     }
 
     override suspend fun connect() = withContext(ioDispatcher) {
+        check(!retired) { "USB generation retired" }
         if (_isConnected) return@withContext
 
         val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
@@ -103,9 +105,12 @@ class UsbSerialTransport(
             requestPermissionSuspending(usbManager, candidateDevice)
         }
 
+        check(!retired) { "USB generation retired" }
         val conn = usbManager.openDevice(candidateDevice)
             ?: throw ConnectionFailedException("امکان باز کردن درگاه ارتباطی USB وجود ندارد.")
 
+        usbConnection = conn
+        if (retired) { conn.close(); throw ConnectionFailedException("USB generation retired") }
         // Find interface with IN and OUT endpoints
         var targetIface: UsbInterface? = null
         var inEp: UsbEndpoint? = null
@@ -153,10 +158,14 @@ class UsbSerialTransport(
                 0x00, // parity none
                 0x08  // 8 data bits
             )
-            conn.controlTransfer(0x21, 0x20, 0, 0, baudBytes, baudBytes.size, 1000)
-        } catch (_: Exception) {}
+            val acknowledged = conn.controlTransfer(0x21, 0x20, 0, targetIface.id, baudBytes, baudBytes.size, 1000)
+            check(acknowledged == baudBytes.size) { "USB_SERIAL_DRIVER_UNAVAILABLE: selected interface did not accept CDC line coding" }
+        } catch (e: Exception) {
+            conn.close()
+            throw ConnectionFailedException("USB line configuration failed: ${e.message}", e)
+        }
 
-        usbConnection = conn
+        if (retired) { conn.close(); throw ConnectionFailedException("USB generation retired") }
         usbInterface = targetIface
         endpointIn = inEp
         endpointOut = outEp
@@ -242,7 +251,8 @@ class UsbSerialTransport(
         }
     }
 
-    override suspend fun disconnect() = withContext(ioDispatcher) {
+    override suspend fun disconnect() = withContext(ioDispatcher + kotlinx.coroutines.NonCancellable) {
+        retired = true
         _isConnected = false
         // Cancel any in-flight permission request and release its receiver.
         pendingPermissionResult?.let { if (!it.isCompleted) it.complete(false) }

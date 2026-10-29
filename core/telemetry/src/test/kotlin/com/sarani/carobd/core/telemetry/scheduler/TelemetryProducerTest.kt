@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -143,4 +145,22 @@ class TelemetryProducerTest {
         assertEquals(0, emissions)
         assertFalse(prod.isRunning)
     }
+    @Test fun liveModeChangesAlterCycleDelayWithoutExtraProducer() = runTest {
+        val mode = MutableStateFlow(TelemetryPollMode.ECO)
+        val emissions = mutableListOf<Long>()
+        val calls = mutableListOf<String>()
+        val producer = TelemetryProducer(mode, { cmd, _ -> calls.add(cmd); responses[cmd] }, { true },
+            onTelemetry = { emissions.add(testScheduler.currentTime) })
+        producer.startIn(backgroundScope)
+        runCurrent()
+        assertEquals(listOf(0L), emissions)
+        advanceTimeBy(1000); mode.value = TelemetryPollMode.FAST
+        advanceTimeBy(1000); runCurrent()
+        assertEquals(listOf(0L, 2000L), emissions)
+        advanceTimeBy(500); runCurrent()
+        assertEquals(listOf(0L, 2000L, 2500L), emissions)
+        assertEquals(1, calls.count { it == "0100" })
+        producer.stop()
+    }
+
 }

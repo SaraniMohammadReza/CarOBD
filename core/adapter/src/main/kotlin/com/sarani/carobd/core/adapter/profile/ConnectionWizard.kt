@@ -19,6 +19,7 @@ import com.sarani.carobd.core.model.TransportType
  *   5 ECU        — Mode 01 PID 00 positive (41 00)
  *   6 CAPABILITY — supported-PID discovery
  */
+@Deprecated("Legacy state projection is not verification. Use explicit ConnectionTestReport evidence from the executor.")
 object ConnectionWizard {
 
     enum class Stage(val index: Int) {

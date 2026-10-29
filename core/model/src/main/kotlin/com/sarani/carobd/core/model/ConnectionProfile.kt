@@ -86,7 +86,7 @@ sealed interface TransportConfig {
     val connectionTarget: String?
         get() = when (this) {
             is BluetoothClassic -> deviceAddress
-            is Ble -> deviceAddress ?: serviceUuid
+            is Ble -> deviceAddress
             is Wifi -> "$host:$port"
             is Usb -> deviceId?.toString()
                 ?: (if (vendorId != null && productId != null) "VID $vendorId/PID $productId" else null)
@@ -149,7 +149,7 @@ sealed interface TransportConfig {
 
     data class Simulator(val scenarioId: String? = null, val transcriptId: String? = null) : TransportConfig {
         override val type = TransportType.SIMULATOR
-        override fun validate(): List<String> = emptyList()
+        override fun validate(): List<String> = if (transcriptId != null) listOf("Transcript profile replay is not implemented") else emptyList()
     }
 
     fun validate(): List<String> = when (this) {
