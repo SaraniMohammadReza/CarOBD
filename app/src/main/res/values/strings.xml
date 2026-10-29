@@ -128,4 +128,7 @@
     <string name="evidence_limitations">No codes does not mean a healthy vehicle. Unknown source stays unknown.</string>
     <string name="open_evidence">Read-only diagnostics</string>
     <string name="vehicle_information">Vehicle information</string>
+    <string name="freeze_frame">Freeze-frame evidence</string>
+    <string name="frame_index">Frame index (0–255)</string>
+    <string name="frame_limitations">Only the selected frame and advertised base-page PIDs are read. This is not a list of all stored frames.</string>
 </resources>

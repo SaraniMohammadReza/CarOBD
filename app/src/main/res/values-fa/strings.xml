@@ -128,4 +128,7 @@
     <string name="evidence_limitations">نبود کد خطا به معنی سلامت خودرو نیست. منبع نامشخص، نامشخص می‌ماند.</string>
     <string name="open_evidence">عیب‌یابی فقط خواندنی</string>
     <string name="vehicle_information">اطلاعات خودرو</string>
+    <string name="freeze_frame">شواهد فریز فریم</string>
+    <string name="frame_index">شماره فریم (۰ تا ۲۵۵)</string>
+    <string name="frame_limitations">فقط فریم انتخاب‌شده و پارامترهای اعلام‌شده صفحه پایه خوانده می‌شوند؛ این فهرست همه فریم‌های ذخیره‌شده نیست.</string>
 </resources>

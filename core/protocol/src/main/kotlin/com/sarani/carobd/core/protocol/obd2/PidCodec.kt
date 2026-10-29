@@ -203,6 +203,7 @@ object PidCodec {
      */
     fun decodeMode01Metric(pid: Int, data: ByteArray): Double? {
         if (data.isEmpty()) return null
+        if (pid in setOf(0x0C, 0x10, 0x1F, 0x21, 0x22, 0x23, 0x31, 0x32, 0x3C, 0x3D, 0x3E, 0x3F, 0x42, 0x44, 0x5E) && data.size < 2) return null
         val a = data[0].toInt() and 0xFF
         val b = if (data.size > 1) data[1].toInt() and 0xFF else 0
 

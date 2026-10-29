@@ -221,4 +221,16 @@ class ObdRepositorySafetyTest {
         repo.disconnect()
     }
 
+    @Test fun freezeFrameProductionRepositoryPath() = runTest {
+        val t = Physical(); t.overrides = mapOf("020007" to "42000700180000", "020C07" to "7E8 420C071AF8\r7E9 7F 02 12", "020D07" to "420D0755")
+        val repo = repository(backgroundScope, t)
+        assertTrue(repo.connect(profile).isSuccess)
+        val r = com.sarani.carobd.domain.usecase.FreezeFrameUseCase(repo)(7)
+        assertTrue(r.any { it.value?.pid == 12 && it.value?.value == 1726.0 && it.value?.frameIndex == 7 })
+        assertTrue(r.any { it.state == ReadingState.NegativeResponse && it.evidence.single().responderId == "7E9" })
+        assertFalse(t.writes.contains("020C00"))
+        assertFalse(t.writes.any { it == "04" || it.startsWith("08") })
+        repo.disconnect()
+    }
+
 }

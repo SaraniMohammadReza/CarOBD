@@ -11,9 +11,10 @@ import androidx.compose.ui.unit.dp
 import com.sarani.carobd.R
 
 @Composable
-fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit) {
+fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onFreezeFrame: () -> Unit) {
     val state by viewModel.state.collectAsState()
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = onFreezeFrame) { Text(stringResource(R.string.freeze_frame)) }
         TextButton(onClick = onVehicleInfo) { Text(stringResource(R.string.vehicle_information)) }
         Text(stringResource(R.string.readiness_title))
         Button(enabled = !state.loading, onClick = viewModel::refresh) { Text(stringResource(R.string.read_evidence)) }
@@ -50,5 +51,25 @@ fun VehicleInformationScreen(viewModel: VehicleInformationViewModel) {
             Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
         }
         Text(stringResource(R.string.evidence_limitations))
+    }
+}
+
+@Composable
+fun FreezeFrameScreen(viewModel: FreezeFrameViewModel) {
+    val state by viewModel.state.collectAsState()
+    var frame by remember { mutableStateOf("0") }
+    Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.freeze_frame))
+        OutlinedTextField(frame, { if (it.length <= 3 && it.all(Char::isDigit)) frame = it }, label = { Text(stringResource(R.string.frame_index)) })
+        Button(enabled = !state.loading && (frame.toIntOrNull()?.let { it in 0..255 } == true), onClick = { viewModel.refresh(frame.toInt()) }) { Text(stringResource(R.string.read_evidence)) }
+        Text("${state.source} · ${state.frame}")
+        if (state.loading) CircularProgressIndicator()
+        state.readings.forEach { r ->
+            Text("${r.state} · ${r.evidence.firstOrNull()?.responderId ?: "—"}")
+            r.value?.let { v -> Text("PID %02X · frame %02X · %s %s · %s".format(v.pid, v.frameIndex, v.value ?: "—", v.unit.orEmpty(), v.rawHex)) }
+            r.detail?.let { Text(it) }
+            Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
+        }
+        Text(stringResource(R.string.frame_limitations))
     }
 }

@@ -196,9 +196,10 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
                 val vm: DiagnosticsViewModel = koinViewModel()
                 DiagnosticsScreen(viewModel = vm, onEvidence = { navController.navigate("evidence") })
             }
+            composable("freeze_frame") { com.sarani.carobd.ui.screens.evidence.FreezeFrameScreen(koinViewModel()) }
             composable("vehicle_info") { com.sarani.carobd.ui.screens.evidence.VehicleInformationScreen(koinViewModel()) }
             composable("evidence") {
-                com.sarani.carobd.ui.screens.evidence.EvidenceScreen(koinViewModel(), onVehicleInfo = { navController.navigate("vehicle_info") })
+                com.sarani.carobd.ui.screens.evidence.EvidenceScreen(koinViewModel(), onVehicleInfo = { navController.navigate("vehicle_info") }, onFreezeFrame = { navController.navigate("freeze_frame") })
             }
             composable(AppDestination.Maintenance.route) {
                 val vm: MaintenanceViewModel = koinViewModel()
