@@ -83,8 +83,7 @@ fun SettingsScreen(
     val unitSystem by appPreferencesManager.unitSystem.collectAsState(UnitSystem.METRIC)
     val language by appPreferencesManager.language.collectAsState(AppLanguage.PERSIAN)
     val isPersian = language == AppLanguage.PERSIAN
-    val ultrafastRateLabel = stringResource(R.string.settings_refresh_rate_ultrafast)
-    var selectedRate by remember { mutableStateOf(ultrafastRateLabel) }
+    val pollMode by appPreferencesManager.telemetryPollMode.collectAsState(com.sarani.carobd.core.model.TelemetryPollMode.NORMAL)
 
     Box(
         modifier = modifier
@@ -104,6 +103,15 @@ fun SettingsScreen(
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
+
+            Text(if (isPersian) "آهنگ خواندن اطلاعات خودرو" else "Vehicle polling cadence", color = TextPrimary)
+            com.sarani.carobd.core.model.TelemetryPollMode.entries.forEach { mode ->
+                FilterChip(selected = pollMode == mode,
+                    onClick = { scope.launch { appPreferencesManager.setTelemetryPollMode(mode) } },
+                    label = { Text(if (isPersian) mode.titleFa else mode.titleEn) })
+            }
+            Text(if (isPersian) "این فاصله پس از پایان هر چرخه اعمال می‌شود؛ سرعت بازطراحی نمایشگر نیست."
+                else "Delay after each polling cycle; display refresh is independent.", color = TextMuted)
 
             // Theme Customization & AMOLED Mode
             Box(

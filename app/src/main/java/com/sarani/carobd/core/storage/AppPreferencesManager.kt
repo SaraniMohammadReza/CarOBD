@@ -49,7 +49,9 @@ data class UserVehicleSetup(
     val isMotorcycle: Boolean = false
 )
 
-class AppPreferencesManager(private val context: Context) {
+class AppPreferencesManager(private val dataStore: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences>) {
+    constructor(context: Context) : this(context.dataStore)
+
 
     companion object {
         private val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
@@ -69,26 +71,26 @@ class AppPreferencesManager(private val context: Context) {
         private val KEY_TELEMETRY_POLL_MODE = stringPreferencesKey("telemetry_poll_mode")
     }
 
-    val isOnboardingDone: Flow<Boolean> = context.dataStore.data.map { prefs ->
+    val isOnboardingDone: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_ONBOARDING_DONE] ?: false
     }
 
-    val themeMode: Flow<AppThemeMode> = context.dataStore.data.map { prefs ->
+    val themeMode: Flow<AppThemeMode> = dataStore.data.map { prefs ->
         val name = prefs[KEY_THEME_MODE] ?: AppThemeMode.AMOLED_BLACK.name
         try { AppThemeMode.valueOf(name) } catch (_: Exception) { AppThemeMode.AMOLED_BLACK }
     }
 
-    val unitSystem: Flow<UnitSystem> = context.dataStore.data.map { prefs ->
+    val unitSystem: Flow<UnitSystem> = dataStore.data.map { prefs ->
         val name = prefs[KEY_UNIT_SYSTEM] ?: UnitSystem.METRIC.name
         try { UnitSystem.valueOf(name) } catch (_: Exception) { UnitSystem.METRIC }
     }
 
-    val language: Flow<AppLanguage> = context.dataStore.data.map { prefs ->
+    val language: Flow<AppLanguage> = dataStore.data.map { prefs ->
         val name = prefs[KEY_LANGUAGE] ?: AppLanguage.PERSIAN.name
         try { AppLanguage.valueOf(name) } catch (_: Exception) { AppLanguage.PERSIAN }
     }
 
-    val userVehicleSetup: Flow<UserVehicleSetup> = context.dataStore.data.map { prefs ->
+    val userVehicleSetup: Flow<UserVehicleSetup> = dataStore.data.map { prefs ->
         UserVehicleSetup(
             make = prefs[KEY_VEHICLE_MAKE] ?: "ایران خودرو",
             model = prefs[KEY_VEHICLE_MODEL] ?: "پژو ۲۰۶ تیپ ۵ (TU5)",
@@ -102,7 +104,7 @@ class AppPreferencesManager(private val context: Context) {
     }
 
     /** PERSISTED active vehicle id (§B3 single source of truth). Null when none selected. */
-    val activeVehicleId: Flow<String?> = context.dataStore.data.map { prefs ->
+    val activeVehicleId: Flow<String?> = dataStore.data.map { prefs ->
         val id = prefs[KEY_ACTIVE_VEHICLE_ID]
         id?.takeIf { it.isNotBlank() }
     }
@@ -113,33 +115,33 @@ class AppPreferencesManager(private val context: Context) {
      * Unknown/corrupt stored values degrade safely to [TelemetryPollMode.NORMAL]
      * via [TelemetryPollMode.fromStored] (never crashes, never spams).
      */
-    val telemetryPollMode: Flow<TelemetryPollMode> = context.dataStore.data.map { prefs ->
+    val telemetryPollMode: Flow<TelemetryPollMode> = dataStore.data.map { prefs ->
         TelemetryPollMode.fromStored(prefs[KEY_TELEMETRY_POLL_MODE])
     }
 
     suspend fun setOnboardingDone(done: Boolean) {
-        context.dataStore.edit { it[KEY_ONBOARDING_DONE] = done }
+        dataStore.edit { it[KEY_ONBOARDING_DONE] = done }
     }
 
     suspend fun setThemeMode(mode: AppThemeMode) {
-        context.dataStore.edit { it[KEY_THEME_MODE] = mode.name }
+        dataStore.edit { it[KEY_THEME_MODE] = mode.name }
     }
 
     suspend fun setUnitSystem(system: UnitSystem) {
-        context.dataStore.edit { it[KEY_UNIT_SYSTEM] = system.name }
+        dataStore.edit { it[KEY_UNIT_SYSTEM] = system.name }
     }
 
     suspend fun setLanguage(language: AppLanguage) {
-        context.dataStore.edit { it[KEY_LANGUAGE] = language.name }
+        dataStore.edit { it[KEY_LANGUAGE] = language.name }
     }
 
     /** §7: persist the selected telemetry polling cadence. */
     suspend fun setTelemetryPollMode(mode: TelemetryPollMode) {
-        context.dataStore.edit { it[KEY_TELEMETRY_POLL_MODE] = mode.name }
+        dataStore.edit { it[KEY_TELEMETRY_POLL_MODE] = mode.name }
     }
 
     suspend fun saveVehicleSetup(setup: UserVehicleSetup) {
-        context.dataStore.edit {
+        dataStore.edit {
             it[KEY_VEHICLE_MAKE] = setup.make
             it[KEY_VEHICLE_MODEL] = setup.model
             it[KEY_FUEL_TYPE] = setup.fuelType
@@ -153,15 +155,15 @@ class AppPreferencesManager(private val context: Context) {
     }
 
     suspend fun setActiveVehicleId(id: String) {
-        context.dataStore.edit { it[KEY_ACTIVE_VEHICLE_ID] = id }
+        dataStore.edit { it[KEY_ACTIVE_VEHICLE_ID] = id }
     }
 
     suspend fun clearActiveVehicleId() {
-        context.dataStore.edit { it.remove(KEY_ACTIVE_VEHICLE_ID) }
+        dataStore.edit { it.remove(KEY_ACTIVE_VEHICLE_ID) }
     }
 
     /** Per-service last-changed odometer (§Phase C maintenance persistence). */
-    val serviceLastChangedKm: Flow<Map<String, Int>> = context.dataStore.data.map { prefs ->
+    val serviceLastChangedKm: Flow<Map<String, Int>> = dataStore.data.map { prefs ->
         prefs[KEY_SERVICE_LAST_CHANGED]?.associate { entry ->
             val k = entry.substringBefore(":")
             val v = entry.substringAfter(":").toIntOrNull() ?: 0
@@ -170,7 +172,7 @@ class AppPreferencesManager(private val context: Context) {
     }
 
     suspend fun setServiceLastChangedKm(id: String, km: Int) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             val current = (prefs[KEY_SERVICE_LAST_CHANGED] ?: emptySet()).toMutableSet()
             current.removeAll { it.substringBefore(':') == id }
             current.add("$id:$km")
@@ -179,7 +181,7 @@ class AppPreferencesManager(private val context: Context) {
     }
 
     suspend fun setOdometerKm(km: Int) {
-        context.dataStore.edit { it[KEY_ODOMETER] = km }
+        dataStore.edit { it[KEY_ODOMETER] = km }
     }
 
     // Default widget layout (§4 Checkpoint E).
