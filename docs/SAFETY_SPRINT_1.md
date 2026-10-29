@@ -1,5 +1,7 @@
 # P0 safety baseline — sprint 1
 
+Historical Sprint-1 record. Current verification and repairs are documented in SAFETY_SPRINT_2.md. Sprint 2 reproduced additional responder/transport-loss defects and repaired them; do not use this historical report as current acceptance evidence.
+
 This document describes the repaired source baseline. It does not certify an APK or a vehicle/adapter combination.
 
 ## Physical command policy
@@ -28,11 +30,11 @@ Scans retain each request/responder's outcome, raw lines and codes. Positive and
 
 ## Verification and release restriction
 
-Use `python3 tools/check_safety_jvm.py` for supplemental offline JVM tests. It requires installed kotlinc and cached coroutines core/test 1.10.2, JUnit 4.13.2 and Hamcrest 1.3. It includes all pure core tests and Android-free session tests. Final supplemental results: **222 core/session tests passed** and **84 app unit tests passed**, with three session tests present in both runs. It does not download or change project dependencies; the project declares coroutines 1.10.1, so this is not verification of the exact Gradle-resolved dependency graph.
+Sprint 1 used a supplemental offline JVM runner with installed kotlinc, cached coroutines core/test 1.10.2, JUnit 4.13.2 and Hamcrest 1.3. The current runner reads project versions and requires coroutines 1.10.1; it accepts a CAROBD_JVM_LIB_DIR cache. It includes all pure core tests and Android-free session tests. Final supplemental results: **222 core/session tests passed** and **84 app unit tests passed**, with three session tests present in both runs. It does not download or change project dependencies; the project declares coroutines 1.10.1, so this is not verification of the exact Gradle-resolved dependency graph.
 
 On 2026-10-29, direct Kotlin/Compose compilation also checked every app/core production Kotlin source against cached AndroidX libraries and the installed Android SDK. Only generated R identifiers were substituted. All app unit tests were additionally compiled/run against those real production classes. This does not verify Android resource processing, manifest merging, packaging, lint or the Gradle duplicate-class task. Duplicate app-local ServiceType and VehicleSpecSheet definitions found during this check were removed in favor of core models.
 
-BUILD_ENVIRONMENT_BLOCKED: configured Gradle 9.8.1 is not installed completely. A bounded attempt using cached Gradle 9.6.1 in offline mode timed out without executing tests; daemon configuration requests JDK 24. No full Android build, APK, lint or packaging result is claimed. No configured remote CI workflow was found.
+Historical Sprint-1 BUILD_ENVIRONMENT_BLOCKED: configured Gradle 9.8.1 was not installed completely. Sprint 2 found it fully cached, but the exact build is blocked acquiring the configured JDK 24 toolchain. A bounded attempt using cached Gradle 9.6.1 in offline mode timed out without executing tests; daemon configuration requests JDK 24. No full Android build, APK, lint or packaging result is claimed. No configured remote CI workflow was found.
 
 REAL_VEHICLE_READ_ONLY_STATUS: NO_GO pending the exact Android full gate and controlled transport/adapter validation. The regression suite establishes software evidence, not a hardware certification. Raw ISO-TP, privileged commands and physical clearing remain unavailable.
 

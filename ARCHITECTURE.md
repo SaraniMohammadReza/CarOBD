@@ -1,94 +1,44 @@
 # CarOBD Architecture
 
-> Status reflects the `feat/car-obd-development` branch at the current commit.
-> "Software verified" marks are backed by `:app:testDebugUnitTest` and the
-> `core:{model,adapter,protocol,telemetry,vehicle}:test` suites (see §53 gate).
-> Anything marked **DEVICE TEST REQUIRED** / **VEHICLE TEST REQUIRED** has
-> software-only coverage but has **not** been validated against real hardware.
+Current source baseline: Safety Sprint 2, 2026-10-30. SOFTWARE VERIFIED means the supplemental compiler/JVM checks described in `docs/SAFETY_SPRINT_2.md`. BUILD VERIFIED is **not achieved**: the exact Gradle gate fails before tasks execute. No physical adapter or vehicle validation is claimed.
 
-## 1. Module structure
+## Modules and runtime ownership
 
-```
-core/model     — single-source domain models: TransportType, ConnectionState,
-                  ProtocolStandard (canonical, §3), DiagnosticCode/DtcSeverity,
-                  FeatureMaturity, Provenance, VehicleProfile, DiagnosticTranscript.
-core/protocol  — OBD wire parsers & engines: Obd2Command (Modes 01–0A matrix),
-                  PidCodec, PidPollingPlan (capability-gated discovery), DtcParser
-                  (protocol-aware DTC framing), ISO-TP reassembler, StnAdapter,
-                  UdsEngine, AutoProtocolScanner.
-core/adapter   — ELM/STN lifecycle: Elm327Adapter (deterministic command lifecycle,
-                  late-prompt quarantine, command-session identity), Elm327BufferParser,
-                  DtcScanValidator, ObdTransport interface + RecordingTransport +
-                  ReplayTransport.
-core/telemetry — live telemetry state machine: MEASURED / REAL_ZERO / UNKNOWN /
-                  UNSUPPORTED / NOT_MEASURED / STALE / MALFORMED (§21).
-core/vehicle   — Iranian vehicle catalog (Vehicle/Variant/Engine/Transmission/ECU/
-                  DiagnosticProfile/PidPack/DtcPack) with evidence confidence
-                  (ConfidenceLevel / DataSourceReference).
-app            — UI (Jetpack Compose), transports (Bluetooth/BLE/Wi-Fi/USB/
-                  Simulator), ObdRepositoryImpl, connection foreground service,
-                  onboarding, Settings, Dashboard, Diagnostics, Maintenance,
-                  Localization (LocaleHelper + AppPreferencesManager), Units.
-```
+- `core/model`: canonical protocol, command outcome, responder, connection profile, connection-test evidence and telemetry models.
+- `core/protocol`: ELM envelope normalization, DTC/PID decoding, bounded capability discovery; separate raw ISO-TP/domain helpers are not integrated into live raw multi-frame dispatch.
+- `core/adapter`: mandatory command authorization, ELM initialization/dispatch, scan aggregation, recording/replay infrastructure. STN helpers use the same deny-by-default command path.
+- `core/telemetry`: capability-gated producer and trip calculations.
+- `core/vehicle`: catalog/evidence metadata. Selecting catalog metadata does not modify live routing.
+- `app`: physical drivers, isolated simulator, DiagnosticSession, repository, DataStore, Compose screens and foreground service.
 
-## 2. Canonical single-source models (§3)
+`ObdRepositoryImpl` admits one connection attempt and serializes lifecycle changes. Each DiagnosticSession owns its transport, adapter, inbound reader, requests and one producer. Session requests and adapter admission each have a limit of eight. Disconnect invalidates ownership before waiting, closes transport, cancels/joins coroutine jobs, and clears repository telemetry. New connections use new transport/adapter instances. Low-level Android driver threads and platform callbacks still require DEVICE TEST REQUIRED validation.
 
-There is **one** `ProtocolStandard` (in `core/model`), one `LiveTelemetry`, one
-`ConnectionState`, one `VehicleProfile`, one `DiagnosticCode`, one `DtcSeverity`,
-one `ServiceReminderItem` — each declared exactly once. `app:checkDebugDuplicateClasses`
-is part of the §53 gate to prevent the duplicate-FQCN class regressions seen in C0.
+## Mandatory diagnostic boundary
 
-## 3. Transport vs protocol (§1, §45)
+Product command paths enter private typed ELM dispatch through `AuthorizedDiagnosticCommand`. Single commands are limited to 64 ASCII characters; controls/separators and unknown operations are denied. Safe standard reads and exact identity reads are allowed. Initialization has a separate narrow configuration allowlist. Driver byte-array writes and USB line configuration are trusted implementation primitives, not alternative diagnostic APIs. The source inventory found one diagnostic `transport.write` call, in private ELM dispatch; RecordingTransport only delegates and ReplayTransport has no physical delegate.
 
-`ObdTransport` is the transport abstraction (Bluetooth Classic RFCOMM, BLE GATT,
-Wi-Fi TCP socket, USB serial, Simulator). It is **distinct** from the vehicle
-protocol (SAE J1850, ISO 9141-2, KWP, ISO 15765 CAN, J1939). `AutoProtocolScanner`
-maps transport ↔ protocol. Classic ELM327 is **not** DoIP / J2534 / CAN FD.
+Physical Mode 04, Mode 08, security, programming, manufacturer writes, arbitrary STPX, header/filter changes and user initialization commands are DISABLED FOR SAFETY. Only the dedicated simulator clear method authorizes local 04. Custom PID and privileged production dispatch are NOT IMPLEMENTED.
 
-## 4. Connection truth levels (§15)
+One command holds the wire mutex. Canceled commands retire the stream. Ordinary timeouts consume late bytes to a prompt within a bounded quarantine; missing prompt retires the stream. Ended/failed inbound flows retire ownership. Dispatch spacing uses monotonic elapsed time; coroutine deadlines bound quarantine. Response accumulation is capped at 16 KiB; the inbound channel is bounded. No state-changing retry exists.
 
-```
-TransportConnected  →  AdapterResponding  →  AdapterInitialized
-  →  VehicleProtocolSelected  →  EcuResponding  →  ConnectedPhysical
-```
-`ConnectionState` (sealed) models each level distinctly; `Connected` carries
-`isSimulator`, `responderCount`, adapter identity and reported protocol.
-**Adapter connection alone is never reported as physical ECU connection.**
-Physical ECU connection requires a positive `41 00` (Mode 01 PID 00) response.
+## Connection truth and test execution
 
-## 5. ELM command lifecycle (§2)
+A socket or GATT link is not a vehicle connection. Initialization validates controlled configuration, ATI identity, positive Mode 01 PID 00 and observed protocol readback before Connected. Connected carries an explicit simulator flag. Transport loss invalidates the session; stale samples cannot publish into a replacement owner.
 
-`Elm327Adapter` serializes commands via `commandMutex` (one command in flight),
-uses a bounded inbound channel, enforces command timeout, quarantines
-post-timeout late bytes until the late `>` boundary, marks the stream
-compromised if resync cannot be proven, refuses commands on a compromised
-stream, and resets state on re-initialization/reconnect. Late responses from a
-timed-out command A are **never** consumed by a later command B.
+`ConnectionTestReport` retains explicit Pending/Running/Pass/Fail/Skipped events for transport, adapter, identity, protocol, ECU and capabilities. Evidence is recorded by the actual initialization executor rather than inferred from later UI state. Protocol readback happens after the handshake needed to trigger detection; stage completion can therefore be non-linear. Capabilities evidence is the validated initial PID 00 bitmap, not a claim that every ECU/PID was discovered.
 
-## 6. Wire / responder model (§24, §25)
+Test Connection uses the same exclusive repository session path, starts no telemetry/foreground session, and closes before returning. The legacy ConnectionWizard state projection is deprecated and is not the executor or a verification source.
 
-`DiagnosticEvent` carries `Direction` (TX/RX/ERR), timing, `responder` (e.g.
-`7E8`, `7E9` — never defaulted), raw `rawHex`, and a `DiagnosticOutcome`
-(POSITIVE / NEGATIVE_RESPONSE / NO_DATA / TIMEOUT / ADAPTER_FAILURE /
-MALFORMED / PARTIAL / UNSUPPORTED). Multi-ECU responses are kept per-responder;
-`7E8`/`7E9`/`7EA` are not merged.
+## Wire and scan semantics
 
-## 7. Record / replay (§38)
+ELM-managed compact/spaced responses, explicit CAN headers, common compact 11-bit headers, 18DA/18DB compact 29-bit headers and visible single-frame PCI are normalized. Colon-delimited explicit headers are accepted. Visible raw FF/CF and numbered multi-frame dumps fail; production raw ISO-TP support is NOT IMPLEMENTED.
 
-`RecordingTransport` decorates any `ObdTransport`, snapshotting TX/RX/ERR with
-timing into a `DiagnosticTranscriptBuilder`; the parser stack is unchanged
-(transparent `incomingBytes`). `ReplayTransport` re-emits a transcript's RX
-frames as ASCII wire bytes so a recording replays through the **same** parsing
-stack as a regression fixture. Export: JSON + CSV. Reload: schema-aware
-`DiagnosticTranscript.fromJson`. **UI session list / simulator-scenario replay
-UI is the remaining software step (not yet implemented).**
+Envelopes omit positive SID; DiagnosticScanRunner reconstructs it once in production. CAN DTC counts and padding are checked; non-CAN DTC pairs have no assumed count byte. Complete multi-line buffers retain positives alongside negative, malformed or NO DATA responder evidence. A primary timeout/transport error remains an error even if partial bytes resemble a positive response.
 
-## 8. Safety boundaries (§32, §37)
+03/07/0A scans retain category, nullable responder, raw lines and per-responder outcomes. Identical codes from distinct ECUs remain distinct. Unknown responders are not assigned module roles. Only valid complete scans may report no codes; that does not establish vehicle health. Legacy DTC persistence is disabled until its schema can retain these facts without deriving MIL/protocol/category.
 
-- Mode 08: **disabled by default**, no arbitrary actuator writes, no
-  manufacturer-specific writes.
-- Raw terminal allowlist only: read-only PIDs + diagnostic AT commands.
-  `04`, `08`, UDS writes, security access, flash/programming, immobilizer,
-  key programming and memory writes are blocked from the terminal.
-- Mode 04 clear requires explicit confirmation and a positive `0x44`
-  acknowledgement; `7F`/`NO DATA`/timeout/wrong-SID are failures.
+## Settings and persistence
+
+Preferences and connection profiles use separate Preferences DataStores. Poll mode is eagerly collected into repository state and read by the producer per cycle. ECO/NORMAL/FAST add 2000/1000/500 ms after each cycle; they are not display refresh rates or guarantees of a fixed samples-per-second rate. Capability traversal has at most eight pages and stops unless extension bits authorize another page.
+
+Record/replay models and exports are infrastructure only. A recording/session-list product workflow is NOT IMPLEMENTED; replay profiles are rejected rather than silently converted into a healthy simulator.

@@ -1,77 +1,23 @@
 # CarOBD Connection Profiles
 
-## Conceptual model (§6)
+Status: SOFTWARE VERIFIED by supplemental tests/source compilation; Android UI rendering, permissions and all physical drivers are DEVICE TEST REQUIRED. Exact Android BUILD VERIFIED is pending.
 
-`ConnectionProfile` bundles everything a connection needs: persistent, named,
-user-selectable. At minimum one selected profile is persisted (multiple
-profiles supported where the architecture allows).
+Connection Center creates, edits, selects and deletes named profiles using ConnectionProfileRepository backed by a Preferences DataStore. Connect and Test use the saved transport type; there is no BLE-to-Classic fallback. New physical profiles require explicit targets. Saving edits does not reroute an existing live session.
 
-```
-ConnectionProfile(
-    id, name,
-    transportType: TransportType,        // BLUETOOTH_CLASSIC | BLE | WIFI_TCP | USB_SERIAL | SIMULATOR
-    transportConfig,                     // BT address / BLE dev / host+port / USB dev / scenario
-    adapterConfig,                       // connectTimeout, commandTimeout, autoReconnect, ecoReset, ...
-    protocolMode: Auto|Profile|Manual,   // 0..C manual choices; Profile uses vehicle hint
-    vehicleProfileId?,                   // drives recommended protocol + ordered init
-    adapterIdentity?,                    // cached last ATI / reported identity
-    vehicleProtocol?,                    // last detected protocol number
-    lastSuccessfulAt?,                   // epoch ms of last full physical handshake
-    connectionState                      // truthful levels (§15)
-)
-```
+| Transport | Required runtime fields | Fail-closed behavior |
+|---|---|---|
+| Classic | Exact MAC address | Missing/invalid address, permission, adapter or link fails; no other device selected |
+| BLE | Exact MAC address | NUS/FFF0 services only; ready after successful CCCD acknowledgement; closed generation cannot revive from a late callback |
+| Wi-Fi | Host and TCP port | Blank/malformed endpoints fail; legacy host:port path never substitutes a port |
+| USB | Device ID or VID+PID, explicit interface; optional CDC baud | Every supplied identity field must match exactly one device; ambiguous/missing target/interface fails; selected interface must acknowledge CDC line coding |
+| Simulator | Explicit scenario in editor | Separate synthetic transport; unknown scenario IDs fail; legacy absent scenario means the simulator default |
 
-## Truthful states (§7–10)
+USB is a generic CDC-style implementation requiring DEVICE TEST REQUIRED validation. Specialized FTDI/CH34x driver support is NOT IMPLEMENTED; no success is claimed from ignored serial configuration errors. Device ID may change after reattachment; reconnect then requires selecting a valid current target. Interface index is not claimed to be a usb-serial library port number.
 
-Each transport UI shows explicit states — never a single "Connected" boolean:
+AUTO and manual codes 0–9/A are supported. A is J1939 and sends ATSPA. B/C/unknown codes fail; rejected selection or unknown/mismatched readback fails. VEHICLE_PROFILE protocol mode is DISABLED FOR SAFETY until validated. Selecting vehicle metadata never applies headers, filters or manufacturer command packs.
 
-- **Bluetooth**: `ON / OFF / PERMISSION MISSING`; paired+available compatible devices;
-  selected device name + address; paired/bonded state; last connection result. OFF does
-  **not** fall through to a fake connection.
-- **BLE**: `scan → select → connect → service discovery → RX/TX char status →
-  notification/indication → MTU`. AUTO first; advanced characteristic override only for
-  clones, isolated behind an advanced toggle. Never "connected" before notifications are
-  armed.
-- **Wi-Fi**: layered — `Wi-Fi/TCP connected → adapter responded → ELM/STN identified →
-  vehicle protocol detected → ECU responded`. DNS/IP failure / connection refused /
-  socket timeout / adapter silent / ECU unavailable are each reported where they occur.
-- **USB**: device + permission state (explicit on denial); VID/PID; selected port;
-  baud only where the backend requires it; advanced serial framing gated.
-- **Simulator**: always visibly `SIMULATOR`; never presented as physical ECU data.
+Connect timeout bounds initial link acquisition through session ownership; command timeout caps adapter write/receive deadlines. Existing profile format retains some legacy fields for compatibility: autoReconnect and vehicle recommendations do not implement runtime reconnect or forced profile initialization. The editor does not offer these features and saves autoReconnect=false. Custom BLE UUID/MTU overrides and transcript profiles are rejected as NOT IMPLEMENTED.
 
-## Connection test wizard (§14)
+The visible Disconnect/cancel action invalidates generation, cancels connection/request jobs, stops polling, closes hardware, and clears telemetry. Explicit producer stop is terminal for a session; reconnect creates its replacement.
 
-`Test Connection` stages, each PASS/FAIL with a distinct reason:
-
-1. Transport (e.g. Bluetooth transport — PASS / Bluetooth OFF / Permission denied)
-2. Adapter (adapter responded / Adapter not responding / timeout)
-3. Adapter identity (ATI → reported firmware; clones not labelled genuine)
-4. Vehicle protocol (Protocol — ISO 15765-4 CAN 11/500 / BUS INIT ERROR / UNABLE TO CONNECT)
-5. ECU handshake (Mode 01 PID 00 → positive `41 00` required before `ConnectedPhysical`)
-6. Optional supported-PID discovery (`0100/0120/...`)
-
-A generic "Connection failed" is never the only message.
-
-## Persistence
-
-- Default/selected profile id persisted in `AppPreferencesManager` (proto DataStore).
-- Transport config, timeouts, auto-reconnect, protocol mode survive process-death and
-  cold restart.
-- Language, units, theme, simulator scenario, and selected vehicle profile persist and
-  apply before Compose resource resolution (§17).
-
-## Profile templates (suggestions only — never assumed universal)
-
-- "My Bluetooth ELM" (Classic, last selected BT device)
-- "Garage Wi-Fi Adapter" (TCP, custom host/port)
-- "USB Bench Adapter" (USB serial, VID/PID)
-- "Simulator" (synthetic / deterministic scenario / recorded-session replay)
-
-## Connection-profile initialization (§16)
-
-On connect, a verified profile drives the **complete ordered** init sequence:
-
-recommended protocol → ELM/eco reset → echo off → (`ATSH`/`ATCRA` header if required) →
-(receive filter if required) → safe custom PID pack → vehicle protocol selection →
-ECU handshake (`41 00`). If any init command fails, the adapter surfaces a
-**profile initialization failure** and the profile is not reported active.
+Test Connection takes ownership of the current session, executes controlled read-only initialization and retains all six stage outcomes/evidence. Physical Pass requires positive 41 00 and valid observed protocol. The initial PID 00 bitmap supplies capability evidence; later capability pages are discovered conservatively by normal telemetry. The test session closes before returning. Simulator reports are labeled SIMULATOR. A passed software test is not device or vehicle certification.

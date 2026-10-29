@@ -1,38 +1,35 @@
 # CarOBD Hardware Validation Checklist
 
-Everything below is **SOFTWARE VERIFIED** (builds, unit-tested, lint-clean) unless it
-reads **DEVICE / VEHICLE TEST REQUIRED**. Physical hardware is absent from this
-environment, so only software architecture, parsers, UI, tests, fake transports,
-replay, simulator, settings and configuration logic are marked verified.
+Current status: NO_GO. Supplemental SOFTWARE VERIFIED checks do not establish Android BUILD VERIFIED, DEVICE VERIFIED or VEHICLE VERIFIED. No physical adapter/vehicle was used in this sprint.
 
-## Physical adapters — DEVICE TEST REQUIRED
-- [ ] Real Bluetooth Classic ELM (e.g. OBDLink LX/MX+) — `BluetoothClassicTransport`
-- [ ] Real BLE clone adapter — `BleTransport` (AUTO + characteristic override path)
-- [ ] Real Wi-Fi ELM (TCP) — `WifiTcpTransport` host/port/MTU
-- [ ] Real USB-OTG serial adapter — `UsbSerialTransport` permission + VID/PID + baud
-- [ ] ELM327 vs STN clone identity reporting (ATI/ATRV/ATDP) — positive detection
-  must not label clones as genuine STN/OBDLink unless reported.
+## Build gate — required first
 
-## Vehicle verification — VEHICLE TEST REQUIRED
-- [ ] Real CAN vehicle (ISO 15765-4) — Modes 01/03/07/09/0A, readiness monitors
-- [ ] Pre-CAN K-Line vehicle (ISO 9141-2 / KWP slow / fast) — profile protocol hint
-  actually affects init; echo + BUS INIT handling
-- [ ] Multi-ECU CAN vehicle — responder identity `7E8`/`7E9`/`7EA` preserved end-to-end
-  (transport → ISO-TP → domain → UI → export), no cross-contamination
-- [ ] Mode 04 clear on real ECU — positive `0x44` confirmed, `7F`/`NO DATA`/timeout
-  treated as failure, readiness reset observed in follow-up read
-- [ ] Mode 02 freeze-frame — full end-to-end fetch (frame index preserved)
-- [ ] Mode 05 / Mode 06 — O2 monitor + monitor results on a supported vehicle
-- [ ] Custom PID pack — profile-driven ATSH/ATCRA against a real ECU, no guessed
-  Iranian proprietary PIDs
+- [ ] Configured Gradle 9.8.1 can acquire the configured JDK 24 toolchain.
+- [ ] `./gradlew clean` succeeds.
+- [ ] app assembleDebug, testDebugUnitTest, checkDebugDuplicateClasses and lintDebug succeed.
+- [ ] core model/adapter/protocol/telemetry/vehicle tests succeed.
+- [ ] Record current-run XML totals, lint result and APK path/hash. Do not reuse historical artifacts.
 
-## Never fabricated (§61)
-The following are left **DEVICE / VEHICLE TEST REQUIRED** and are **not** claimed
-software-verified:
+## DEVICE TEST REQUIRED — controlled bench, read-only
 
-- DEVICE VERIFIED — NO (no physical adapter tested)
-- VEHICLE VERIFIED — NO (no real ECU tested)
-- CAN VERIFIED ON REAL VEHICLE — NO
-- K-LINE VERIFIED — NO
-- MULTI-ECU VERIFIED ON REAL VEHICLE — NO
-- REAL MODE 04 CLEAR — NO
+- [ ] Classic: exact selected MAC, permission denial, disabled Bluetooth, RFCOMM failure/EOF, cancel blocked connect and disconnect during read.
+- [ ] BLE: exact MAC, supported service/characteristics, CCCD submission/acknowledgement, missing descriptor, failed acknowledgement and disconnect followed by late callback. Confirm BLE selection never opens Classic.
+- [ ] Wi-Fi: explicit endpoint, DNS/refused/timeout failures, socket EOF, disconnect during active write/read.
+- [ ] USB: exact identity/interface, absent target with another device attached, VID/PID collision, wrong interface, denied permission, line-coding failure, partial write and detach. Confirm no fallback or guessed specialized driver support.
+- [ ] Test Connection: six truthful evidence stages; failed ECU/protocol cannot pass; completion/cancellation closes test transport.
+- [ ] Concurrent connect/test/terminal/scan and disconnect: one session, bounded admission, no old reply/result updates a replacement session.
+- [ ] Poll-mode persistence/cadence and capability bounds under NO DATA, negative response, malformed reply and timeout.
+- [ ] App background/foreground, notification disconnect, service destruction and process loss: verify actual Android lifecycle behavior; do not infer it from JVM tests.
+- [ ] Capture permitted wire traffic and verify zero 04/08/write/security/programming transmissions from every normal path.
+
+## VEHICLE TEST REQUIRED — only after build/bench gates
+
+- [ ] Authorized read-only CAN and non-CAN handshake with valid PID 00 and observed protocol.
+- [ ] Compare stored/pending/permanent scans to a reference tool; preserve responder identity and partial failures.
+- [ ] Validate compact/spaced adapter output; visible unsupported raw multi-frame output must fail rather than fabricate results.
+- [ ] Verify unknown/stale signals display unavailable and transport loss clears Connected promptly.
+- [ ] Confirm actual bus load remains conservative and unsupported capability pages are not repeatedly polled.
+
+## DISABLED FOR SAFETY / NOT IMPLEMENTED
+
+Do not test physical Mode 04 re-enablement, Mode 08, programming/security, arbitrary manufacturer commands, custom header/PID packs or raw ISO-TP dispatch as part of this baseline. Physical clear remains disabled. No real clearing/readiness reset, raw ISO-TP, specialized USB drivers or vehicle-profile forced initialization is claimed validated.
