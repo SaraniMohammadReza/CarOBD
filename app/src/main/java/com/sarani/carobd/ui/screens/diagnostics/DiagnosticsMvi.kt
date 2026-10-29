@@ -45,63 +45,75 @@ class DiagnosticsViewModel(
         }
     }
 
+    private var scanJob: kotlinx.coroutines.Job? = null
+    private var clearJob: kotlinx.coroutines.Job? = null
+
     private fun performScan() {
-        viewModelScope.launch {
-            setState { copy(isScanning = true, lastScanMessage = null, responderEvidence = emptyList(), scanCompletedSuccessfully = false) }
-            val result = scanDtcUseCase()
-            result.fold(
-                onSuccess = { codes ->
-                    setState {
-                        copy(
-                            isScanning = false,
-                            troubleCodes = codes,
-                            lastScanMessage = if (codes.isEmpty()) "کد خطایی یافت نشد" else "${codes.size} کد خطا شناسایی شد",
-                            scanCompletedSuccessfully = true
-                        )
+        if (scanJob?.isActive == true || clearJob?.isActive == true) return
+        scanJob = viewModelScope.launch {
+            setState { copy(isScanning = true, troubleCodes = emptyList(), lastScanMessage = null, responderEvidence = emptyList(), scanCompletedSuccessfully = false) }
+            try {
+                val result = scanDtcUseCase()
+                result.fold(
+                    onSuccess = { codes ->
+                        setState {
+                            copy(
+                                isScanning = false,
+                                troubleCodes = codes,
+                                lastScanMessage = if (codes.isEmpty()) "کد خطایی یافت نشد" else "${codes.size} کد خطا شناسایی شد",
+                                scanCompletedSuccessfully = true
+                            )
+                        }
+                    },
+                    onFailure = { err ->
+                        setState {
+                            copy(
+                                isScanning = false,
+                                lastScanMessage = "Scan incomplete: ${err.message}",
+                                troubleCodes = (err as? com.sarani.carobd.core.model.DiagnosticScanException)?.report?.codes ?: emptyList(),
+                                responderEvidence = (err as? com.sarani.carobd.core.model.DiagnosticScanException)?.report?.responders?.map {
+                                    "${it.request} / ${it.responder ?: "Unknown ECU"}: ${it.outcome}"
+                                } ?: emptyList(),
+                                scanCompletedSuccessfully = false
+                            )
+                        }
                     }
-                },
-                onFailure = { err ->
-                    setState {
-                        copy(
-                            isScanning = false,
-                            lastScanMessage = "Scan incomplete: ${err.message}",
-                            troubleCodes = (err as? com.sarani.carobd.core.model.DiagnosticScanException)?.report?.codes ?: emptyList(),
-                            responderEvidence = (err as? com.sarani.carobd.core.model.DiagnosticScanException)?.report?.responders?.map {
-                                "${it.request} / ${it.responder ?: "Unknown ECU"}: ${it.outcome}"
-                            } ?: emptyList(),
-                            scanCompletedSuccessfully = false
-                        )
-                    }
-                }
-            )
+                )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                setState { copy(lastScanMessage = "Scan canceled; current session has no complete scan", scanCompletedSuccessfully = false) }
+                throw e
+            } finally { setState { copy(isScanning = false) } }
         }
     }
 
     private fun performClear() {
-        viewModelScope.launch {
+        if (scanJob?.isActive == true || clearJob?.isActive == true) return
+        clearJob = viewModelScope.launch {
             setState { copy(showConfirmDialog = false, isClearing = true, scanCompletedSuccessfully = false) }
-            val result = clearDtcUseCase()
-            result.fold(
-                onSuccess = {
-                    setState {
-                        copy(
-                            isClearing = false,
-                            troubleCodes = emptyList(),
-                            lastScanMessage = "درخواست پاک‌سازی کدهای خطا توسط ECU تأیید شد (0x44)",
-                            scanCompletedSuccessfully = false
-                        )
+            try {
+                val result = clearDtcUseCase()
+                result.fold(
+                    onSuccess = {
+                        setState {
+                            copy(
+                                isClearing = false,
+                                troubleCodes = emptyList(),
+                                lastScanMessage = "پاک‌سازی محلی شبیه‌ساز تأیید شد (0x44)",
+                                scanCompletedSuccessfully = false
+                            )
+                        }
+                    },
+                    onFailure = { err ->
+                        setState {
+                            copy(
+                                isClearing = false,
+                                lastScanMessage = "خطا در پاک کردن خطاها: ${err.message}",
+                                scanCompletedSuccessfully = false
+                            )
+                        }
                     }
-                },
-                onFailure = { err ->
-                    setState {
-                        copy(
-                            isClearing = false,
-                            lastScanMessage = "خطا در پاک کردن خطاها: ${err.message}",
-                            scanCompletedSuccessfully = false
-                        )
-                    }
-                }
-            )
+                )
+            } finally { setState { copy(isClearing = false) } }
         }
     }
 }

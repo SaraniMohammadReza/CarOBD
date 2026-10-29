@@ -21,8 +21,8 @@ import org.junit.Test
 /**
  * P0 safety (§4): SendRawCommandUseCase is a defence-in-depth gate. Blocked
  * commands (Mode 04 clear, write/program/sec-access services, unknown) must
- * FAIL FAST and never reach the adapter. The dedicated Mode 04 clear flow
- * calls `adapter.executeCommand("04")` directly and is unaffected.
+ * FAIL FAST and never reach the adapter. Physical dedicated clearing is also
+ * disabled; only the simulator uses the separate local-clear adapter method.
  */
 class SendRawCommandUseCaseTest {
 
