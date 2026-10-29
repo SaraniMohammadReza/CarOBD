@@ -1,17 +1,18 @@
 # CarOBD Hardware Validation Checklist
 
-Current status: NO_GO. Supplemental SOFTWARE VERIFIED checks do not establish Android BUILD VERIFIED, DEVICE VERIFIED or VEHICLE VERIFIED. No physical adapter/vehicle was used in this sprint.
+Current status: SOFTWARE_BUILD_GO_READ_ONLY__DEVICE_VALIDATION_REQUIRED. The exact Gradle Android gate passed; see `docs/SAFETY_SPRINT_3.md`. No device or vehicle validation is claimed. Physical Mode04 remains disabled.
 
 ## Build gate — required first
 
-- [ ] Configured Gradle 9.8.1 can acquire the configured JDK 24 toolchain.
-- [ ] `./gradlew clean` succeeds.
-- [ ] app assembleDebug, testDebugUnitTest, checkDebugDuplicateClasses and lintDebug succeed.
-- [ ] core model/adapter/protocol/telemetry/vehicle tests succeed.
-- [ ] Record current-run XML totals, lint result and APK path/hash. Do not reuse historical artifacts.
+- [x] Configured Gradle 9.8.1 can acquire the configured JDK 24 toolchain.
+- [x] `./gradlew clean` succeeds.
+- [x] app assembleDebug, testDebugUnitTest, checkDebugDuplicateClasses and lintDebug succeed.
+- [x] core model/adapter/protocol/telemetry/vehicle tests succeed.
+- [x] Record current-run XML totals, lint result and APK path/hash. Do not reuse historical artifacts.
 
 ## DEVICE TEST REQUIRED — controlled bench, read-only
 
+- [ ] Fresh-install runtime Bluetooth/notification permission flow, denial and revocation (no request/check flow found in the current source).
 - [ ] Classic: exact selected MAC, permission denial, disabled Bluetooth, RFCOMM failure/EOF, cancel blocked connect and disconnect during read.
 - [ ] BLE: exact MAC, supported service/characteristics, CCCD submission/acknowledgement, missing descriptor, failed acknowledgement and disconnect followed by late callback. Confirm BLE selection never opens Classic.
 - [ ] Wi-Fi: explicit endpoint, DNS/refused/timeout failures, socket EOF, disconnect during active write/read.

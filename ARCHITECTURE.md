@@ -1,6 +1,6 @@
 # CarOBD Architecture
 
-Current source baseline: Safety Sprint 2, 2026-10-30. SOFTWARE VERIFIED means the supplemental compiler/JVM checks described in `docs/SAFETY_SPRINT_2.md`. BUILD VERIFIED is **not achieved**: the exact Gradle gate fails before tasks execute. No physical adapter or vehicle validation is claimed.
+Current source baseline: Safety Sprint 3, 2026-10-30. Exact Gradle 9.8.1 Android build, app/core unit tests, lint and duplicate-class gate passed (332 tests, no failures). See `docs/SAFETY_SPRINT_3.md` for environment, artifact and limitations. Status: SOFTWARE_BUILD_GO_READ_ONLY__DEVICE_VALIDATION_REQUIRED. No physical adapter or vehicle validation is claimed.
 
 ## Modules and runtime ownership
 
