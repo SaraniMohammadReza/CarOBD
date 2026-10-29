@@ -27,6 +27,7 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
         })
     }) { padding ->
         Column(Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            com.sarani.carobd.ui.components.RuntimeAccessControls()
             Text(when (val connection = state.connectionState) {
                 is ConnectionState.Connected -> if (connection.isSimulator) "Connected — SIMULATOR" else "Connected — physical ECU read-only (${connection.protocolName})"
                 is ConnectionState.Failure -> "Failed: ${connection.technicalMessage}"
@@ -95,7 +96,10 @@ private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onS
                 FilterChip(selected = type == choice, onClick = { type = choice }, label = { Text(choice.name) })
             }
             when (type) {
-                TransportType.BLUETOOTH_CLASSIC, TransportType.BLUETOOTH_LE -> OutlinedTextField(address, { address = it }, label = { Text("Exact device MAC address") }, singleLine = true)
+                TransportType.BLUETOOTH_CLASSIC, TransportType.BLUETOOTH_LE -> {
+                    OutlinedTextField(address, { address = it }, label = { Text("Exact device MAC address") }, singleLine = true)
+                    com.sarani.carobd.ui.components.BluetoothTargetPicker(type == TransportType.BLUETOOTH_LE) { address = it }
+                }
                 TransportType.WIFI_TCP -> {
                     OutlinedTextField(host, { host = it }, label = { Text("Host / IP address") }, singleLine = true)
                     OutlinedTextField(port, { port = it }, label = { Text("TCP port (required)") }, singleLine = true)

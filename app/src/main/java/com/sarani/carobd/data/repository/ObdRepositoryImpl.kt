@@ -59,16 +59,31 @@ class ObdRepositoryImpl(
     appPreferencesManager: AppPreferencesManager?,
     private val connectionProfiles: ConnectionProfileRepository,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + kotlinx.coroutines.SupervisorJob()),
+    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = Dispatchers.IO,
     pollModeFlow: Flow<TelemetryPollMode> = requireNotNull(appPreferencesManager).telemetryPollMode,
     private val createTransport: (TransportConfig) -> com.sarani.carobd.core.adapter.transport.ObdTransport = {
         TransportFactory.createTransport(it, requireNotNull(context))
     },
-    private val startService: () -> Unit = { com.sarani.carobd.service.ConnectionForegroundService.start(requireNotNull(context)) },
+    private val admitTransport: (TransportConfig) -> Unit = { if (it is TransportConfig.BluetoothClassic || it is TransportConfig.Ble) com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(requireNotNull(context), it) },
+    private val admitBackground: () -> Unit = { context?.let { com.sarani.carobd.core.permissions.AndroidAccess.require(it, com.sarani.carobd.core.model.RuntimeAccess.Notifications) } },
+    private val startService: (String) -> Unit = { com.sarani.carobd.service.ConnectionForegroundService.start(requireNotNull(context), it) },
     private val stopService: () -> Unit = { com.sarani.carobd.service.ConnectionForegroundService.stop(requireNotNull(context)) },
 ) : ObdRepository {
 
     val database by lazy { CarObdDatabaseHelper(requireNotNull(context)) }
 
+    private val _foregroundSessionId = MutableStateFlow<String?>(null)
+    override val foregroundSessionId: StateFlow<String?> = _foregroundSessionId.asStateFlow()
+    @Volatile private var serviceAcknowledged: String? = null
+    override fun foregroundServiceReady(sessionId: String) { if (_foregroundSessionId.value == sessionId) serviceAcknowledged = sessionId }
+    override fun foregroundServiceFailed(sessionId: String, reason: String) {
+        scope.launch { sessionMutex.withLock {
+            if (_foregroundSessionId.value == sessionId) {
+                disconnectLocked()
+                _connectionState.value = ConnectionState.Failure("FOREGROUND_SERVICE", "پایش پس‌زمینه متوقف شد", reason, true)
+            }
+        } }
+    }
     @Volatile private var activeSession: DiagnosticSession? = null
     private val sessionMutex = Mutex()
     private val connectionAdmission = kotlinx.coroutines.sync.Semaphore(1)
@@ -145,7 +160,7 @@ class ObdRepositoryImpl(
         return report
     }
 
-    private suspend fun openConnection(profile: ConnectionProfile, testOnly: Boolean = false, onEvidence: (ConnectionTestEvidence) -> Unit = {}): Result<Unit> = withContext(Dispatchers.IO) {
+    private suspend fun openConnection(profile: ConnectionProfile, testOnly: Boolean = false, onEvidence: (ConnectionTestEvidence) -> Unit = {}): Result<Unit> = withContext(ioDispatcher) {
         if (!connectionAdmission.tryAcquire()) return@withContext Result.failure(IllegalStateException("Connection already in progress"))
         val connectionJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
         connecting.set(connectionJob)
@@ -160,11 +175,8 @@ class ObdRepositoryImpl(
                         ProtocolMode.MANUAL -> requireNotNull(profile.manualProtocolCode?.let { protocolFromManualCode(it) }) { "Unsupported manual protocol" }
                         ProtocolMode.VEHICLE_PROFILE -> error("Vehicle-profile protocol initialization is disabled pending validation; choose AUTO or MANUAL")
                     }
-                    val tp = profile.transport.type
-                    if (tp == TransportType.BLUETOOTH_CLASSIC || tp == TransportType.BLUETOOTH_LE) {
-                        val bt = (requireNotNull(context).getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
-                        require(bt != null && bt.isEnabled) { "Bluetooth disabled or unavailable" }
-                    }
+                    admitTransport(profile.transport)
+                    if (!testOnly) admitBackground()
                     val transport = createTransport(profile.transport)
                     check(transport.transportType == profile.transport.type) { "Transport identity mismatch" }
                     lateinit var session: DiagnosticSession
@@ -187,10 +199,19 @@ class ObdRepositoryImpl(
                         currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
                         _connectionState.value = session.adapter.state.value
                         startTelemetryLoop()
-                        try { startService() } catch (_: Exception) { error("Foreground diagnostics unavailable; session stopped") }
+                        val serviceId = UUID.randomUUID().toString()
+                        _foregroundSessionId.value = serviceId
+                        serviceAcknowledged = null
+                        try { startService(serviceId) } catch (_: Exception) { error("Foreground diagnostics unavailable; session stopped") }
+                        scope.launch {
+                            kotlinx.coroutines.delay(5000)
+                            if (_foregroundSessionId.value == serviceId && serviceAcknowledged != serviceId)
+                                foregroundServiceFailed(serviceId, "Foreground service did not acknowledge startup")
+                        }
                     }
                     Result.success(Unit)
                 } catch (e: CancellationException) {
+                    _foregroundSessionId.value = null
                     if (activeSession === created) activeSession = null
                     created?.close()
                     _liveTelemetry.value = LiveTelemetry()
@@ -199,6 +220,7 @@ class ObdRepositoryImpl(
                     _connectionState.value = ConnectionState.Disconnected
                     throw e
                 } catch (e: Exception) {
+                    _foregroundSessionId.value = null
                     if (activeSession === created) activeSession = null
                     created?.close()
                     _liveTelemetry.value = LiveTelemetry()
@@ -219,12 +241,14 @@ class ObdRepositoryImpl(
         val captured = activeSession
         captured?.invalidate() // Stop dispatch before waiting for connection serialization.
         captured?.close() // Release a blocking physical connect/write before acquiring the mutex.
-        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
+        withContext(ioDispatcher + kotlinx.coroutines.NonCancellable) {
             sessionMutex.withLock { disconnectLocked() }
         }
     }
 
     private suspend fun disconnectLocked() {
+        _foregroundSessionId.value = null
+        serviceAcknowledged = null
         val old = activeSession
         activeSession = null // Generation guard closes BEFORE cancellation/join.
         old?.close()
@@ -244,7 +268,7 @@ class ObdRepositoryImpl(
         // connection is required for any protocol configuration.
     }
 
-    override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = withContext(Dispatchers.IO) {
+    override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = withContext(ioDispatcher) {
         val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
         val report = sessionResult(session) { adapter ->
             com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(adapter) {
@@ -260,7 +284,7 @@ class ObdRepositoryImpl(
         Result.success(report.codes)
     }
 
-    override suspend fun clearDiagnosticTroubleCodes(): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun clearDiagnosticTroubleCodes(): Result<Unit> = withContext(ioDispatcher) {
         val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(Exception("Adapter not connected"))
 
         if (_connectionState.value !is ConnectionState.Connected ||
@@ -301,7 +325,7 @@ class ObdRepositoryImpl(
         }
     }
 
-    override suspend fun sendRawCommand(command: String): Result<String> = withContext(Dispatchers.IO) {
+    override suspend fun sendRawCommand(command: String): Result<String> = withContext(ioDispatcher) {
         val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
         // Repository feedback mirrors the mandatory adapter authorization boundary.
         // Mode 04 (clear) must use the dedicated confirmed Diagnostics flow; write /

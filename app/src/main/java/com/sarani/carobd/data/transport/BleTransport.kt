@@ -78,7 +78,9 @@ class BleTransport(
         val callback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gattClient: BluetoothGatt, status: Int, newState: Int) {
                 if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
-                    if (readiness.linkConnected() && !gattClient.discoverServices()) connectionDeferred?.complete(false)
+                    try {
+                        if (readiness.linkConnected() && !gattClient.discoverServices()) connectionDeferred?.complete(false)
+                    } catch (_: SecurityException) { readiness.disconnect(); connectionDeferred?.complete(false) }
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     readiness.disconnect()
                     connectionDeferred?.complete(false)
@@ -88,7 +90,7 @@ class BleTransport(
             override fun onServicesDiscovered(gattClient: BluetoothGatt, status: Int) {
                 if (gatt !== gattClient) return
                 if (status == BluetoothGatt.GATT_SUCCESS) {
-                    val resolved = resolveCharacteristics(gattClient)
+                    val resolved = try { resolveCharacteristics(gattClient) } catch (_: SecurityException) { readiness.disconnect(); false }
                     if (!resolved) {
                         connectionDeferred?.complete(false)
                     }
@@ -101,6 +103,10 @@ class BleTransport(
                 if (gatt === gattClient && descriptor.uuid == CCCD_DESCRIPTOR_UUID) {
                     connectionDeferred?.complete(readiness.acknowledgeSubscription(status == BluetoothGatt.GATT_SUCCESS))
                 }
+            }
+
+            override fun onCharacteristicChanged(gattClient: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+                if (isConnected && gatt === gattClient) _incomingBytes.tryEmit(value.copyOf())
             }
 
             @Deprecated("Deprecated in Java")
@@ -155,9 +161,14 @@ class BleTransport(
         if (!gattClient.setCharacteristicNotification(characteristic, true)) return false
         val descriptor = characteristic.getDescriptor(CCCD_DESCRIPTOR_UUID)
         if (descriptor != null) {
-            descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            val value = if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY != 0)
+                BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            else if (characteristic.properties and BluetoothGattCharacteristic.PROPERTY_INDICATE != 0)
+                BluetoothGattDescriptor.ENABLE_INDICATION_VALUE else return false
             if (!readiness.beginSubscription()) return false
-            return gattClient.writeDescriptor(descriptor)
+            return if (android.os.Build.VERSION.SDK_INT >= 33)
+                gattClient.writeDescriptor(descriptor, value) == android.bluetooth.BluetoothStatusCodes.SUCCESS
+            else { descriptor.value = value; gattClient.writeDescriptor(descriptor) }
         }
         return false
     }
@@ -186,9 +197,12 @@ class BleTransport(
             if (!isConnected || gatt !== gattClient) throw TransportDisconnectedException("BLE generation closed")
             val chunkSize = minOf(20, data.size - offset)
             val chunk = data.copyOfRange(offset, offset + chunkSize)
-            char.value = chunk
-            char.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-            if (!gattClient.writeCharacteristic(char)) throw TransportDisconnectedException("BLE write rejected")
+            val writeType = if (char.properties and BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE != 0)
+                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE else BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+            val accepted = if (android.os.Build.VERSION.SDK_INT >= 33)
+                gattClient.writeCharacteristic(char, chunk, writeType) == android.bluetooth.BluetoothStatusCodes.SUCCESS
+            else { char.value = chunk; char.writeType = writeType; gattClient.writeCharacteristic(char) }
+            if (!accepted) throw TransportDisconnectedException("BLE write rejected")
             offset += chunkSize
             if (offset < data.size) {
                 kotlinx.coroutines.delay(10)

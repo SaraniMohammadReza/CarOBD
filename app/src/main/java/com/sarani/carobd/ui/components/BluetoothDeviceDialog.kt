@@ -85,6 +85,7 @@ fun BluetoothDeviceDialog(
         },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                RuntimeAccessControls()
                 Text(
                     text = "دستگاه‌های جفت شده و دانگل‌های ELM327 اطراف را لمس کنید تا اتصال برقرار شود:",
                     color = TextMuted,
@@ -100,7 +101,7 @@ fun BluetoothDeviceDialog(
                             .padding(20.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("هیچ دستگاه بلوتوثی یافت نشد. بلوتوث را روشن کنید.", color = TextMuted, fontSize = 12.sp)
+                        Text("فهرست خالی است؛ ابتدا مجوز و وضعیت بلوتوث را بررسی و سپس جستجو کنید.", color = TextMuted, fontSize = 12.sp)
                     }
                 } else {
                     LazyColumn(

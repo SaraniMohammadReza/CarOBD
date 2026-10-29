@@ -23,6 +23,7 @@ object TransportFactory {
         bluetoothAdapter: BluetoothAdapter? =
             (context.getSystemService(Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager)?.adapter,
     ): ObdTransport {
+        com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(context, config)
         require(config.validate().isEmpty()) { config.validate().joinToString("; ") }
         return when (config) {
         is TransportConfig.BluetoothClassic -> {

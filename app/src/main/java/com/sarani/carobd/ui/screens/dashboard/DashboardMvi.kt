@@ -163,7 +163,10 @@ class DashboardViewModel(
                 setState { copy(widgets = widgets.filter { it.id != intent.widgetId }) }
             }
             is DashboardIntent.OpenBluetoothDialog -> {
-                val paired = bluetoothScanner.getPairedDevices()
+                val paired = try { bluetoothScanner.getPairedDevices() } catch (e: Exception) {
+                    viewModelScope.launch { setEffect { DashboardEffect.ShowMessage(e.message ?: "Bluetooth access unavailable") } }
+                    return
+                }
                 setState {
                     copy(
                         showBluetoothDialog = true,
@@ -184,9 +187,9 @@ class DashboardViewModel(
                 setState { copy(isScanningBt = true) }
                 viewModelScope.launch {
                     try {
-                        bluetoothScanner.scanNearbyDevices().collect { devices ->
+                        kotlinx.coroutines.withTimeoutOrNull(10_000) { bluetoothScanner.scanNearbyDevices().collect { devices ->
                             setState { copy(discoveredDevices = devices) }
-                        }
+                        } }
                     } catch (e: Exception) {
                         setEffect { DashboardEffect.ShowMessage("خطا در اسکن بلوتوث: ${e.message}") }
                     } finally {

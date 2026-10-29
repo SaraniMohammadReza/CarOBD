@@ -94,6 +94,7 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // 1. Status Header
+            item { com.sarani.carobd.ui.components.RuntimeAccessControls() }
             item {
                 StatusHeader(
                     connectionState = state.connectionState,

@@ -109,4 +109,15 @@
     <string name="nav_simulator">Simulator</string>
     <string name="action_connect">Connect</string>
     <string name="simulator_scenario_picker_hint">Select a deterministic scenario. The simulator is explicitly labeled SIMULATOR — it is never a physical ECU.</string>
+
+    <string name="access_connect">Bluetooth connection</string>
+    <string name="access_scan">Bluetooth discovery</string>
+    <string name="access_notifications">Background diagnostics notifications</string>
+    <string name="access_granted">Granted</string>
+    <string name="access_not_requested">Tap to request permission</string>
+    <string name="access_denied">Denied; tap to request again</string>
+    <string name="access_permanent">Permission blocked; open app settings</string>
+    <string name="access_unsupported">Unsupported device</string>
+    <string name="access_unavailable">Bluetooth unavailable</string>
+    <string name="access_disabled">Bluetooth off; open settings</string>
 </resources>

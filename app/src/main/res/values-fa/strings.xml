@@ -109,4 +109,15 @@
     <string name="nav_simulator">شبیه‌ساز</string>
     <string name="action_connect">اتصال</string>
     <string name="simulator_scenario_picker_hint">یک سناریوی تعیین‌شده انتخاب کنید. این شبیه‌ساز به‌طور صریح «شبیه‌ساز» نمایش داده می‌شود و هرگز یک ECU فیزیکی نیست.</string>
+
+    <string name="access_connect">اتصال بلوتوث</string>
+    <string name="access_scan">جستجوی بلوتوث</string>
+    <string name="access_notifications">اعلان پایش پس‌زمینه</string>
+    <string name="access_granted">مجاز</string>
+    <string name="access_not_requested">برای درخواست مجوز لمس کنید</string>
+    <string name="access_denied">مجوز رد شد؛ درخواست دوباره</string>
+    <string name="access_permanent">مجوز مسدود است؛ تنظیمات برنامه</string>
+    <string name="access_unsupported">دستگاه پشتیبانی نمی‌شود</string>
+    <string name="access_unavailable">بلوتوث در دسترس نیست</string>
+    <string name="access_disabled">بلوتوث خاموش است؛ باز کردن تنظیمات</string>
 </resources>

@@ -34,6 +34,9 @@ class ConnectionForegroundService : Service(), KoinComponent {
     private val repository: ObdRepository by inject()
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
 
+    private var sessionId: String? = null
+    private var observer: Job? = null
+
     companion object {
         const val CHANNEL_ID = "carobd_telemetry_channel"
         const val NOTIFICATION_ID = 1001
@@ -41,9 +44,10 @@ class ConnectionForegroundService : Service(), KoinComponent {
         const val ACTION_STOP = "com.sarani.carobd.service.ACTION_STOP"
         const val ACTION_DISCONNECT = "com.sarani.carobd.service.ACTION_DISCONNECT"
 
-        fun start(context: Context) {
+        fun start(context: Context, sessionId: String) {
             val intent = Intent(context, ConnectionForegroundService::class.java).apply {
                 action = ACTION_START
+                putExtra("sessionId", sessionId)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -53,10 +57,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, ConnectionForegroundService::class.java).apply {
-                action = ACTION_STOP
-            }
-            context.startService(intent)
+            context.stopService(Intent(context, ConnectionForegroundService::class.java))
         }
     }
 
@@ -68,6 +69,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_DISCONNECT -> {
+                if (intent.getStringExtra("sessionId") != repository.foregroundSessionId.value) return START_NOT_STICKY
                 serviceScope.launch {
                     repository.disconnect()
                     stopServiceSafely()
@@ -79,11 +81,25 @@ class ConnectionForegroundService : Service(), KoinComponent {
                 return START_NOT_STICKY
             }
             ACTION_START -> {
-                startForegroundWithNotification()
-                observeConnectionAndTelemetry()
+                val token = intent.getStringExtra("sessionId")
+                if (token == null || token != repository.foregroundSessionId.value) {
+                    stopSelf(startId)
+                    return START_NOT_STICKY
+                }
+                if (sessionId != null && sessionId != token) observer?.cancel()
+                sessionId = token
+                try {
+                    com.sarani.carobd.core.permissions.AndroidAccess.require(this, com.sarani.carobd.core.model.RuntimeAccess.Notifications)
+                    startForegroundWithNotification()
+                    repository.foregroundServiceReady(token)
+                    if (observer?.isActive != true) observeConnectionAndTelemetry()
+                } catch (e: Exception) {
+                    repository.foregroundServiceFailed(token, "Foreground notification unavailable: ${e.javaClass.simpleName}")
+                    stopServiceSafely()
+                }
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startForegroundWithNotification() {
@@ -104,7 +120,8 @@ class ConnectionForegroundService : Service(), KoinComponent {
     }
 
     private fun observeConnectionAndTelemetry() {
-        serviceScope.launch {
+        observer = serviceScope.launch {
+            try {
             combine(
                 repository.connectionState,
                 repository.liveTelemetry,
@@ -145,6 +162,8 @@ class ConnectionForegroundService : Service(), KoinComponent {
                     }
                 }
             }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (e: Exception) { sessionId?.let { repository.foregroundServiceFailed(it, "Notification update failed") }; stopServiceSafely() }
         }
     }
 
@@ -167,6 +186,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
 
         val disconnectIntent = Intent(this, ConnectionForegroundService::class.java).apply {
             action = ACTION_DISCONNECT
+            putExtra("sessionId", sessionId)
         }
         val disconnectPendingIntent = PendingIntent.getService(
             this,
@@ -217,8 +237,9 @@ class ConnectionForegroundService : Service(), KoinComponent {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        sessionId?.let { repository.foregroundServiceFailed(it, "Foreground service destroyed") }
         serviceScope.cancel()
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

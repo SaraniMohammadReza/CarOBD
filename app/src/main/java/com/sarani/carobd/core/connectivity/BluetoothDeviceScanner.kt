@@ -24,7 +24,9 @@ class BluetoothDeviceScanner(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun getPairedDevices(): List<DiscoveredBluetoothDevice> {
-        val adapter = BluetoothAdapter.getDefaultAdapter() ?: return emptyList()
+        com.sarani.carobd.core.permissions.AndroidAccess.require(context, com.sarani.carobd.core.model.RuntimeAccess.Connect)
+        val adapter = (context.getSystemService(android.bluetooth.BluetoothManager::class.java))?.adapter
+            ?: throw com.sarani.carobd.core.model.AccessDeniedException(com.sarani.carobd.core.model.RuntimeAccess.Connect, com.sarani.carobd.core.model.AccessState.BluetoothUnavailable)
         val bonded = adapter.bondedDevices ?: return emptyList()
 
         return bonded.map { dev ->
@@ -40,6 +42,7 @@ class BluetoothDeviceScanner(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun scanNearbyDevices(): Flow<List<DiscoveredBluetoothDevice>> = callbackFlow {
+        com.sarani.carobd.core.permissions.AndroidAccess.require(context, com.sarani.carobd.core.model.RuntimeAccess.Scan)
         val foundMap = mutableMapOf<String, DiscoveredBluetoothDevice>()
 
         // Preload bonded devices
@@ -58,6 +61,7 @@ class BluetoothDeviceScanner(private val context: Context) {
                     BluetoothDevice.ACTION_FOUND -> {
                         val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                         if (device != null) {
+                            try {
                             val name = device.name ?: "Unknown Bluetooth Device"
                             val address = device.address
                             val isBonded = device.bondState == BluetoothDevice.BOND_BONDED
@@ -68,6 +72,7 @@ class BluetoothDeviceScanner(private val context: Context) {
                                 isObdCandidate = isLikelyObd(name)
                             )
                             trySend(foundMap.values.toList().sortedByDescending { it.isObdCandidate })
+                            } catch (e: SecurityException) { close(e) }
                         }
                     }
                 }
@@ -75,15 +80,16 @@ class BluetoothDeviceScanner(private val context: Context) {
         }
 
         val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
-        context.registerReceiver(receiver, filter)
-
-        adapter.startDiscovery()
+        androidx.core.content.ContextCompat.registerReceiver(context, receiver, filter, androidx.core.content.ContextCompat.RECEIVER_EXPORTED)
+        try {
+            if (!adapter.startDiscovery()) { context.unregisterReceiver(receiver); close(IllegalStateException("Bluetooth discovery rejected")); return@callbackFlow }
+        } catch (e: SecurityException) { context.unregisterReceiver(receiver); close(e); return@callbackFlow }
 
         awaitClose {
             try {
                 adapter.cancelDiscovery()
-                context.unregisterReceiver(receiver)
             } catch (_: Exception) {}
+            runCatching { context.unregisterReceiver(receiver) }
         }
     }
 
