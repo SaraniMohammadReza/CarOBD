@@ -205,7 +205,7 @@ class WireEnvelopeGateTest {
 
         // ecuSource should reflect the responder, not a fabricated module name.
         val ecu7E8 = allDtc.first { it.responderAddressHex == "7E8" }
-        assertEquals("Engine ECU", ecu7E8.ecuSource)
+        assertEquals("ECU 7E8", ecu7E8.ecuSource)
         val ecu7E9 = allDtc.first { it.responderAddressHex == "7E9" }
         assertEquals("ECU 7E9", ecu7E9.ecuSource)
     }

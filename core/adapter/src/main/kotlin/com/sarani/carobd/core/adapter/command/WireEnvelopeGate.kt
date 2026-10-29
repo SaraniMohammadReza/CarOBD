@@ -6,19 +6,8 @@ import com.sarani.carobd.core.model.DiagnosticWireResponse
 import com.sarani.carobd.core.model.IsoTpFraming
 import com.sarani.carobd.core.protocol.obd2.ElmResponseEnvelopeParser
 
-/**
- * §7 canonical production response path.
- *
- * Converts an [AdapterResponse] into responder-aware [DiagnosticWireResponse]
- * envelopes via [ElmResponseEnvelopeParser]. This is the single choke point
- * where raw ELM/STN output enters the diagnostic stack — every production
- * service decoder consumes envelopes, never flattened bytes.
- *
- * Success: cleaned lines are parsed by ElmResponseEnvelopeParser, which
- *   classifies each line as Positive / NegativeResponse / Malformed / etc.
- * Error:   the error token or partial buffer is fed to the parser; if nothing
- *   decodable is present, a Timeout or AdapterFailure envelope is synthesized.
- */
+/** Preserve primary adapter errors; partial bytes remain evidence, never authorization
+ * for a positive outcome. Success lines pass through the canonical ELM parser. */
 fun AdapterResponse.toWireEnvelopes(request: String): List<DiagnosticWireResponse> {
     val ts = System.currentTimeMillis()
     return when (this) {

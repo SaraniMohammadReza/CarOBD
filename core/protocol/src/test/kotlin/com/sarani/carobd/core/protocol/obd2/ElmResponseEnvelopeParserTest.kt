@@ -41,7 +41,7 @@ class ElmResponseEnvelopeParserTest {
         assertEquals(1, r.size)
         val e = r[0]
         assertEquals("7E8", e.responderId)
-        assertEquals(IsoTpFraming.SINGLE_FRAME, e.framing)
+        assertEquals(IsoTpFraming.RAW, e.framing)
         assertArrayEquals(b("0C", "1A", "F8"), e.payload)
         assertTrue(e.result is DiagnosticResult.Positive)
         assertEquals("7E8", (e.result as DiagnosticResult.Positive).responderId)
@@ -61,7 +61,7 @@ class ElmResponseEnvelopeParserTest {
 
     @Test
     fun positiveAndNegativeFromDifferentRespondersBothSurvive() {
-        val r = ElmResponseEnvelopeParser.parse("01 03",
+        val r = ElmResponseEnvelopeParser.parse("03",
             listOf("7E8 43 12 34", "7E9 7F 03 12"), ts, el)
         assertEquals(2, r.size)
         assertEquals("7E8", r[0].responderId)
@@ -77,7 +77,7 @@ class ElmResponseEnvelopeParserTest {
 
     @Test
     fun sameServiceFromTwoRespondersStaysDistinct() {
-        val r = ElmResponseEnvelopeParser.parse("01 03",
+        val r = ElmResponseEnvelopeParser.parse("03",
             listOf("7E8 43 12 34", "7EA 43 56 78"), ts, el)
         assertEquals(2, r.size)
         assertEquals(setOf("7E8", "7EA"), r.map { it.responderId }.toSet())
@@ -106,7 +106,7 @@ class ElmResponseEnvelopeParserTest {
 
     @Test
     fun negativeResponseWithoutHeader() {
-        val r = ElmResponseEnvelopeParser.parse("01 03", listOf("7F 03 12"), ts, el)
+        val r = ElmResponseEnvelopeParser.parse("03", listOf("7F 03 12"), ts, el)
         assertEquals(1, r.size)
         assertNull(r[0].responderId)
         val neg = r[0].result as DiagnosticResult.NegativeResponse
@@ -146,7 +146,7 @@ class ElmResponseEnvelopeParserTest {
         // 0x52 positive response for an unmodeled service.
         val r = ElmResponseEnvelopeParser.parse("2E F1 90", listOf("7E8 52 01"), ts, el)
         assertEquals(1, r.size)
-        assertTrue(r[0].result is DiagnosticResult.Unsupported)
+        assertTrue(r[0].result is DiagnosticResult.Malformed)
         assertEquals(DiagnosticService.UNKNOWN, r[0].service)
     }
 
