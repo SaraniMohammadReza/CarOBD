@@ -89,14 +89,18 @@ class BleTransport(
             override fun onServicesDiscovered(gattClient: BluetoothGatt, status: Int) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     val resolved = resolveCharacteristics(gattClient)
-                    if (resolved) {
-                        _isConnected = true
-                        connectionDeferred?.complete(true)
-                    } else {
+                    if (!resolved) {
                         connectionDeferred?.complete(false)
                     }
                 } else {
                     connectionDeferred?.complete(false)
+                }
+            }
+
+            override fun onDescriptorWrite(gattClient: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+                if (descriptor.uuid == CCCD_DESCRIPTOR_UUID) {
+                    _isConnected = status == BluetoothGatt.GATT_SUCCESS
+                    connectionDeferred?.complete(_isConnected)
                 }
             }
 
@@ -127,8 +131,7 @@ class BleTransport(
             writeCharacteristic = nusService.getCharacteristic(NUS_RX_WRITE_UUID)
             val notifyChar = nusService.getCharacteristic(NUS_TX_NOTIFY_UUID)
             if (writeCharacteristic != null && notifyChar != null) {
-                enableNotifications(gattClient, notifyChar)
-                return true
+                return enableNotifications(gattClient, notifyChar)
             }
         }
 
@@ -139,8 +142,7 @@ class BleTransport(
                 ?: fff0Service.getCharacteristic(FFF1_NOTIFY_UUID)
             val notifyChar = fff0Service.getCharacteristic(FFF1_NOTIFY_UUID)
             if (writeCharacteristic != null && notifyChar != null) {
-                enableNotifications(gattClient, notifyChar)
-                return true
+                return enableNotifications(gattClient, notifyChar)
             }
         }
 
@@ -148,13 +150,14 @@ class BleTransport(
     }
 
     @SuppressLint("MissingPermission")
-    private fun enableNotifications(gattClient: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
-        gattClient.setCharacteristicNotification(characteristic, true)
+    private fun enableNotifications(gattClient: BluetoothGatt, characteristic: BluetoothGattCharacteristic): Boolean {
+        if (!gattClient.setCharacteristicNotification(characteristic, true)) return false
         val descriptor = characteristic.getDescriptor(CCCD_DESCRIPTOR_UUID)
         if (descriptor != null) {
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-            gattClient.writeDescriptor(descriptor)
+            return gattClient.writeDescriptor(descriptor)
         }
+        return false
     }
 
     @SuppressLint("MissingPermission")
@@ -181,7 +184,7 @@ class BleTransport(
             val chunk = data.copyOfRange(offset, offset + chunkSize)
             char.value = chunk
             char.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-            gattClient.writeCharacteristic(char)
+            if (!gattClient.writeCharacteristic(char)) throw TransportDisconnectedException("BLE write rejected")
             offset += chunkSize
             if (offset < data.size) {
                 kotlinx.coroutines.delay(10)

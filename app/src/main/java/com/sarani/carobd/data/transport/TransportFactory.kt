@@ -37,6 +37,7 @@ object TransportFactory {
         }
         is TransportConfig.Usb -> UsbSerialTransport(
             context,
+            selection = config,
             baudRate = config.baudRate ?: 38400,
         )
         is TransportConfig.Simulator -> {

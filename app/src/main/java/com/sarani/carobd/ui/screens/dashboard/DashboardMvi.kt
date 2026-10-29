@@ -177,7 +177,7 @@ class DashboardViewModel(
             is DashboardIntent.ConnectToDevice -> {
                 viewModelScope.launch {
                     setState { copy(showBluetoothDialog = false) }
-                    connectUseCase(ConnectionType.BLUETOOTH_CLASSIC, intent.device.address)
+                    connectUseCase(uiState.value.selectedConnectionType, intent.device.address)
                 }
             }
             is DashboardIntent.TriggerBtScan -> {

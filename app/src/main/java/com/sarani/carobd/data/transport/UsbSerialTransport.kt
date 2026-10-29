@@ -36,6 +36,7 @@ import kotlinx.coroutines.withTimeout
  */
 class UsbSerialTransport(
     private val context: Context,
+    private val selection: com.sarani.carobd.core.model.TransportConfig.Usb,
     private val baudRate: Int = 38400,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ObdTransport {
@@ -93,16 +94,9 @@ class UsbSerialTransport(
             throw ConnectionFailedException("هیچ کابل یا دانگل USB دیاگ به درگاه گوشی متصل نشده است. اتصال کابل OTG را بررسی فرمایید.")
         }
 
-        // Find candidate device
-        val candidateDevice: UsbDevice = deviceList.values.firstOrNull { dev ->
-            KNOWN_SERIAL_VIDS.contains(dev.vendorId) ||
-                    (0 until dev.interfaceCount).any { i ->
-                        val iface = dev.getInterface(i)
-                        iface.interfaceClass == UsbConstants.USB_CLASS_CDC_DATA ||
-                                iface.interfaceClass == UsbConstants.USB_CLASS_COMM ||
-                                iface.interfaceClass == UsbConstants.USB_CLASS_VENDOR_SPEC
-                    }
-        } ?: deviceList.values.first()
+        val identity = com.sarani.carobd.core.model.UsbTargetSelection.select(selection,
+            deviceList.values.map { com.sarani.carobd.core.model.UsbDeviceIdentity(it.deviceId, it.vendorId, it.productId, it.interfaceCount) })
+        val candidateDevice = deviceList.values.single { it.deviceId == identity.deviceId }
 
         if (!usbManager.hasPermission(candidateDevice)) {
             // Ask the user for USB host permission and suspend until a result arrives.
@@ -117,7 +111,7 @@ class UsbSerialTransport(
         var inEp: UsbEndpoint? = null
         var outEp: UsbEndpoint? = null
 
-        for (i in 0 until candidateDevice.interfaceCount) {
+        for (i in listOf(requireNotNull(selection.portIndex))) {
             val iface = candidateDevice.getInterface(i)
             var currentIn: UsbEndpoint? = null
             var currentOut: UsbEndpoint? = null
@@ -168,13 +162,18 @@ class UsbSerialTransport(
         endpointOut = outEp
         _isConnected = true
 
-        startReaderLoop(conn, inEp)
+        startReaderLoop(conn, inEp, candidateDevice.deviceId)
     }
 
-    private fun startReaderLoop(conn: UsbDeviceConnection, inEp: UsbEndpoint) {
+    private fun startReaderLoop(conn: UsbDeviceConnection, inEp: UsbEndpoint, selectedDeviceId: Int) {
         readerThread = Thread({
             val buffer = ByteArray(1024)
             while (_isConnected && !Thread.currentThread().isInterrupted) {
+                val manager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+                if (manager.deviceList.values.none { it.deviceId == selectedDeviceId }) {
+                    _isConnected = false
+                    break
+                }
                 val bytesRead = conn.bulkTransfer(inEp, buffer, buffer.size, 100)
                 if (bytesRead > 0) {
                     val chunk = buffer.copyOf(bytesRead)
@@ -274,7 +273,7 @@ class UsbSerialTransport(
         val outEp = endpointOut ?: throw TransportDisconnectedException("USB OUT endpoint is null")
 
         val result = conn.bulkTransfer(outEp, data, data.size, 2000)
-        if (result < 0) {
+        if (result != data.size) {
             disconnect()
             throw TransportDisconnectedException("USB write failed: bulkTransfer returned $result")
         }
