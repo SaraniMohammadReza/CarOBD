@@ -50,10 +50,8 @@ class BleTransport(
 
     override val transportType: TransportType = TransportType.BLUETOOTH_LE
 
-    @Volatile
-    private var _isConnected: Boolean = false
-    override val isConnected: Boolean
-        get() = _isConnected
+    private val readiness = com.sarani.carobd.core.model.BleReadiness()
+    override val isConnected: Boolean get() = readiness.isReady
 
     private val _incomingBytes = MutableSharedFlow<ByteArray>(extraBufferCapacity = 128)
     override val incomingBytes: Flow<ByteArray> = _incomingBytes.asSharedFlow()
@@ -65,7 +63,8 @@ class BleTransport(
 
     @SuppressLint("MissingPermission")
     override suspend fun connect() = withContext(ioDispatcher) {
-        if (_isConnected) return@withContext
+        check(!readiness.isClosed) { "BLE generation retired" }
+        if (isConnected) return@withContext
 
         val adapter = bluetoothAdapter ?: throw ConnectionFailedException("Bluetooth adapter is unavailable")
         val device: BluetoothDevice = try {
@@ -79,14 +78,15 @@ class BleTransport(
         val callback = object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gattClient: BluetoothGatt, status: Int, newState: Int) {
                 if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
-                    gattClient.discoverServices()
+                    if (readiness.linkConnected() && !gattClient.discoverServices()) connectionDeferred?.complete(false)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    _isConnected = false
+                    readiness.disconnect()
                     connectionDeferred?.complete(false)
                 }
             }
 
             override fun onServicesDiscovered(gattClient: BluetoothGatt, status: Int) {
+                if (gatt !== gattClient) return
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     val resolved = resolveCharacteristics(gattClient)
                     if (!resolved) {
@@ -98,14 +98,14 @@ class BleTransport(
             }
 
             override fun onDescriptorWrite(gattClient: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
-                if (descriptor.uuid == CCCD_DESCRIPTOR_UUID) {
-                    _isConnected = status == BluetoothGatt.GATT_SUCCESS
-                    connectionDeferred?.complete(_isConnected)
+                if (gatt === gattClient && descriptor.uuid == CCCD_DESCRIPTOR_UUID) {
+                    connectionDeferred?.complete(readiness.acknowledgeSubscription(status == BluetoothGatt.GATT_SUCCESS))
                 }
             }
 
             @Deprecated("Deprecated in Java")
             override fun onCharacteristicChanged(gattClient: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+                if (!isConnected || gatt !== gattClient) return
                 val value = characteristic.value ?: return
                 _incomingBytes.tryEmit(value)
             }
@@ -113,6 +113,7 @@ class BleTransport(
 
         gatt = device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
 
+        if (readiness.isClosed) { disconnect(); throw ConnectionFailedException("BLE generation retired") }
         val connected = withTimeoutOrNull(8000L) {
             connectionDeferred?.await()
         }
@@ -155,14 +156,16 @@ class BleTransport(
         val descriptor = characteristic.getDescriptor(CCCD_DESCRIPTOR_UUID)
         if (descriptor != null) {
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+            if (!readiness.beginSubscription()) return false
             return gattClient.writeDescriptor(descriptor)
         }
         return false
     }
 
     @SuppressLint("MissingPermission")
-    override suspend fun disconnect() = withContext(ioDispatcher) {
-        _isConnected = false
+    override suspend fun disconnect() = withContext(ioDispatcher + kotlinx.coroutines.NonCancellable) {
+        readiness.disconnect()
+        connectionDeferred?.complete(false)
         try {
             gatt?.disconnect()
             gatt?.close()
@@ -173,13 +176,14 @@ class BleTransport(
 
     @SuppressLint("MissingPermission")
     override suspend fun write(data: ByteArray) = withContext(ioDispatcher) {
-        if (!_isConnected) throw TransportDisconnectedException("Cannot write: BLE transport is disconnected")
+        if (!isConnected) throw TransportDisconnectedException("Cannot write: BLE transport is disconnected")
         val char = writeCharacteristic ?: throw TransportDisconnectedException("BLE write characteristic not resolved")
         val gattClient = gatt ?: throw TransportDisconnectedException("GATT is null")
 
         // BLE standard MTU chunks (max 20 bytes per chunk if not MTU negotiated)
         var offset = 0
         while (offset < data.size) {
+            if (!isConnected || gatt !== gattClient) throw TransportDisconnectedException("BLE generation closed")
             val chunkSize = minOf(20, data.size - offset)
             val chunk = data.copyOfRange(offset, offset + chunkSize)
             char.value = chunk

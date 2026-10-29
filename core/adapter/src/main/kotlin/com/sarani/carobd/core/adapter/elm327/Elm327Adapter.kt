@@ -35,7 +35,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * protocol negotiation, and hardware health monitoring.
  */
 open class Elm327Adapter(
-    val transport: ObdTransport,
+    private val transport: ObdTransport,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 ) : ObdAdapter {
 
@@ -66,9 +66,6 @@ open class Elm327Adapter(
     private val incomingCharsChannel = Channel<Char>(4096)
     private var readerJob: Job? = null
 
-    // §5 command-generation / session identity: each command is tagged (seq) so a late
-    // or orphan response can never be matched to a subsequent command.
-    private var commandSequence = 0L
     // §5: set true when a post-timeout resynchronisation window expires WITHOUT
     // observing the terminating '>' prompt — the stream is unverified until reset.
     private var resyncCompromised = false
@@ -106,7 +103,6 @@ open class Elm327Adapter(
             // A retired stream may never be reused. Reconnect requires a new adapter/transport.
             try {
                 check(!retired) { "Session retired; create a new adapter" }
-                commandSequence = 0L
                 _state.value = ConnectionState.TransportConnecting(transport.transportType.name)
                 if (!transport.isConnected) {
                     transport.connect()
@@ -160,6 +156,8 @@ open class Elm327Adapter(
                 when {
                     init0100 is AdapterResponse.Error -> {
                         val err = init0100.error
+                        retire("ECU handshake failed")
+                        _currentProtocol = null
                         _state.value = ConnectionState.Failure(
                             stage = "ECU_HANDSHAKE",
                             humanMessageFa = "ارتباط با کامپیوتر خودرو برقرار نشد",
@@ -181,6 +179,8 @@ open class Elm327Adapter(
                         val replies = init0100.toWireEnvelopes("0100")
                         val validResponse = replies.isNotEmpty() && replies.all { it.result is com.sarani.carobd.core.model.DiagnosticResult.Positive }
                         if (!validResponse) {
+                            retire("Malformed ECU handshake")
+                            _currentProtocol = null
                             _state.value = ConnectionState.Failure(
                                 stage = "ECU_HANDSHAKE",
                                 humanMessageFa = "پاسخٔ ECU برای 0100 معتبر نیست",
@@ -315,7 +315,6 @@ open class Elm327Adapter(
             )
         }
         try {
-            commandSequence++
             drainPendingBuffer()
             // Global per-adapter minimum spacing, including manual reads and scans.
             val waitMs = 50L - (System.currentTimeMillis() - lastDispatchAt)

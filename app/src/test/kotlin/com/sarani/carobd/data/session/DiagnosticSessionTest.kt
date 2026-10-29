@@ -70,4 +70,15 @@ class DiagnosticSessionTest {
         assertFalse(session.isOpen)
         assertFalse(transport.isConnected)
     }
+    @Test fun lossBeforeFirstWatchTickStillInvalidatesConnectedAdapter() = runTest {
+        val transport = Transport(); val adapter = Adapter()
+        transport.isConnected = false
+        var loss = 0
+        val session = DiagnosticSession(transport, backgroundScope, {}, {}, { loss++ }, { _, _ -> adapter })
+        runCurrent(); advanceTimeBy(200); runCurrent()
+        assertFalse(session.isOpen)
+        assertEquals(1, loss)
+        session.close()
+    }
+
 }

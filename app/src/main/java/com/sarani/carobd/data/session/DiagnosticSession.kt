@@ -23,6 +23,7 @@ class DiagnosticSession(
     private val scope = CoroutineScope(parentScope.coroutineContext + owner)
     private val closed = AtomicBoolean(false)
     val adapter: ObdAdapter = adapterFactory(transport, scope)
+    private val requestAdmission = kotlinx.coroutines.sync.Semaphore(8)
     private var producer: TelemetryProducer? = null
     val isOpen: Boolean get() = !closed.get() && owner.isActive
 
@@ -33,7 +34,7 @@ class DiagnosticSession(
         scope.launch {
             var sawLink = false
             while (isActive && isOpen) {
-                if (transport.isConnected) sawLink = true
+                if (transport.isConnected || adapter.state.value is ConnectionState.Connected) sawLink = true
                 if (sawLink && !transport.isConnected) {
                     invalidate()
                     onState(ConnectionState.Failure("TRANSPORT_LOST", "ارتباط قطع شد", "Transport disconnected", true))
@@ -47,12 +48,15 @@ class DiagnosticSession(
 
     suspend fun <T> execute(block: suspend (ObdAdapter) -> T): T {
         check(isOpen) { "Diagnostic session closed" }
+        check(requestAdmission.tryAcquire()) { "Diagnostic session busy (maximum 8 requests)" }
+        try {
         val work = scope.async { check(isOpen); block(adapter) }
         try { return work.await() }
         catch (e: CancellationException) {
             withContext(NonCancellable) { work.cancelAndJoin() }
             throw e
         }
+        } finally { requestAdmission.release() }
     }
 
     @Synchronized

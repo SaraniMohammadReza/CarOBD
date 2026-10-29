@@ -18,20 +18,20 @@ class ConnectionProfileTest {
     @Test
     fun bluetoothClassicBlankAddressRejected() {
         val p = profile(TransportConfig.BluetoothClassic("  "))
-        assertEquals(listOf("bluetooth address required"), p.validate())
+        assertEquals(listOf("valid exact bluetooth address required"), p.validate())
     }
 
     @Test
     fun bleValidAndMtuNegativeRejected() {
         assertTrue(profile(TransportConfig.Ble("AA:BB:CC:DD:EE:FF")).validate().isEmpty())
         val p = profile(TransportConfig.Ble("AA:BB:CC:00:00:00", mtu = -1))
-        assertEquals(listOf("ble mtu must be positive"), p.validate())
+        assertEquals(listOf("Custom BLE UUID/MTU configuration is not implemented", "ble mtu must be positive"), p.validate())
     }
 
     @Test
     fun wifiValidPortRangeHostAndBadPort() {
         assertTrue(profile(TransportConfig.Wifi("192.168.0.10", 35000)).validate().isEmpty())
-        assertEquals(listOf("wifi host required"), profile(TransportConfig.Wifi(" ", 35000)).validate())
+        assertEquals(listOf("explicit valid wifi host required"), profile(TransportConfig.Wifi(" ", 35000)).validate())
         assertEquals(listOf("wifi port must be in [1,65535]"), profile(TransportConfig.Wifi("h", 0)).validate())
         assertEquals(listOf("wifi port must be in [1,65535]"), profile(TransportConfig.Wifi("h", 70000)).validate())
     }
@@ -39,12 +39,12 @@ class ConnectionProfileTest {
     @Test
     fun usbRequiresIdentity() {
         // deviceId alone is sufficient.
-        assertTrue(profile(TransportConfig.Usb(deviceId = 7)).validate().isNullOrEmpty())
+        assertTrue(profile(TransportConfig.Usb(deviceId = 7, portIndex = 0)).validate().isNullOrEmpty())
         // vendor+product is sufficient.
-        assertTrue(profile(TransportConfig.Usb(vendorId = 0x1234, productId = 0x5678)).validate().isNullOrEmpty())
+        assertTrue(profile(TransportConfig.Usb(vendorId = 0x1234, productId = 0x5678, portIndex = 0)).validate().isNullOrEmpty())
         // nothing identifying → rejected.
         val errs = profile(TransportConfig.Usb()).validate()
-        assertEquals(listOf("usb device must have deviceId or vendorId+productId"), errs)
+        assertEquals(listOf("usb device must have deviceId or vendorId+productId", "explicit usb interface required"), errs)
     }
 
     @Test
@@ -82,7 +82,7 @@ class ConnectionProfileTest {
         val p = profile(TransportConfig.Wifi(" ", 35000), connectTimeoutMs = 5L)
         val s = p.sanitized()
         assertEquals(ConnectionProfile.TIMEOUT_MIN, s.connectTimeoutMs)
-        assertEquals(listOf("wifi host required"), s.validate())
+        assertEquals(listOf("explicit valid wifi host required"), s.validate())
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.sarani.carobd.core.adapter.profile.InMemoryConnectionProfileRepositor
 import com.sarani.carobd.core.adapter.transport.ObdTransport
 import com.sarani.carobd.core.model.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -16,11 +17,14 @@ class ObdRepositorySafetyTest {
         override val incomingBytes = rx.asSharedFlow()
         val writes = java.util.Collections.synchronizedList(mutableListOf<String>())
         var malformed = false
-        override suspend fun connect() { isConnected = true }
+        var overrides = emptyMap<String, String>()
+        var blockConnect = false
+        val connectEntered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        override suspend fun connect() { connectEntered.complete(Unit); if (blockConnect) kotlinx.coroutines.awaitCancellation(); isConnected = true }
         override suspend fun disconnect() { isConnected = false }
         override suspend fun write(data: ByteArray) {
             val c = data.toString(Charsets.US_ASCII).trim(); writes.add(c)
-            val raw = when(c) {
+            val raw = overrides[c] ?: when(c) {
                 "ATZ", "ATI" -> "ELM327"
                 "ATRV" -> "12.0V"
                 "ATDPN" -> if(can) "6" else "3"
@@ -94,6 +98,38 @@ class ObdRepositorySafetyTest {
         assertFalse(repo.connectionState.value is ConnectionState.Connected)
         assertTrue(repo.sendRawCommand("ATI").isFailure)
         repo.disconnect()
+    }
+
+    @Test fun repository_mixedCanEvidenceSurvivesActualBufferParser() = runTest {
+        val t = Physical(can = true)
+        t.overrides = mapOf("03" to "7E8:0443010133\r7E9 43 01 01 33\r7EA NO DATA\r7EB 43 02 01", "07" to "4700", "0A" to "4A00")
+        val repo = repository(backgroundScope, t)
+        assertTrue(repo.connect(profile).isSuccess)
+        val failure = repo.scanDiagnosticTroubleCodes().exceptionOrNull() as DiagnosticScanException
+        assertEquals(ScanCompleteness.PARTIAL, failure.report.completeness)
+        assertEquals(setOf("7E8", "7E9"), failure.report.codes.map { it.responderAddressHex }.toSet())
+        assertTrue(failure.report.responders.any { it.responder == "7EA" && it.outcome == ScanOutcome.NO_DATA })
+        assertTrue(failure.report.responders.any { it.responder == "7EB" && it.outcome == ScanOutcome.MALFORMED })
+        repo.disconnect()
+    }
+    @Test fun concurrentConnectIsRejectedAndDisconnectCancelsPendingConnect() = runTest {
+        val t = Physical(); t.blockConnect = true
+        val repo = repository(backgroundScope, t)
+        val first = kotlinx.coroutines.CoroutineScope(coroutineContext).launch { repo.connect(profile) }
+        t.connectEntered.await()
+        assertTrue(repo.connect(profile).isFailure)
+        repo.disconnect(); first.join()
+        assertTrue(first.isCancelled)
+        assertFalse(t.isConnected)
+        assertTrue(t.writes.isEmpty())
+        assertEquals(ConnectionState.Disconnected, repo.connectionState.value)
+    }
+    @Test fun legacyWifiNeverGuessesMissingOrMalformedPort() = runTest {
+        val t = Physical(); val repo = repository(backgroundScope, t)
+        for (target in listOf("", "bench", "bench:invalid", "bench:35000:ignored", ":35000")) {
+            assertTrue(target, repo.connect(ConnectionType.WIFI_TCP, target).isFailure)
+        }
+        assertTrue(t.writes.isEmpty())
     }
 
 }

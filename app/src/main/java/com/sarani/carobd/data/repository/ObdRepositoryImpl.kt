@@ -69,6 +69,8 @@ class ObdRepositoryImpl(
 
     @Volatile private var activeSession: DiagnosticSession? = null
     private val sessionMutex = Mutex()
+    private val connectionAdmission = kotlinx.coroutines.sync.Semaphore(1)
+    private val connecting = java.util.concurrent.atomic.AtomicReference<kotlinx.coroutines.Job?>(null)
     private var currentTripComputer: TripComputer? = null
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -97,8 +99,10 @@ class ObdRepositoryImpl(
         }
     }
 
-    override suspend fun connect(type: ConnectionType, target: String): Result<Unit> =
+    override suspend fun connect(type: ConnectionType, target: String): Result<Unit> = try {
         connect(profileFor(type, target))
+    } catch (e: CancellationException) { throw e }
+      catch (e: Exception) { Result.failure(e) }
 
     /** §11: build a [ConnectionProfile] from the legacy (type, target) pair so the
      *  legacy path is driven by the same factory as the profile path. */
@@ -111,8 +115,9 @@ class ObdRepositoryImpl(
             ConnectionProfile(id = "ble", name = target, transport = TransportConfig.Ble(target))
         ConnectionType.WIFI_TCP -> {
             val parts = target.split(":")
-            val host = parts.getOrNull(0) ?: "192.168.0.10"
-            val port = parts.getOrNull(1)?.toIntOrNull() ?: 35000
+            require(parts.size == 2) { "Explicit Wi-Fi host:port required" }
+            val host = parts[0]
+            val port = parts[1].toIntOrNull() ?: error("Explicit valid Wi-Fi port required")
             ConnectionProfile(id = "wifi", name = "$host:$port", transport = TransportConfig.Wifi(host, port))
         }
         ConnectionType.USB_SERIAL ->
@@ -120,6 +125,10 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun connect(profile: ConnectionProfile): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!connectionAdmission.tryAcquire()) return@withContext Result.failure(IllegalStateException("Connection already in progress"))
+        val connectionJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+        connecting.set(connectionJob)
+        try {
         sessionMutex.withLock {
             disconnectLocked()
             var created: DiagnosticSession? = null
@@ -170,13 +179,18 @@ class ObdRepositoryImpl(
                 Result.failure(e)
             }
         }
+        } finally {
+            connecting.compareAndSet(connectionJob, null)
+            connectionAdmission.release()
+        }
     }
 
     override suspend fun disconnect() {
+        connecting.get()?.cancel(CancellationException("User disconnected"))
         val captured = activeSession
         captured?.invalidate() // Stop dispatch before waiting for connection serialization.
         captured?.close() // Release a blocking physical connect/write before acquiring the mutex.
-        withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO + kotlinx.coroutines.NonCancellable) {
             sessionMutex.withLock { disconnectLocked() }
         }
     }
@@ -203,11 +217,11 @@ class ObdRepositoryImpl(
 
     override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = withContext(Dispatchers.IO) {
         val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
-        val report = session.execute { adapter ->
+        val report = sessionResult(session) { adapter ->
             com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(adapter) {
                 activeSession === session && session.isOpen && _connectionState.value is ConnectionState.Connected
             }.scan()
-        }
+        }.getOrElse { return@withContext Result.failure(it) }
         if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
         if (report.completeness != com.sarani.carobd.core.model.ScanCompleteness.COMPLETE) {
             return@withContext Result.failure(com.sarani.carobd.core.model.DiagnosticScanException(report))
@@ -224,7 +238,7 @@ class ObdRepositoryImpl(
             (_connectionState.value as? ConnectionState.Connected)?.isSimulator != true) {
             return@withContext Result.failure(IllegalStateException("Physical DTC clearing is disabled by read-only safety policy"))
         }
-        val response = session.execute { it.clearSimulatorDiagnosticState() }
+        val response = sessionResult(session) { it.clearSimulatorDiagnosticState() }.getOrElse { return@withContext Result.failure(it) }
         // §7: canonical envelope path — classify through ElmResponseEnvelopeParser
         if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
         val envelopes = response.toWireEnvelopes("04")
@@ -288,13 +302,18 @@ class ObdRepositoryImpl(
                 )
             )
         }
-        val resp = session.execute { it.executeCommand(command, 2500L) }
+        val resp = sessionResult(session) { it.executeCommand(command, 2500L) }.getOrElse { return@withContext Result.failure(it) }
         if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
         when (resp) {
             is AdapterResponse.Success -> Result.success(resp.rawResponse)
             is AdapterResponse.Error -> Result.failure(Exception(resp.error.messageFa))
         }
     }
+
+    private suspend fun <T> sessionResult(session: DiagnosticSession, block: suspend (com.sarani.carobd.core.adapter.ObdAdapter) -> T): Result<T> =
+        try { Result.success(session.execute(block)) }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) { Result.failure(e) }
 
     override fun startTelemetryLoop(): Flow<LiveTelemetry> {
         activeSession?.startTelemetry(pollModeState, currentTripComputer)

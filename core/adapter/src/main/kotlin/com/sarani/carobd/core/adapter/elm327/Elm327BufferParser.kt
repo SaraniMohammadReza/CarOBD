@@ -36,6 +36,13 @@ object Elm327BufferParser {
                 !line.equals("SEARCHING...", ignoreCase = true) // Remove intermediate searching indicator
             }
 
+        // A complete multi-line diagnostic buffer can contain both positive
+        // evidence and responder errors. Preserve every line for the envelope
+        // parser; only incomplete/transport failures invalidate the whole buffer.
+        if (!commandSent.trim().startsWith("AT", true) && lines.size > 1) {
+            return AdapterResponse.Success(withoutPrompt, lines, elapsedMs)
+        }
+
         // Check for recognized ELM error messages
         val combinedUpper = withoutPrompt.uppercase()
 

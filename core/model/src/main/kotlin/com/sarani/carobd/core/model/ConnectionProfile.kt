@@ -69,7 +69,7 @@ data class ConnectionProfile(
             ConnectionProfile(id = UUID.randomUUID().toString(), name = name, transport = transport)
 
         /** ELM protocol codes the manual UI may present (§18 subset). */
-        private val ALLOWED_MANUAL_CODES = setOf("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C")
+        private val ALLOWED_MANUAL_CODES = setOf("0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A")
         private fun isAllowedManualCode(code: String): Boolean = code.trim().uppercase() in ALLOWED_MANUAL_CODES
     }
 }
@@ -95,7 +95,7 @@ sealed interface TransportConfig {
 
     data class BluetoothClassic(val deviceAddress: String) : TransportConfig {
         override val type = TransportType.BLUETOOTH_CLASSIC
-        override fun validate() = if (deviceAddress.isBlank()) listOf("bluetooth address required") else emptyList()
+        override fun validate() = if (!deviceAddress.matches(Regex("(?i)[0-9a-f]{2}(:[0-9a-f]{2}){5}"))) listOf("valid exact bluetooth address required") else emptyList()
     }
 
     data class Ble(
@@ -109,7 +109,8 @@ sealed interface TransportConfig {
         override val type = TransportType.BLUETOOTH_LE
         override fun validate(): List<String> {
             val e = mutableListOf<String>()
-            if (deviceAddress.isBlank()) e.add("ble address required")
+            if (!deviceAddress.matches(Regex("(?i)[0-9a-f]{2}(:[0-9a-f]{2}){5}"))) e.add("valid exact ble address required")
+            if (serviceUuid != null || txUuid != null || rxUuid != null || mtu != null) e.add("Custom BLE UUID/MTU configuration is not implemented")
             if (mtu != null && mtu <= 0) e.add("ble mtu must be positive")
             return e
         }
@@ -119,7 +120,7 @@ sealed interface TransportConfig {
         override val type = TransportType.WIFI_TCP
         override fun validate(): List<String> {
             val e = mutableListOf<String>()
-            if (host.isBlank()) e.add("wifi host required")
+            if (host.isBlank() || host != host.trim() || host.any { it.isWhitespace() || it.code < 32 } || host.contains('/')) e.add("explicit valid wifi host required")
             if (port !in PORT_MIN..PORT_MAX) e.add("wifi port must be in [$PORT_MIN,$PORT_MAX]")
             return e
         }
@@ -137,6 +138,9 @@ sealed interface TransportConfig {
             val e = mutableListOf<String>()
             val hasIdentity = deviceId != null || (vendorId != null && productId != null)
             if (!hasIdentity) e.add("usb device must have deviceId or vendorId+productId")
+            if (portIndex == null) e.add("explicit usb interface required")
+            if (vendorId != null && vendorId !in 0..65535) e.add("invalid USB VID")
+            if (productId != null && productId !in 0..65535) e.add("invalid USB PID")
             if (portIndex != null && portIndex < 0) e.add("usb portIndex must be >= 0")
             if (baudRate != null && baudRate <= 0) e.add("usb baudRate must be positive")
             return e

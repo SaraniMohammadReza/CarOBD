@@ -18,11 +18,20 @@ object ElmResponseEnvelopeParser {
         fun envelope(result: DiagnosticResult, payload: ByteArray = byteArrayOf(), service: DiagnosticService = DiagnosticService.UNKNOWN) =
             DiagnosticWireResponse(request, responder, listOf(line), payload, service, framing, ts, elapsed, result)
         fun malformed(reason: String) = envelope(DiagnosticResult.Malformed(reason, listOf(line)))
-        if (line.equals("NO DATA", true)) return envelope(DiagnosticResult.NoData(listOf(line)))
-        if (errors.any { line.contains(it, true) }) return envelope(DiagnosticResult.AdapterFailure(line, listOf(line)))
         if (line.isEmpty() || line.length > 4096) return malformed("Empty/oversized response")
+        var content = line
+        val header = Regex("^([0-9A-Fa-f]{3}|[0-9A-Fa-f]{8})(?::|\\s+)(.*)$").matchEntire(content)
+        if (header != null) {
+            val id = header.groupValues[1].uppercase()
+            val value = id.toLongOrNull(16) ?: return malformed("Invalid CAN identifier")
+            if (value > if (id.length == 3) 0x7FF else 0x1FFFFFFF) return malformed("Invalid CAN identifier")
+            responder = id
+            content = header.groupValues[2].trim()
+        }
+        if (content.equals("NO DATA", true)) return envelope(DiagnosticResult.NoData(listOf(line)))
+        if (errors.any { content.contains(it, true) }) return envelope(DiagnosticResult.AdapterFailure(content, listOf(line)))
         var data: String
-        val tokens = line.uppercase().split(Regex("\\s+"))
+        val tokens = content.uppercase().split(Regex("\\s+"))
         if (tokens.size > 1) {
             var start = 0
             val first = tokens.first()

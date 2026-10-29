@@ -52,4 +52,15 @@ class ManualProtocolSafetyTest {
         assertFalse(a.initialize(protocolFromManualCode("6")).isSuccess)
         a.disconnect()
     }
+    @Test fun everySupportedManualCodeUsesExactSelectionAndReadback() = runTest {
+        for (code in "0123456789A") {
+            val c = code.toString()
+            val t = Transport(if (c == "0") "A6" else c)
+            val a = Elm327Adapter(t, backgroundScope)
+            assertTrue(c, a.initialize(protocolFromManualCode(c)).isSuccess)
+            assertTrue(c, t.writes.contains("ATSP$c"))
+            a.disconnect()
+        }
+    }
+
 }

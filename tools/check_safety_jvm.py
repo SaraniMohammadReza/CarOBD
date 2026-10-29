@@ -2,17 +2,27 @@
 """Offline safety checks using installed kotlinc and cached JUnit/coroutines.
 
 This is a supplemental JVM check, not the Android Gradle release gate.
-Requires Kotlin 2.x and cached coroutines core/test 1.10.2, JUnit 4.13.2,
-and Hamcrest 1.3. Does not download dependencies or modify project sources.
+Requires Kotlin 2.x and cached coroutines core/test and JUnit matching libs.versions.toml,
+and Hamcrest 1.3. CAROBD_JVM_LIB_DIR may supply missing cached jars. Does not download dependencies or modify project sources.
 Pass test file stem fragments to select a subset. Outputs go to a temporary dir.
 """
 from pathlib import Path
 import subprocess,sys,os,tempfile
 work=Path(tempfile.mkdtemp(prefix="carobd-safety-"))
 r=Path(__file__).resolve().parents[1]
+import tomllib
+versions=tomllib.loads((r/'gradle/libs.versions.toml').read_text())['versions']
+coroutines=versions['coroutines']
 c=Path.home()/'.gradle/caches/modules-2/files-2.1'
-def jar(g,a,v):return next(p for p in (c/g/a/v).glob('*/*.jar') if not any(x in p.name for x in ('sources','javadoc')))
-cp=':'.join(map(str,[jar('org.jetbrains.kotlinx','kotlinx-coroutines-core-jvm','1.10.2'),jar('org.jetbrains.kotlinx','kotlinx-coroutines-test-jvm','1.10.2'),jar('junit','junit','4.13.2'),jar('org.hamcrest','hamcrest-core','1.3')]))
+maven=Path.home()/'.m2/repository'
+local=Path(os.environ.get('CAROBD_JVM_LIB_DIR', str(work)))
+def jar(g,a,v):
+ candidates=list((c/g/a/v).glob('*/*.jar'))+[maven/g.replace('.', '/')/a/v/f'{a}-{v}.jar', local/f'{a}-{v}.jar']
+ for p in candidates:
+  if p.is_file() and not any(x in p.name for x in ('sources','javadoc')):return p
+ raise SystemExit(f'Missing {g}:{a}:{v}. Populate local cache or CAROBD_JVM_LIB_DIR; no dependencies downloaded.')
+cp=':'.join(map(str,[jar('org.jetbrains.kotlinx','kotlinx-coroutines-core-jvm',coroutines),jar('org.jetbrains.kotlinx','kotlinx-coroutines-test-jvm',coroutines),jar('junit','junit',versions['junit']),jar('org.hamcrest','hamcrest-core','1.3')]))
+print('SUPPLEMENTAL JVM CHECK; coroutines='+coroutines+'; Android Gradle gate NOT executed', flush=True)
 sources=[str(p) for m in ('model','protocol','adapter','telemetry','vehicle') for p in (r/'core'/m/'src/main').rglob('*.kt')]
 tests=[p for m in ('model','protocol','adapter','telemetry','vehicle') for p in (r/'core'/m/'src/test').rglob('*.kt')]
 if len(sys.argv)>1:tests=[p for p in tests if any(q in p.stem for q in sys.argv[1:])]
