@@ -120,4 +120,11 @@
     <string name="access_unsupported">دستگاه پشتیبانی نمی‌شود</string>
     <string name="access_unavailable">بلوتوث در دسترس نیست</string>
     <string name="access_disabled">بلوتوث خاموش است؛ باز کردن تنظیمات</string>
+    <string name="readiness_title">آمادگی پایش · شواهد فقط خواندنی</string>
+    <string name="read_evidence">خواندن شواهد</string>
+    <string name="monitor_unsupported">پشتیبانی نمی‌شود</string>
+    <string name="monitor_complete">کامل</string>
+    <string name="monitor_incomplete">تکمیل نشده</string>
+    <string name="evidence_limitations">نبود کد خطا به معنی سلامت خودرو نیست. منبع نامشخص، نامشخص می‌ماند.</string>
+    <string name="open_evidence">عیب‌یابی فقط خواندنی</string>
 </resources>

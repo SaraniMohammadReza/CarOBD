@@ -55,7 +55,8 @@ import com.sarani.carobd.ui.theme.TextPrimary
 @Composable
 fun DiagnosticsScreen(
     viewModel: DiagnosticsViewModel,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onEvidence: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -66,6 +67,7 @@ fun DiagnosticsScreen(
             .padding(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            onEvidence?.let { TextButton(onClick = it) { Text(stringResource(R.string.open_evidence)) } }
             // Action Buttons Bar
             Row(
                 modifier = Modifier.fillMaxWidth(),

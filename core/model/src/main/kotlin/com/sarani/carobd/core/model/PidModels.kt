@@ -100,5 +100,6 @@ data class ReadinessMonitor(
 data class ReadinessStatus(
     val milActive: Boolean,
     val dtcCount: Int,
-    val monitors: List<ReadinessMonitor>
+    val monitors: List<ReadinessMonitor>,
+    val ignitionType: IgnitionType = IgnitionType.Spark,
 )

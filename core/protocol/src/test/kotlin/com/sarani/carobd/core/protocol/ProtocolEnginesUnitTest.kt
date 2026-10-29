@@ -638,10 +638,9 @@ class ProtocolEnginesUnitTest {
     fun testReadinessStatusMissingResponseIsUnavailableNotFabricated() {
         // §10: a <4-byte readiness response must NOT be reported as
         // "MIL OFF / 0 DTC / all monitors complete" — it is unavailable.
-        val status = PidCodec.decodeReadinessStatus(byteArrayOf(0x83.toByte()))
-        assertFalse(status.milActive)
-        assertEquals(0, status.dtcCount)
-        assertTrue(status.monitors.isEmpty())
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            PidCodec.decodeReadinessStatus(byteArrayOf(0x83.toByte()))
+        }
     }
 
     // ---- §9: capability map built from 0100/0120 bitmasks, gates polling ----

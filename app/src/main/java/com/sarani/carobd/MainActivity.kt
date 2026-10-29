@@ -194,7 +194,10 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
             }
             composable(AppDestination.Diagnostics.route) {
                 val vm: DiagnosticsViewModel = koinViewModel()
-                DiagnosticsScreen(viewModel = vm)
+                DiagnosticsScreen(viewModel = vm, onEvidence = { navController.navigate("evidence") })
+            }
+            composable("evidence") {
+                com.sarani.carobd.ui.screens.evidence.EvidenceScreen(koinViewModel())
             }
             composable(AppDestination.Maintenance.route) {
                 val vm: MaintenanceViewModel = koinViewModel()

@@ -185,4 +185,23 @@ class ObdRepositorySafetyTest {
         repo.disconnect()
     }
 
+    @Test fun repository_readinessUsesProductionEnvelope() = runTest {
+        val t = Physical(); t.overrides = mapOf("0101" to "41 01 83 0F 6B 20")
+        val repo = repository(backgroundScope, t)
+        assertTrue(repo.connect(profile).isSuccess)
+        val read = com.sarani.carobd.domain.usecase.ReadinessUseCase(repo)
+        val valid = read().single()
+        assertEquals(ReadingState.Success, valid.state)
+        assertEquals(IgnitionType.Compression, valid.value!!.ignitionType)
+        assertNull(valid.evidence.single().responderId)
+        for ((raw, state) in listOf("41 01 00" to ReadingState.Malformed, "7F 01 12" to ReadingState.NegativeResponse, "NO DATA" to ReadingState.NoData)) {
+            t.overrides = mapOf("0101" to raw)
+            val r = read().single()
+            assertEquals(raw, state, r.state)
+            assertNull(r.value)
+        }
+        repo.disconnect()
+        assertEquals(ReadingState.Disconnected, read().single().state)
+    }
+
 }

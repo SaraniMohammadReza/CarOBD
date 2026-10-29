@@ -47,6 +47,9 @@ val appModule = module {
     factory { SendRawCommandUseCase(get()) }
     factory { SetVehicleProfileUseCase(get()) }
 
+    factory { com.sarani.carobd.domain.usecase.ReadinessUseCase(get()) }
+    viewModel { com.sarani.carobd.ui.screens.evidence.ReadinessViewModel(get()) }
+
     // ViewModels
     viewModel { ConnectionCenterViewModel(get(), get()) }
     viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }

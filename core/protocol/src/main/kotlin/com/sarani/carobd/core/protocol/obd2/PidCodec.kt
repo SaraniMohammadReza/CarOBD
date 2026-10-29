@@ -82,7 +82,7 @@ object PidCodec {
      * Decodes Mode 01 PID 01 (Monitor status since DTCs cleared).
      */
     fun decodeReadinessStatus(data: ByteArray): ReadinessStatus {
-        if (data.size < 4) return ReadinessStatus(milActive = false, dtcCount = 0, monitors = emptyList())
+        require(data.size == 4) { "Readiness requires exactly four data bytes" }
 
         val a = data[0].toInt() and 0xFF
         val b = data[1].toInt() and 0xFF
@@ -142,7 +142,7 @@ object PidCodec {
             monitors.add(ReadinessMonitor("EGR_VVT", "EGR / VVT System", "سیستم EGR دیزل", isSupported = (c and 0x80) != 0, isComplete = (d and 0x80) == 0))
         }
 
-        return ReadinessStatus(milActive = milOn, dtcCount = dtcCount, monitors = monitors)
+        return ReadinessStatus(milActive = milOn, dtcCount = dtcCount, monitors = monitors, ignitionType = if (isDiesel) com.sarani.carobd.core.model.IgnitionType.Compression else com.sarani.carobd.core.model.IgnitionType.Spark)
     }
 
     // -------------------------------------------------------------

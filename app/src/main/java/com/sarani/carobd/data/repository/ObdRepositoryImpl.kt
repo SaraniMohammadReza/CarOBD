@@ -88,6 +88,7 @@ class ObdRepositoryImpl(
     private val sessionMutex = Mutex()
     private val connectionAdmission = kotlinx.coroutines.sync.Semaphore(1)
     private val connecting = java.util.concurrent.atomic.AtomicReference<kotlinx.coroutines.Job?>(null)
+    private var activeCommandTimeoutMs = 2500L
     private var currentTripComputer: TripComputer? = null
 
     private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -188,6 +189,7 @@ class ObdRepositoryImpl(
                             scope.launch { sessionMutex.withLock { if (lost != null && activeSession === lost) disconnectLocked() } }
                         }, connectTimeoutMs = profile.connectTimeoutMs,
                         commandTimeoutMs = profile.commandTimeoutMs, onEvidence = onEvidence)
+                    activeCommandTimeoutMs = profile.commandTimeoutMs
                     created = session
                     activeSession = session
                     val result = session.execute { it.initialize(forced) }
@@ -325,6 +327,16 @@ class ObdRepositoryImpl(
         }
     }
 
+    override suspend fun readEvidence(command: String): Result<List<com.sarani.carobd.core.model.DiagnosticWireResponse>> = withContext(ioDispatcher) {
+        if (com.sarani.carobd.core.adapter.safety.AuthorizedDiagnosticCommand.readOnly(command) == null)
+            return@withContext Result.failure(IllegalArgumentException("Read-only command required"))
+        val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Disconnected"))
+        val response = sessionResult(session) { it.executeCommand(command, activeCommandTimeoutMs) }
+            .getOrElse { return@withContext Result.failure(it) }
+        if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
+        Result.success(response.toWireEnvelopes(command))
+    }
+
     override suspend fun sendRawCommand(command: String): Result<String> = withContext(ioDispatcher) {
         val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
         // Repository feedback mirrors the mandatory adapter authorization boundary.
@@ -355,7 +367,7 @@ class ObdRepositoryImpl(
                 )
             )
         }
-        val resp = sessionResult(session) { it.executeCommand(command, 2500L) }.getOrElse { return@withContext Result.failure(it) }
+        val resp = sessionResult(session) { it.executeCommand(command, activeCommandTimeoutMs) }.getOrElse { return@withContext Result.failure(it) }
         if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
         when (resp) {
             is AdapterResponse.Success -> Result.success(resp.rawResponse)

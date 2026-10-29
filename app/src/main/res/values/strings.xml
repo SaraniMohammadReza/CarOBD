@@ -120,4 +120,11 @@
     <string name="access_unsupported">Unsupported device</string>
     <string name="access_unavailable">Bluetooth unavailable</string>
     <string name="access_disabled">Bluetooth off; open settings</string>
+    <string name="readiness_title">Readiness · read-only evidence</string>
+    <string name="read_evidence">Read evidence</string>
+    <string name="monitor_unsupported">Unsupported</string>
+    <string name="monitor_complete">Complete</string>
+    <string name="monitor_incomplete">Incomplete</string>
+    <string name="evidence_limitations">No codes does not mean a healthy vehicle. Unknown source stays unknown.</string>
+    <string name="open_evidence">Read-only diagnostics</string>
 </resources>
