@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.sarani.carobd.core.adapter.profile.ConnectionProfileRepository
 import com.sarani.carobd.core.model.ConnectionProfile
 import com.sarani.carobd.core.model.ConnectionState
+import com.sarani.carobd.core.model.ConnectionTestReport
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.sarani.carobd.core.model.TransportConfig
 import com.sarani.carobd.domain.repository.ObdRepository
 import com.sarani.carobd.ui.mvi.UiEffect
@@ -30,6 +32,8 @@ data class ConnectionCenterState(
     val connectionState: ConnectionState = ConnectionState.Disconnected,
     val profiles: List<ProfileSummary> = emptyList(),
     val selectedProfileId: String? = null,
+    val fullProfiles: List<ConnectionProfile> = emptyList(),
+    val testReport: ConnectionTestReport? = null,
 ) : UiState {
     val selectedProfile: ProfileSummary? get() =
         profiles.find { it.id == selectedProfileId }
@@ -51,6 +55,7 @@ sealed interface ConnectionCenterIntent : UiIntent {
     data object Connect : ConnectionCenterIntent
     data object Disconnect : ConnectionCenterIntent
     data object CreateNewProfile : ConnectionCenterIntent
+    data class SaveProfile(val profile: ConnectionProfile) : ConnectionCenterIntent
     data class Select(val profileId: String) : ConnectionCenterIntent
     data class ConnectSpecific(val profileId: String) : ConnectionCenterIntent
     data class Delete(val profileId: String) : ConnectionCenterIntent
@@ -89,6 +94,8 @@ class ConnectionCenterViewModel(
     private val profiles: ConnectionProfileRepository,
 ) : ViewModel() {
 
+    private val testReport = MutableStateFlow<ConnectionTestReport?>(null)
+    private var testJob: kotlinx.coroutines.Job? = null
     private val _effect = Channel<ConnectionCenterEffect>(Channel.BUFFERED)
     val effect: Flow<ConnectionCenterEffect> = _effect.receiveAsFlow()
 
@@ -96,11 +103,14 @@ class ConnectionCenterViewModel(
         obdRepository.connectionState,
         profiles.allProfiles,
         profiles.selectedProfileId,
-    ) { state, profileList, selId ->
+        testReport,
+    ) { state, profileList, selId, report ->
         ConnectionCenterState(
             connectionState = state,
             profiles = profileList.map { it.summarize() },
             selectedProfileId = selId,
+            fullProfiles = profileList,
+            testReport = report,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ConnectionCenterState())
 
@@ -112,6 +122,11 @@ class ConnectionCenterViewModel(
             }
             ConnectionCenterIntent.Disconnect -> viewModelScope.launch { obdRepository.disconnect() }
             ConnectionCenterIntent.CreateNewProfile -> createNewProfile()
+            is ConnectionCenterIntent.SaveProfile -> viewModelScope.launch {
+                try {
+                    if (profiles.saveAndSelect(intent.profile) == null) _effect.trySend(ConnectionCenterEffect.ShowMessage("Invalid profile: ${intent.profile.validate()}"))
+                } catch (e: Exception) { _effect.trySend(ConnectionCenterEffect.ShowMessage(e.message ?: "Could not save profile")) }
+            }
             is ConnectionCenterIntent.Select -> select(intent.profileId)
             is ConnectionCenterIntent.ConnectSpecific -> connect(intent.profileId)
             is ConnectionCenterIntent.Delete -> delete(intent.profileId)
@@ -157,10 +172,10 @@ class ConnectionCenterViewModel(
     }
 
     private fun testConnection(profileId: String) {
-        _effect.trySend(
-            ConnectionCenterEffect.ShowMessage(
-                "Test Connection runs the staged wizard: transport → adapter → identity → protocol → ECU → capability."
-            )
-        )
+        if (testJob?.isActive == true) return
+        testJob = viewModelScope.launch {
+            val profile = profiles.allProfiles.first().find { it.id == profileId } ?: return@launch
+            obdRepository.testConnection(profile) { testReport.value = it }
+        }
     }
 }

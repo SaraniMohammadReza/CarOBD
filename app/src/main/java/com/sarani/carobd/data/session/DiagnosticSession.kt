@@ -17,7 +17,10 @@ class DiagnosticSession(
     private val onState: (ConnectionState) -> Unit,
     private val onTelemetry: (LiveTelemetry) -> Unit,
     private val onLoss: () -> Unit,
-    adapterFactory: (ObdTransport, CoroutineScope) -> ObdAdapter = { t, s -> Elm327Adapter(t, s) },
+    connectTimeoutMs: Long = 3000L,
+    commandTimeoutMs: Long = 2500L,
+    onEvidence: (ConnectionTestEvidence) -> Unit = {},
+    adapterFactory: (ObdTransport, CoroutineScope) -> ObdAdapter = { t, s -> Elm327Adapter(t, s, commandTimeoutMs, onEvidence) },
 ) {
     private val owner = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext + owner)
@@ -30,6 +33,15 @@ class DiagnosticSession(
     init {
         scope.launch {
             adapter.state.collect { state -> if (isOpen) onState(state) }
+        }
+        scope.launch {
+            delay(connectTimeoutMs.coerceIn(100L, 30_000L))
+            if (isOpen && !transport.isConnected && adapter.state.value !is ConnectionState.Connected) {
+                invalidate()
+                withContext(NonCancellable) { transport.disconnect() }
+                onState(ConnectionState.Failure("TRANSPORT", "زمان اتصال منقضی شد", "Transport connect deadline exceeded", true))
+                onLoss()
+            }
         }
         scope.launch {
             var sawLink = false

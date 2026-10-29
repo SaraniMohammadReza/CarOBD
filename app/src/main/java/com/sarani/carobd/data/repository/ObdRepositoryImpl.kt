@@ -8,6 +8,8 @@ import com.sarani.carobd.core.adapter.profile.ConnectionProfileRepository
 import com.sarani.carobd.core.adapter.safety.CommandSafetyClassifier
 import com.sarani.carobd.core.model.CommandSafetyVerdict
 import com.sarani.carobd.core.model.CommandSafetyViolation
+import com.sarani.carobd.core.model.ConnectionTestReport
+import com.sarani.carobd.core.model.ConnectionTestEvidence
 import com.sarani.carobd.core.model.ConnectionProfile
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ConnectionType
@@ -85,7 +87,7 @@ class ObdRepositoryImpl(
     override val liveTelemetry: StateFlow<LiveTelemetry> = _liveTelemetry.asStateFlow()
 
     /** §7: persisted polling cadence, observed by the producer each cycle. */
-    private val pollModeState: StateFlow<TelemetryPollMode> =
+    internal val pollModeState: StateFlow<TelemetryPollMode> =
         pollModeFlow.stateIn(scope, SharingStarted.Eagerly, TelemetryPollMode.NORMAL)
 
     // Reader, producer and in-flight requests belong to activeSession, not repository scope.
@@ -124,7 +126,26 @@ class ObdRepositoryImpl(
             ConnectionProfile(id = "usb", name = "USB", transport = TransportConfig.Usb())
     }
 
-    override suspend fun connect(profile: ConnectionProfile): Result<Unit> = withContext(Dispatchers.IO) {
+    override suspend fun connect(profile: ConnectionProfile): Result<Unit> = openConnection(profile)
+
+    override suspend fun testConnection(profile: ConnectionProfile, onProgress: (ConnectionTestReport) -> Unit): ConnectionTestReport {
+        var report = ConnectionTestReport(profile.transport.type == TransportType.SIMULATOR)
+        onProgress(report)
+        try {
+            val result = openConnection(profile, testOnly = true) { event ->
+                report = report.record(event)
+                onProgress(report)
+            }
+            if (result.isFailure) report = report.finishFailure(result.exceptionOrNull()?.message ?: "Connection failed")
+        } catch (e: CancellationException) {
+            onProgress(report.finishFailure("Canceled; session closed"))
+            throw e
+        }
+        onProgress(report)
+        return report
+    }
+
+    private suspend fun openConnection(profile: ConnectionProfile, testOnly: Boolean = false, onEvidence: (ConnectionTestEvidence) -> Unit = {}): Result<Unit> = withContext(Dispatchers.IO) {
         if (!connectionAdmission.tryAcquire()) return@withContext Result.failure(IllegalStateException("Connection already in progress"))
         val connectionJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
         connecting.set(connectionJob)
@@ -153,28 +174,36 @@ class ObdRepositoryImpl(
                     onLoss = {
                         val lost = created
                         scope.launch { sessionMutex.withLock { if (lost != null && activeSession === lost) disconnectLocked() } }
-                    })
+                    }, connectTimeoutMs = profile.connectTimeoutMs,
+                    commandTimeoutMs = profile.commandTimeoutMs, onEvidence = onEvidence)
                 created = session
                 activeSession = session
                 val result = session.execute { it.initialize(forced) }
                 check(result.isSuccess) { result.errorMessage ?: "Initialization failed" }
-                currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
-                _connectionState.value = session.adapter.state.value
-                startTelemetryLoop()
-                try { startService() } catch (_: Exception) {
-                    error("Foreground diagnostics unavailable; session stopped")
-                }
                 connectionProfiles.save(profile.copy(lastSuccessfulAt = System.currentTimeMillis()))
+                if (testOnly) {
+                    disconnectLocked()
+                } else {
+                    currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
+                    _connectionState.value = session.adapter.state.value
+                    startTelemetryLoop()
+                    try { startService() } catch (_: Exception) { error("Foreground diagnostics unavailable; session stopped") }
+                }
                 Result.success(Unit)
             } catch (e: CancellationException) {
                 if (activeSession === created) activeSession = null
                 created?.close()
+                _liveTelemetry.value = LiveTelemetry()
+                currentTripComputer = null
+                runCatching { stopService() }
                 _connectionState.value = ConnectionState.Disconnected
                 throw e
             } catch (e: Exception) {
                 if (activeSession === created) activeSession = null
                 created?.close()
                 _liveTelemetry.value = LiveTelemetry()
+                currentTripComputer = null
+                runCatching { stopService() }
                 _connectionState.value = ConnectionState.Failure("CONNECTION", "اتصال برقرار نشد", e.message.orEmpty(), true)
                 Result.failure(e)
             }

@@ -22,6 +22,14 @@ interface ObdRepository {
      * Implementations MUST use [com.sarani.carobd.data.transport.TransportFactory].
      */
     suspend fun connect(profile: ConnectionProfile): Result<Unit>
+    /** Takes exclusive session ownership, executes only controlled initialization/reads,
+     * retains stage evidence, and closes the test session before returning. */
+    suspend fun testConnection(
+        profile: ConnectionProfile,
+        onProgress: (com.sarani.carobd.core.model.ConnectionTestReport) -> Unit = {},
+    ): com.sarani.carobd.core.model.ConnectionTestReport =
+        com.sarani.carobd.core.model.ConnectionTestReport(profile.transport.type == com.sarani.carobd.core.model.TransportType.SIMULATOR)
+            .finishFailure("Connection testing not implemented")
     suspend fun disconnect()
     suspend fun setVehicleProfile(profile: VehicleProfile)
     suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>>

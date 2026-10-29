@@ -132,4 +132,27 @@ class ObdRepositorySafetyTest {
         assertTrue(t.writes.isEmpty())
     }
 
+    @Test fun wizardRunsRealReadOnlyHandshakeAndClosesPhysicalSession() = runTest {
+        val t = Physical(); val repo = repository(backgroundScope, t)
+        val progress = mutableListOf<ConnectionTestReport>()
+        val report = repo.testConnection(profile) { progress.add(it) }
+        assertTrue(report.toString(), report.passed)
+        assertFalse(report.isSimulator)
+        assertTrue(progress.any { it.stages.any { stage -> stage.status == ConnectionTestStatus.RUNNING } })
+        assertTrue(report.stages.first { it.stage == ConnectionTestStage.ECU }.evidence.contains("4100"))
+        assertTrue(t.writes.contains("0100"))
+        assertFalse(t.writes.any { it == "04" || it.startsWith("08") || it.startsWith("27") })
+        assertFalse(t.isConnected)
+        assertEquals(ConnectionState.Disconnected, repo.connectionState.value)
+    }
+    @Test fun wizardUnknownReadbackCannotPassAndRetainsEcuEvidence() = runTest {
+        val t = Physical(); t.overrides = mapOf("ATDPN" to "UNKNOWN")
+        val repo = repository(backgroundScope, t)
+        val report = repo.testConnection(profile) {}
+        assertFalse(report.passed)
+        assertEquals(ConnectionTestStatus.FAIL, report.stages.first { it.stage == ConnectionTestStage.PROTOCOL }.status)
+        assertEquals(ConnectionTestStatus.PASS, report.stages.first { it.stage == ConnectionTestStage.ECU }.status)
+        assertFalse(t.isConnected)
+    }
+
 }

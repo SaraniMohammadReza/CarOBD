@@ -38,7 +38,7 @@ class DiagnosticSessionTest {
     @Test fun repository_repeatedStartTelemetryIsIdempotent() = runTest {
         val transport = Transport(); val adapter = Adapter()
         var samples = 0
-        val session = DiagnosticSession(transport, backgroundScope, {}, { samples++ }, {}, { _, _ -> adapter })
+        val session = DiagnosticSession(transport, backgroundScope, {}, { samples++ }, {}, adapterFactory = { _, _ -> adapter })
         repeat(10) { session.startTelemetry(MutableStateFlow(TelemetryPollMode.NORMAL)) }
         runCurrent()
         assertEquals(1, adapter.calls.count { it == "0100" })
@@ -51,7 +51,7 @@ class DiagnosticSessionTest {
     @Test fun transportLossInvalidatesSession() = runTest {
         val transport = Transport(); val adapter = Adapter()
         var loss = 0
-        val session = DiagnosticSession(transport, backgroundScope, {}, {}, { loss++ }, { _, _ -> adapter })
+        val session = DiagnosticSession(transport, backgroundScope, {}, {}, { loss++ }, adapterFactory = { _, _ -> adapter })
         session.startTelemetry(MutableStateFlow(TelemetryPollMode.NORMAL)); runCurrent()
         transport.isConnected = false
         advanceTimeBy(150); runCurrent()
@@ -63,7 +63,7 @@ class DiagnosticSessionTest {
     }
     @Test fun disconnectCancelsOwnedRequestsAndRejectsOldEmissions() = runTest {
         val transport = Transport(); val adapter = Adapter()
-        val session = DiagnosticSession(transport, backgroundScope, {}, {}, {}, { _, _ -> adapter })
+        val session = DiagnosticSession(transport, backgroundScope, {}, {}, {}, adapterFactory = { _, _ -> adapter })
         val request = launch { session.execute { awaitCancellation() } }
         runCurrent(); session.close(); runCurrent()
         assertTrue(request.isCancelled)
@@ -74,7 +74,7 @@ class DiagnosticSessionTest {
         val transport = Transport(); val adapter = Adapter()
         transport.isConnected = false
         var loss = 0
-        val session = DiagnosticSession(transport, backgroundScope, {}, {}, { loss++ }, { _, _ -> adapter })
+        val session = DiagnosticSession(transport, backgroundScope, {}, {}, { loss++ }, adapterFactory = { _, _ -> adapter })
         runCurrent(); advanceTimeBy(200); runCurrent()
         assertFalse(session.isOpen)
         assertEquals(1, loss)

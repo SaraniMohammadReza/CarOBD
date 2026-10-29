@@ -5,6 +5,7 @@ import com.sarani.carobd.core.adapter.command.AdapterError
 import com.sarani.carobd.core.adapter.command.AdapterInitializationResult
 import com.sarani.carobd.core.adapter.command.AdapterResponse
 import com.sarani.carobd.core.adapter.transport.ObdTransport
+import com.sarani.carobd.core.model.*
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ProtocolStandard
 import com.sarani.carobd.core.protocol.obd2.PidCodec
@@ -36,7 +37,9 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 open class Elm327Adapter(
     private val transport: ObdTransport,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+    private val maxCommandTimeoutMs: Long = 30_000L,
+    private val onEvidence: (ConnectionTestEvidence) -> Unit = {}
 ) : ObdAdapter {
 
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -103,11 +106,15 @@ open class Elm327Adapter(
             // A retired stream may never be reused. Reconnect requires a new adapter/transport.
             try {
                 check(!retired) { "Session retired; create a new adapter" }
+                evidence(ConnectionTestStage.TRANSPORT, ConnectionTestStatus.RUNNING, transport.transportType.name)
                 _state.value = ConnectionState.TransportConnecting(transport.transportType.name)
                 if (!transport.isConnected) {
                     transport.connect()
                 }
 
+                _state.value = ConnectionState.TransportConnected(transport.transportType.name)
+                evidence(ConnectionTestStage.TRANSPORT, ConnectionTestStatus.PASS, "Transport open: ${transport.transportType}")
+                evidence(ConnectionTestStage.ADAPTER, ConnectionTestStatus.RUNNING, "ATZ and controlled configuration")
                 _state.value = ConnectionState.AdapterResetting
                 drainPendingBuffer()
 
@@ -128,10 +135,16 @@ open class Elm327Adapter(
                 // 5. Adaptive timing auto 1: ATAT1
                 checkOk("ATAT1", 1000L)
 
+                evidence(ConnectionTestStage.ADAPTER, ConnectionTestStatus.PASS, "ATZ response; formatting commands acknowledged OK")
+                evidence(ConnectionTestStage.IDENTITY, ConnectionTestStatus.RUNNING, "ATI / ATRV")
+                _state.value = ConnectionState.AdapterIdentifying("ATI / ATRV")
                 // 6. Run hardware probe (ATI, ATRV, Clone check)
                 val prober = Elm327Prober { cmd, timeout -> executeInternal(cmd, timeout) }
                 val probeResult = prober.probeHardware()
+                check(probeResult.firmwareVersion != "Unknown") { "Adapter identity read failed" }
                 _batteryVoltage = probeResult.voltage
+                evidence(ConnectionTestStage.IDENTITY, ConnectionTestStatus.PASS, "${probeResult.firmwareVersion}; ATRV=${probeResult.voltage}V (0 means unavailable)")
+                evidence(ConnectionTestStage.PROTOCOL, ConnectionTestStatus.RUNNING, "Controlled ATSP selection")
 
                 // 7. Negotiate or force protocol
                 _state.value = ConnectionState.ProtocolDetecting(
@@ -152,10 +165,13 @@ open class Elm327Adapter(
                 // response (0x41 0x00 followed by >=4 supported-PID data bytes) may advance
                 // to Connected. Any adapter/ECU error, timeout, or malformed frame must fail
                 // initialization; receiving the prompt alone is not proof of communication.
+                evidence(ConnectionTestStage.ECU, ConnectionTestStatus.RUNNING, "0100")
+                _state.value = ConnectionState.EcuDiscovering(forcedProtocol?.displayName ?: "AUTO")
                 val init0100 = executeInternal("0100", 4000L)
                 when {
                     init0100 is AdapterResponse.Error -> {
                         val err = init0100.error
+                        evidence(ConnectionTestStage.ECU, ConnectionTestStatus.FAIL, init0100.rawResponse.ifBlank { err.messageEn })
                         retire("ECU handshake failed")
                         _currentProtocol = null
                         _state.value = ConnectionState.Failure(
@@ -179,6 +195,7 @@ open class Elm327Adapter(
                         val replies = init0100.toWireEnvelopes("0100")
                         val validResponse = replies.isNotEmpty() && replies.all { it.result is com.sarani.carobd.core.model.DiagnosticResult.Positive }
                         if (!validResponse) {
+                            evidence(ConnectionTestStage.ECU, ConnectionTestStatus.FAIL, "Malformed 0100: ${init0100.rawResponse}")
                             retire("Malformed ECU handshake")
                             _currentProtocol = null
                             _state.value = ConnectionState.Failure(
@@ -201,6 +218,13 @@ open class Elm327Adapter(
                     }
                 }
 
+                evidence(ConnectionTestStage.ECU, ConnectionTestStatus.PASS, (init0100 as AdapterResponse.Success).rawResponse)
+                evidence(ConnectionTestStage.CAPABILITIES, ConnectionTestStatus.RUNNING, "Validating PID 00 bitmap from ECU response")
+                _state.value = ConnectionState.CapabilityDiscovering(0)
+                val capabilityFrames = init0100.toWireEnvelopes("0100")
+                evidence(ConnectionTestStage.CAPABILITIES, ConnectionTestStatus.PASS,
+                    capabilityFrames.joinToString("; ") { "${it.responderId ?: "unknown responder"}: " + it.payload.joinToString("") { b -> "%02X".format(b) } })
+
                 // 9. Read back detected protocol using ATDPN
                 val dpnResp = executeInternal("ATDPN", 1000L)
                 val readback = (dpnResp as? AdapterResponse.Success)?.cleanedLines?.singleOrNull()?.trim()?.uppercase()
@@ -211,6 +235,8 @@ open class Elm327Adapter(
                     check(_currentProtocol == forcedProtocol) { "Manual protocol mismatch: requested $forcedProtocol, observed $_currentProtocol" }
                 }
 
+                check(!retired && transport.isConnected) { "Transport lost during initialization" }
+                evidence(ConnectionTestStage.PROTOCOL, ConnectionTestStatus.PASS, "ATDPN=$readback; ${_currentProtocol?.displayName}")
                 _state.value = ConnectionState.Connected(
                     deviceName = probeResult.deviceDescription.ifEmpty { "OBD-II Dongle" },
                     adapterType = probeResult.quality.name,
@@ -321,7 +347,7 @@ open class Elm327Adapter(
             if (waitMs > 0) delay(waitMs)
             if (retired || !transport.isConnected) return AdapterResponse.Error(AdapterError.TransportFault("Disconnected"), "", 0L)
             lastDispatchAt = System.currentTimeMillis()
-            withTimeoutOrNull(timeoutMs.coerceIn(100L, 30_000L)) {
+            withTimeoutOrNull(timeoutMs.coerceIn(100L, maxCommandTimeoutMs.coerceIn(100L, 30_000L))) {
                 transport.write((command + "\r").toByteArray(Charsets.US_ASCII))
                 true
             } ?: run {
@@ -329,7 +355,7 @@ open class Elm327Adapter(
                 return AdapterResponse.Error(AdapterError.Timeout(timeoutMs), "", System.currentTimeMillis() - startTime)
             }
             val sb = StringBuilder()
-            val receivedPrompt = withTimeoutOrNull(timeoutMs.coerceIn(1L, 30_000L)) {
+            val receivedPrompt = withTimeoutOrNull(timeoutMs.coerceIn(1L, maxCommandTimeoutMs.coerceIn(100L, 30_000L))) {
                 while (true) {
                     val c = incomingCharsChannel.receive()
                     sb.append(c)
@@ -375,6 +401,10 @@ open class Elm327Adapter(
         while (true) {
             val item = incomingCharsChannel.tryReceive().getOrNull() ?: break
         }
+    }
+
+    private fun evidence(stage: ConnectionTestStage, status: ConnectionTestStatus, raw: String) {
+        onEvidence(ConnectionTestEvidence(stage, status, raw.take(4096)))
     }
 
     private suspend fun checkOk(command: String, timeoutMs: Long) {
