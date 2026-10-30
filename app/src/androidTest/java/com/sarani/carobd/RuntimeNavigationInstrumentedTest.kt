@@ -186,6 +186,9 @@ class RuntimeNavigationInstrumentedTest {
         automation.executeShellCommand("am start -n com.sarani.carobd/.MainActivity").use { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).readBytes() }
         SystemClock.sleep(800)
         nav(R.string.nav_diagnostics); tap(label(R.string.dtc_scan_button)); SystemClock.sleep(1000); shot("diagnostics-simulation")
+        nav(R.string.nav_diagnostics); tap(label(R.string.open_evidence)); tap(label(R.string.dtc_history))
+        await(label(R.string.diagnosis_scope)); shot("recent-diagnosis")
+        tap(label(R.string.diagnosis_scope)); await(label(R.string.diagnosis_adapter_reported)); shot("diagnosis-details")
         readConnectedEvidence()
         nav(R.string.nav_connection_center); tap(label(R.string.ui_disconnect_cancel)); shot("disconnected-after-simulation")
         assertFalse(repo.connectionState.value is com.sarani.carobd.core.model.ConnectionState.Connected)

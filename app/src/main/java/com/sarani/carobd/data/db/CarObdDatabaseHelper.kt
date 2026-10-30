@@ -24,7 +24,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
 
     companion object {
         const val DATABASE_NAME = "car_obd_automotive.db"
-        const val DATABASE_VERSION = 3
+        const val DATABASE_VERSION = 4
 
         // Tables
         const val TABLE_GARAGE = "garage_vehicles"
@@ -133,11 +133,13 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         )
             DtcHistoryMigration.version2.forEach(db::execSQL)
         TripEvidenceMigration.version3.forEach(db::execSQL)
+        DiagnosticReportMigration.version4.forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2 && newVersion >= 2) DtcHistoryMigration.version2.forEach(db::execSQL)
         if (oldVersion < 3 && newVersion >= 3) TripEvidenceMigration.version3.forEach(db::execSQL)
+        if (oldVersion < 4 && newVersion >= 4) DiagnosticReportMigration.version4.forEach(db::execSQL)
     }
 
     // -------------------------------------------------------------
@@ -419,4 +421,6 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         }
         return out
     }
+    fun saveDiagnosticReport(report: com.sarani.carobd.core.model.DiagnosticSessionReport) = DiagnosticReportStore.save(writableDatabase, report)
+    fun recentDiagnosticReports(): List<com.sarani.carobd.core.model.DiagnosticSessionReport> = DiagnosticReportStore.recent(readableDatabase)
 }

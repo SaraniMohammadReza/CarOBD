@@ -411,4 +411,17 @@
     <string name="qa_last_unknown_scan">Last scan started: %1$s · source unknown</string>
     <string name="qa_stop_scan">Stop discovery</string>
     <string name="qa_scan_canceled">Discovery stopped. No connection was started.</string>
+    <string name="diagnosis_recent">Recent diagnostic reports</string>
+    <string name="diagnosis_empty">No diagnostic reports saved yet.</string>
+    <string name="diagnosis_legacy_history">Code history (separate from reports)</string>
+    <string name="diagnosis_scope">Scope: stored / pending / permanent DTCs (03 / 07 / 0A)</string>
+    <string name="diagnosis_complete">DTC scope complete; no vehicle health conclusion</string>
+    <string name="diagnosis_partial">Partial evidence — some requests or responders failed</string>
+    <string name="diagnosis_failed">No successful DTC response — not a no-codes result</string>
+    <string name="diagnosis_summary">%1$d distinct categorized codes · %2$d identified responders; unknown responders excluded from count</string>
+    <string name="diagnosis_not_collected">Not collected in this report: readiness/MIL, freeze frame, Mode09 and Mode06. Tap for captured DTC evidence.</string>
+    <string name="diagnosis_adapter_reported">Identity reported by adapter; authenticity not verified.</string>
+    <string name="diagnosis_physical">Physical adapter · read-only</string>
+    <string name="diagnosis_category_no_codes">This request/responder reported no DTCs.</string>
+    <string name="diagnosis_save_warning">History could not be fully saved. The live result is still shown.</string>
 </resources>

@@ -8,12 +8,15 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 class DtcHistoryViewModel(private val repository: ObdRepository) : ViewModel() {
+    private val _reports = MutableStateFlow<List<DiagnosticSessionReport>>(emptyList())
+    val reports = _reports.asStateFlow()
     val warning = repository.historyWarning
     private val _sessions = MutableStateFlow<List<DtcHistorySession>>(emptyList())
     val sessions = _sessions.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
     fun refresh() { viewModelScope.launch {
+        repository.recentDiagnosticReports().onSuccess { _reports.value = it }.onFailure { _error.value = it.message; return@launch }
         repository.diagnosticHistory().onSuccess { _sessions.value = it; _error.value = null }.onFailure { _error.value = it.message }
     } }
     init { refresh() }

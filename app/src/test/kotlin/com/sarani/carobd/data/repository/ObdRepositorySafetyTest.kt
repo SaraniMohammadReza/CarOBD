@@ -37,7 +37,7 @@ class ObdRepositorySafetyTest {
             rx.emit((raw + "\r>").toByteArray())
         }
     }
-    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null, history: ((DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null, admission: (TransportConfig) -> Unit = {}) = ObdRepositoryImpl(
+    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null, history: ((DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null, admission: (TransportConfig) -> Unit = {}, reportSink: ((DiagnosticSessionReport) -> Unit)? = null) = ObdRepositoryImpl(
         context = null,
         activeVehicleRepository = ActiveVehicleRepository(MutableStateFlow(null), {}, {}),
         appPreferencesManager = null,
@@ -45,7 +45,7 @@ class ObdRepositorySafetyTest {
         scope = scope,
         ioDispatcher = scope.coroutineContext[kotlin.coroutines.ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
         pollModeFlow = MutableStateFlow(TelemetryPollMode.NORMAL),
-        createTransport = { physical }, admitTransport = admission, recordings = recordings, historySink = history, startService = {}, stopService = {},
+        createTransport = { physical }, admitTransport = admission, recordings = recordings, historySink = history, diagnosticReportSink = reportSink, startService = {}, stopService = {},
     )
     private val profile = ConnectionProfile("test", "bench", TransportConfig.Wifi("bench", 35000))
     @Test fun repository_actualScanPathPreservesAllThreeNonCanCategories() = runTest {
@@ -352,5 +352,35 @@ class ObdRepositorySafetyTest {
             assertTrue(capture.events.any { it.protocolMetadata["phase"] == "SessionEnded" })
             assertFalse(capture.events.any { it.direction == Direction.TX || it.protocolMetadata["event"] == "disconnect" || it.protocolMetadata["phase"] == "PermissionGranted" })
         } finally { directory.deleteRecursively() }
+    }
+    @Test fun reportRetainsPartialScanAndCapturedPhysicalIdentityWithoutPromotingMalformedToSuccess() = runTest {
+        val t = Physical(can = true)
+        t.overrides = mapOf("03" to "7E8:0443010133\r7E9 43 02 01", "07" to "4700", "0A" to "NO DATA")
+        val reports = mutableListOf<DiagnosticSessionReport>()
+        val repo = repository(backgroundScope, t, reportSink = { reports += it })
+        assertTrue(repo.connect(profile).isSuccess)
+        assertTrue(repo.scanDiagnosticTroubleCodes().isFailure)
+        val saved = reports.single()
+        assertFalse(saved.simulator)
+        assertEquals("test", saved.profileId)
+        assertEquals("bench", saved.profileLabel)
+        assertNull(saved.vehicleId)
+        assertEquals(ScanCompleteness.PARTIAL, saved.completeness)
+        assertEquals(setOf("7E8", "7E9"), saved.responders)
+        assertEquals("P0133", saved.codes.single().code)
+        assertTrue(saved.outcomes.any { it.outcome == ScanOutcome.MALFORMED && it.rawLines.isNotEmpty() })
+        assertTrue(saved.outcomes.any { it.outcome == ScanOutcome.NO_DATA })
+        repo.disconnect()
+        assertFalse(reports.single().simulator)
+    }
+
+    @Test fun reportStorageFailureDoesNotHideSuccessfulScanOrRetryCommands() = runTest {
+        val t = Physical()
+        val repo = repository(backgroundScope, t, reportSink = { error("disk unavailable") })
+        assertTrue(repo.connect(profile).isSuccess)
+        assertTrue(repo.scanDiagnosticTroubleCodes().isSuccess)
+        assertTrue(repo.historyWarning.value!!.contains("disk unavailable"))
+        assertEquals(1, t.writes.count { it == "03" })
+        repo.disconnect()
     }
 }

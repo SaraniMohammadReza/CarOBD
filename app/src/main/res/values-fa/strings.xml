@@ -411,4 +411,17 @@
     <string name="qa_last_unknown_scan">شروع آخرین اسکن: %1$s · منبع نامشخص</string>
     <string name="qa_stop_scan">توقف جست‌وجو</string>
     <string name="qa_scan_canceled">جست‌وجو متوقف شد. هیچ اتصالی شروع نشده است.</string>
+    <string name="diagnosis_recent">گزارش‌های اخیر عیب‌یابی</string>
+    <string name="diagnosis_empty">هنوز گزارش عیب‌یابی ذخیره نشده است.</string>
+    <string name="diagnosis_legacy_history">تاریخچهٔ کدها (جدا از گزارش‌ها)</string>
+    <string name="diagnosis_scope">محدوده: کدهای ذخیره‌شده / در انتظار / دائمی (03 / 07 / 0A)</string>
+    <string name="diagnosis_complete">محدودهٔ کدها کامل؛ بدون نتیجه‌گیری دربارهٔ سلامت خودرو</string>
+    <string name="diagnosis_partial">شواهد ناقص — برخی درخواست‌ها یا پاسخ‌دهندگان ناموفق بودند</string>
+    <string name="diagnosis_failed">هیچ پاسخ موفق کد خطایی دریافت نشد — به معنای نبود کد نیست</string>
+    <string name="diagnosis_summary">%1$d کد با دسته‌بندی متمایز · %2$d پاسخ‌دهندهٔ شناخته‌شده؛ پاسخ‌دهندهٔ نامعلوم در شمارش نیست</string>
+    <string name="diagnosis_not_collected">در این گزارش خوانده نشده‌اند: آمادگی/MIL، فریزفریم، Mode09 و Mode06. برای شواهد کدها لمس کنید.</string>
+    <string name="diagnosis_adapter_reported">شناسه اعلام‌شده توسط آداپتور؛ اصالت تأیید نشده است.</string>
+    <string name="diagnosis_physical">آداپتور فیزیکی · فقط خواندنی</string>
+    <string name="diagnosis_category_no_codes">این درخواست/پاسخ‌دهنده هیچ کد خطایی گزارش نکرد.</string>
+    <string name="diagnosis_save_warning">تاریخچه به‌طور کامل ذخیره نشد. نتیجهٔ زنده همچنان نمایش داده می‌شود.</string>
 </resources>

@@ -59,6 +59,7 @@ fun DiagnosticsScreen(
     onEvidence: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val historyWarning by org.koin.compose.koinInject<com.sarani.carobd.domain.repository.ObdRepository>().historyWarning.collectAsState()
     val connection by org.koin.compose.koinInject<com.sarani.carobd.domain.repository.ObdRepository>().connectionState.collectAsState()
 
     Box(
@@ -136,6 +137,10 @@ fun DiagnosticsScreen(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
+            historyWarning?.let {
+                Text(stringResource(R.string.diagnosis_save_warning), color = NeonAmber)
+                com.sarani.carobd.ui.components.DeveloperEvidence(it)
+            }
             state.responderEvidence.forEach { evidence ->
                 Text(evidence, color = TextMuted, fontSize = 12.sp)
             }
@@ -178,8 +183,14 @@ fun DiagnosticsScreen(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.troubleCodes, key = { "${it.responderAddressHex}-${it.category.name}-${it.code}" }) { dtc ->
-                        DtcCard(dtc = dtc)
+                    com.sarani.carobd.core.model.DtcCategory.entries.forEach { category ->
+                        val codes = state.troubleCodes.filter { it.category == category }
+                        if (codes.isNotEmpty()) {
+                            item(key = "category-${category.name}") {
+                                Text(com.sarani.carobd.ui.components.categoryLabel(category), color = TextPrimary, fontWeight = FontWeight.Bold)
+                            }
+                            items(codes, key = { "${it.responderAddressHex}-${it.category.name}-${it.code}" }) { dtc -> DtcCard(dtc = dtc) }
+                        }
                     }
                 }
             }

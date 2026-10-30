@@ -82,6 +82,7 @@ fun FreezeFrameScreen(viewModel: FreezeFrameViewModel) {
 
 @Composable
 fun DtcHistoryScreen(viewModel: DtcHistoryViewModel) {
+    val reports by viewModel.reports.collectAsState()
     val sessions by viewModel.sessions.collectAsState()
     val error by viewModel.error.collectAsState()
     val warning by viewModel.warning.collectAsState()
@@ -89,6 +90,10 @@ fun DtcHistoryScreen(viewModel: DtcHistoryViewModel) {
         Text(stringResource(R.string.dtc_history))
         TextButton(onClick = viewModel::refresh) { Text(stringResource(R.string.record_refresh)) }
         error?.let { Text(stringResource(R.string.s5_operation_failed)); com.sarani.carobd.ui.components.DeveloperEvidence(it) }; warning?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it) }
+        Text(stringResource(R.string.diagnosis_recent), style = MaterialTheme.typography.titleMedium)
+        if (reports.isEmpty()) Text(stringResource(R.string.diagnosis_empty))
+        reports.forEach { report -> DiagnosticReportCard(report) }
+        Text(stringResource(R.string.diagnosis_legacy_history), style = MaterialTheme.typography.titleMedium)
         sessions.forEach { s ->
             Text("${s.observedAtMs} · ${s.protocol ?: "—"} · ${s.connectionSessionId ?: "—"}")
             Text("MIL: " + stringResource(when (s.mil) { true -> R.string.mil_on; false -> R.string.mil_off; null -> R.string.mil_unknown }))

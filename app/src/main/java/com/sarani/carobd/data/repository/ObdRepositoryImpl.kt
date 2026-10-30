@@ -68,6 +68,7 @@ class ObdRepositoryImpl(
         TransportFactory.createTransport(it, requireNotNull(context))
     },
     private val historySink: ((com.sarani.carobd.core.model.DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null,
+    private val diagnosticReportSink: ((com.sarani.carobd.core.model.DiagnosticSessionReport) -> Unit)? = null,
     private val recordings: com.sarani.carobd.data.recording.RecordingController? = null,
     private val admitTransport: (TransportConfig) -> Unit = { if (it is TransportConfig.BluetoothClassic || it is TransportConfig.Ble || it is TransportConfig.Wifi) com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(requireNotNull(context), it) },
     private val admitBackground: () -> Unit = { context?.let { com.sarani.carobd.core.permissions.AndroidAccess.require(it, com.sarani.carobd.core.model.RuntimeAccess.Notifications) } },
@@ -317,17 +318,36 @@ class ObdRepositoryImpl(
         // connection is required for any protocol configuration.
     }
 
+    override suspend fun recentDiagnosticReports(): Result<List<com.sarani.carobd.core.model.DiagnosticSessionReport>> = withContext(ioDispatcher) {
+        runCatching { database.recentDiagnosticReports() }
+    }
+
     override suspend fun diagnosticHistory(): Result<List<com.sarani.carobd.core.model.DtcHistorySession>> = withContext(ioDispatcher) {
         runCatching { database.diagnosticHistory() }
     }
 
     override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = withContext(ioDispatcher) {
         val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
+        val startedAt = System.currentTimeMillis()
+        val connection = _connectionState.value as? ConnectionState.Connected
+            ?: return@withContext Result.failure(NotConnectedException("Session not ready"))
+        val profile = _activeConnectionProfile.value
+        val vehicle = _activeVehicleProfile.value
+        val connectionId = _foregroundSessionId.value
         val report = sessionResult(session) { adapter ->
             com.sarani.carobd.core.adapter.command.DiagnosticScanRunner(adapter) {
                 activeSession === session && session.isOpen && _connectionState.value is ConnectionState.Connected
             }.scan()
         }.getOrElse { return@withContext Result.failure(it) }
+        _historyWarning.value = null
+        val savedReport = com.sarani.carobd.core.model.DiagnosticSessionReport(UUID.randomUUID().toString(), connectionId,
+            startedAt, System.currentTimeMillis(), vehicle?.id, vehicle?.modelNameEn, profile?.id, profile?.name,
+            connection.isSimulator, connection.protocolName, connection.elmVersion,
+            com.sarani.carobd.core.model.DiagnosticSessionReport.outcomes(report))
+        runCatching {
+            if (diagnosticReportSink != null) diagnosticReportSink.invoke(savedReport)
+            else if (context != null) database.saveDiagnosticReport(savedReport)
+        }.onFailure { _historyWarning.value = "Diagnostic report could not be saved: ${it.message}" }
         if (activeSession !== session || !session.isOpen) return@withContext Result.failure(NotConnectedException("Session changed"))
         if (report.completeness != com.sarani.carobd.core.model.ScanCompleteness.COMPLETE) {
             return@withContext Result.failure(com.sarani.carobd.core.model.DiagnosticScanException(report))
@@ -337,7 +357,6 @@ class ObdRepositoryImpl(
         val history = com.sarani.carobd.core.model.DtcHistorySession(UUID.randomUUID().toString(), _foregroundSessionId.value,
             _activeVehicleProfile.value?.id, observedAt, protocol, null,
             report.codes.map { com.sarani.carobd.core.model.DtcHistoryCode.capture(it, protocol, null, observedAt) })
-        _historyWarning.value = null
         runCatching {
             if (historySink != null) historySink.invoke(history, report.codes)
             else if (context != null) database.saveDtcScan(history, report.codes)

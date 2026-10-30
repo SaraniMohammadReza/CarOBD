@@ -39,6 +39,7 @@ interface ObdRepository {
     suspend fun disconnect()
     suspend fun setVehicleProfile(profile: VehicleProfile)
     suspend fun readEvidence(command: String, expectedSessionId: String? = null): Result<List<com.sarani.carobd.core.model.DiagnosticWireResponse>> = Result.failure(UnsupportedOperationException("Evidence reads unavailable"))
+    suspend fun recentDiagnosticReports(): Result<List<com.sarani.carobd.core.model.DiagnosticSessionReport>> = Result.success(emptyList())
     suspend fun diagnosticHistory(): Result<List<com.sarani.carobd.core.model.DtcHistorySession>> = Result.success(emptyList())
     suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>>
     suspend fun clearDiagnosticTroubleCodes(): Result<Unit>
