@@ -293,6 +293,14 @@ class ObdRepositoryImpl(
         }
     }
 
+    override suspend fun disconnectIfCurrent(sessionId: String): Boolean = withContext(ioDispatcher + kotlinx.coroutines.NonCancellable) {
+        sessionMutex.withLock {
+            if (_foregroundSessionId.value != sessionId) return@withLock false
+            disconnectLocked()
+            true
+        }
+    }
+
     private suspend fun disconnectLocked() {
         _activeConnectionProfile.value = null
         _connectingProfile.value = null

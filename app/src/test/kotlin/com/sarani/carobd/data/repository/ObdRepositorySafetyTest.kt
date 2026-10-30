@@ -5,6 +5,7 @@ import com.sarani.carobd.core.adapter.transport.ObdTransport
 import com.sarani.carobd.core.model.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.*
 import org.junit.Assert.*
 import org.junit.Test
@@ -19,8 +20,9 @@ class ObdRepositorySafetyTest {
         var malformed = false
         var overrides = emptyMap<String, String>()
         var blockConnect = false
+        var connectGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
         val connectEntered = kotlinx.coroutines.CompletableDeferred<Unit>()
-        override suspend fun connect() { connectEntered.complete(Unit); if (blockConnect) kotlinx.coroutines.awaitCancellation(); isConnected = true }
+        override suspend fun connect() { connectEntered.complete(Unit); if (blockConnect) { connectGate?.await() ?: kotlinx.coroutines.awaitCancellation() }; isConnected = true }
         override suspend fun disconnect() { isConnected = false }
         override suspend fun write(data: ByteArray) {
             val c = data.toString(Charsets.US_ASCII).trim(); writes.add(c)
@@ -381,6 +383,52 @@ class ObdRepositorySafetyTest {
         assertTrue(repo.scanDiagnosticTroubleCodes().isSuccess)
         assertTrue(repo.historyWarning.value!!.contains("disk unavailable"))
         assertEquals(1, t.writes.count { it == "03" })
+        repo.disconnect()
+    }
+    @Test fun delayedNotificationDisconnectCannotRetireReplacementGeneration() = runTest {
+        val t = Physical(); val repo = repository(backgroundScope, t)
+        assertTrue(repo.connect(profile).isSuccess)
+        val old = requireNotNull(repo.foregroundSessionId.value)
+        assertTrue(repo.connect(profile.copy(id = "replacement", name = "Replacement")).isSuccess)
+        val current = requireNotNull(repo.foregroundSessionId.value)
+        assertNotEquals(old, current)
+        assertFalse(repo.disconnectIfCurrent(old))
+        assertEquals(current, repo.foregroundSessionId.value)
+        assertTrue(t.isConnected)
+        assertTrue(repo.sendRawCommand("ATI").isSuccess)
+        assertTrue(repo.disconnectIfCurrent(current))
+        assertFalse(t.isConnected)
+        assertNull(repo.foregroundSessionId.value)
+        assertEquals(ConnectionState.Disconnected, repo.connectionState.value)
+    }
+
+    @Test fun duplicateAndUnknownServiceDisconnectAreInert() = runTest {
+        val t = Physical(); val repo = repository(backgroundScope, t)
+        assertFalse(repo.disconnectIfCurrent("unknown"))
+        assertTrue(repo.connect(profile).isSuccess)
+        val current = requireNotNull(repo.foregroundSessionId.value)
+        assertFalse(repo.disconnectIfCurrent(""))
+        assertTrue(repo.disconnectIfCurrent(current))
+        assertFalse(repo.disconnectIfCurrent(current))
+        assertNull(repo.foregroundSessionId.value)
+    }
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun delayedServiceTeardownWaitsForReplacementLockWithoutCancelingConnect() = runTest {
+        val t = Physical(); val repo = repository(backgroundScope, t)
+        assertTrue(repo.connect(profile).isSuccess)
+        val old = requireNotNull(repo.foregroundSessionId.value)
+        t.blockConnect = true
+        t.connectGate = kotlinx.coroutines.CompletableDeferred()
+        val replacement = async { repo.connect(profile.copy(id = "next")) }
+        runCurrent()
+        val delayedStop = async { repo.disconnectIfCurrent(old) }
+        runCurrent()
+        assertFalse(delayedStop.isCompleted)
+        t.connectGate!!.complete(Unit)
+        assertTrue(replacement.await().isSuccess)
+        assertFalse(delayedStop.await())
+        assertTrue(repo.connectionState.value is ConnectionState.Connected)
+        assertNotEquals(old, repo.foregroundSessionId.value)
         repo.disconnect()
     }
 }

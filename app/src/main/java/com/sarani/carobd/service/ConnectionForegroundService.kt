@@ -72,22 +72,21 @@ class ConnectionForegroundService : Service(), KoinComponent {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_DISCONNECT -> {
-                if (intent.getStringExtra("sessionId") != repository.foregroundSessionId.value) return START_NOT_STICKY
+            ACTION_DISCONNECT, ACTION_STOP -> {
+                val token = intent.getStringExtra("sessionId") ?: return START_NOT_STICKY
                 serviceScope.launch {
-                    repository.disconnect()
-                    stopServiceSafely()
+                    // The repository checks under its session lock. An earlier UI check
+                    // cannot authorize teardown after a replacement connection wins.
+                    repository.disconnectIfCurrent(token)
+                    // Repository owns service shutdown; do not stop a newer service here.
                 }
-                return START_NOT_STICKY
-            }
-            ACTION_STOP -> {
-                stopServiceSafely()
                 return START_NOT_STICKY
             }
             ACTION_START -> {
                 val token = intent.getStringExtra("sessionId")
                 if (token == null || token != repository.foregroundSessionId.value) {
-                    stopSelf(startId)
+                    // A delayed start must not stop an already-bound replacement.
+                    if (sessionId == null) stopSelf(startId)
                     return START_NOT_STICKY
                 }
                 if (sessionId != null && sessionId != token) observer?.cancel()

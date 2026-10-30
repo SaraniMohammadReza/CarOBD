@@ -219,6 +219,7 @@ class RuntimeNavigationInstrumentedTest {
         await(label(R.string.diagnosis_scope)); shot("recent-diagnosis")
         tap(label(R.string.diagnosis_scope)); await(label(R.string.diagnosis_adapter_reported)); shot("diagnosis-details")
         readConnectedEvidence()
+        val oldServiceToken = requireNotNull(repo.foregroundSessionId.value)
         nav(R.string.nav_connection_center); tap(label(R.string.ui_disconnect_cancel)); shot("disconnected-after-simulation")
         assertFalse(repo.connectionState.value is com.sarani.carobd.core.model.ConnectionState.Connected)
         nav(R.string.nav_simulator, true)
@@ -229,7 +230,25 @@ class RuntimeNavigationInstrumentedTest {
         while (repo.connectionState.value !is com.sarani.carobd.core.model.ConnectionState.Connected && SystemClock.uptimeMillis() < stoppedDeadline) SystemClock.sleep(200)
         assertTrue((repo.connectionState.value as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator == true)
         nav(R.string.nav_dashboard); await("0 RPM"); await("0 km/h"); shot("simulation-engine-stopped")
-        nav(R.string.nav_connection_center); tap(label(R.string.ui_disconnect_cancel))
+        val currentServiceToken = requireNotNull(repo.foregroundSessionId.value)
+        for (action in listOf(com.sarani.carobd.service.ConnectionForegroundService.ACTION_START,
+            com.sarani.carobd.service.ConnectionForegroundService.ACTION_DISCONNECT,
+            com.sarani.carobd.service.ConnectionForegroundService.ACTION_STOP)) {
+            instrumentation.targetContext.startService(Intent(instrumentation.targetContext, com.sarani.carobd.service.ConnectionForegroundService::class.java).apply {
+                this.action = action; putExtra("sessionId", oldServiceToken)
+            })
+        }
+        SystemClock.sleep(1000)
+        assertEquals(currentServiceToken, repo.foregroundSessionId.value)
+        assertTrue(repo.connectionState.value is com.sarani.carobd.core.model.ConnectionState.Connected)
+        assertTrue(notifications.activeNotifications.any { it.id == com.sarani.carobd.service.ConnectionForegroundService.NOTIFICATION_ID })
+        instrumentation.targetContext.startService(Intent(instrumentation.targetContext, com.sarani.carobd.service.ConnectionForegroundService::class.java).apply {
+            action = com.sarani.carobd.service.ConnectionForegroundService.ACTION_DISCONNECT; putExtra("sessionId", currentServiceToken)
+        })
+        val disconnectDeadline = SystemClock.uptimeMillis() + 5000
+        while (repo.foregroundSessionId.value != null && SystemClock.uptimeMillis() < disconnectDeadline) SystemClock.sleep(100)
+        assertEquals(com.sarani.carobd.core.model.ConnectionState.Disconnected, repo.connectionState.value)
+        assertNull(repo.foregroundSessionId.value)
         nav(R.string.nav_settings); tap(label(R.string.settings_adapter_inspector)); shot("adapter-inspector")
         nav(R.string.nav_settings); await(label(R.string.settings_language))
         tap(label(if (locale == "en") R.string.language_persian_label else R.string.language_english_label))

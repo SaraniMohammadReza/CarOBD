@@ -36,6 +36,8 @@ interface ObdRepository {
     ): com.sarani.carobd.core.model.ConnectionTestReport =
         com.sarani.carobd.core.model.ConnectionTestReport(profile.transport.type == com.sarani.carobd.core.model.TransportType.SIMULATOR)
             .finishFailure("Connection testing not implemented")
+    /** Atomic generation-bound teardown for delayed Android service/notification actions. */
+    suspend fun disconnectIfCurrent(sessionId: String): Boolean = false
     suspend fun disconnect()
     suspend fun setVehicleProfile(profile: VehicleProfile)
     suspend fun readEvidence(command: String, expectedSessionId: String? = null): Result<List<com.sarani.carobd.core.model.DiagnosticWireResponse>> = Result.failure(UnsupportedOperationException("Evidence reads unavailable"))
