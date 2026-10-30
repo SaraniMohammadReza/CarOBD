@@ -39,7 +39,7 @@ class ObdRepositorySafetyTest {
             rx.emit((raw + "\r>").toByteArray())
         }
     }
-    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null, history: ((DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null, admission: (TransportConfig) -> Unit = {}, reportSink: ((DiagnosticSessionReport) -> Unit)? = null) = ObdRepositoryImpl(
+    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null, history: ((DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null, admission: (TransportConfig) -> Unit = {}, reportSink: ((DiagnosticSessionReport) -> Unit)? = null, ongoingAdmission: (() -> Unit)? = null) = ObdRepositoryImpl(
         context = null,
         activeVehicleRepository = ActiveVehicleRepository(MutableStateFlow(null), {}, {}),
         appPreferencesManager = null,
@@ -47,7 +47,7 @@ class ObdRepositorySafetyTest {
         scope = scope,
         ioDispatcher = scope.coroutineContext[kotlin.coroutines.ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
         pollModeFlow = MutableStateFlow(TelemetryPollMode.NORMAL),
-        createTransport = { physical }, admitTransport = admission, recordings = recordings, historySink = history, diagnosticReportSink = reportSink, startService = {}, stopService = {},
+        createTransport = { ongoingAdmission?.let { com.sarani.carobd.core.adapter.transport.AdmissionGuardedTransport(physical, it) } ?: physical }, admitTransport = admission, recordings = recordings, historySink = history, diagnosticReportSink = reportSink, startService = {}, stopService = {},
     )
     private val profile = ConnectionProfile("test", "bench", TransportConfig.Wifi("bench", 35000))
     @Test fun repository_actualScanPathPreservesAllThreeNonCanCategories() = runTest {
@@ -429,6 +429,29 @@ class ObdRepositorySafetyTest {
         assertFalse(delayedStop.await())
         assertTrue(repo.connectionState.value is ConnectionState.Connected)
         assertNotEquals(old, repo.foregroundSessionId.value)
+        repo.disconnect()
+    }
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun revokedOngoingAdmissionInvalidatesActualSessionAndNeverRevivesWithoutReconnect() = runTest {
+        val t = Physical()
+        var allowed = true
+        val repo = repository(backgroundScope, t, ongoingAdmission = {
+            if (!allowed) throw AccessDeniedException(RuntimeAccess.LocalNetwork, AccessState.Denied)
+        })
+        assertTrue(repo.connect(profile).isSuccess)
+        runCurrent()
+        val writesBeforeRevocation = t.writes.size
+        allowed = false
+        advanceTimeBy(200); runCurrent()
+        assertFalse(repo.connectionState.value is ConnectionState.Connected)
+        assertFalse(t.isConnected)
+        assertNull(repo.foregroundSessionId.value)
+        assertTrue(repo.sendRawCommand("ATI").isFailure)
+        assertEquals(writesBeforeRevocation, t.writes.size)
+        allowed = true
+        assertTrue(repo.sendRawCommand("ATI").isFailure)
+        assertTrue(repo.connect(profile).isSuccess)
+        assertTrue(repo.sendRawCommand("ATI").isSuccess)
         repo.disconnect()
     }
 }

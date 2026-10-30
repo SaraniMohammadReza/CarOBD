@@ -126,6 +126,41 @@ class RuntimeNavigationInstrumentedTest {
         tapNode(permissionButton("permission_allow_button"))
         assertEquals(android.content.pm.PackageManager.PERMISSION_GRANTED, instrumentation.targetContext.checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN))
         shot("bluetooth-granted")
+        if (android.os.Build.VERSION.SDK_INT >= 37) {
+            if (instrumentation.targetContext.checkSelfPermission(android.Manifest.permission.ACCESS_LOCAL_NETWORK) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                tap(label(R.string.qa_network_access) + ": " + label(R.string.access_not_requested))
+                val promptDeadline = SystemClock.uptimeMillis() + 5000
+                var deny: AccessibilityNodeInfo? = null
+                while (SystemClock.uptimeMillis() < promptDeadline) {
+                    deny = nodes(root()).firstOrNull { it.viewIdResourceName?.endsWith(":id/permission_deny_button") == true }
+                    if (deny != null || instrumentation.targetContext.checkSelfPermission(android.Manifest.permission.ACCESS_LOCAL_NETWORK) == android.content.pm.PackageManager.PERMISSION_GRANTED) break
+                    SystemClock.sleep(100)
+                }
+                if (deny != null) {
+                    tapNode(deny)
+                    assertTrue(instrumentation.targetContext.checkSelfPermission(android.Manifest.permission.ACCESS_LOCAL_NETWORK) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    shot("local-network-denied")
+                    tap(label(R.string.qa_network_access) + ": " + label(R.string.access_denied))
+                    tapNode(permissionButton("permission_allow_button"))
+                    assertEquals(android.content.pm.PackageManager.PERMISSION_GRANTED, instrumentation.targetContext.checkSelfPermission(android.Manifest.permission.ACCESS_LOCAL_NETWORK))
+                    shot("local-network-granted")
+                    println("CAROBD_LAN_PERMISSION_FLOW=DENY_REQUEST_GRANT_OBSERVED")
+                } else if (instrumentation.targetContext.checkSelfPermission(android.Manifest.permission.ACCESS_LOCAL_NETWORK) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    println("CAROBD_LAN_PERMISSION_FLOW=PREGRANTED_ON_REQUEST_NO_DIALOG")
+                } else {
+                    // This image can immediately deny an advertised API37 permission.
+                    // Verify the real blocked path; do not claim a grant/prompt PASS.
+                    val state = com.sarani.carobd.core.permissions.AndroidAccess.state(instrumentation.targetContext, com.sarani.carobd.core.model.RuntimeAccess.LocalNetwork, activity)
+                    assertTrue(state == com.sarani.carobd.core.model.AccessState.Denied || state == com.sarani.carobd.core.model.AccessState.PermanentlyDenied)
+                    try {
+                        com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(instrumentation.targetContext, com.sarani.carobd.core.model.TransportConfig.Wifi("127.0.0.1", 35000))
+                        fail("Unapproved LAN access must remain blocked")
+                    } catch (_: com.sarani.carobd.core.model.AccessDeniedException) {}
+                    shot("local-network-unavailable-blocked")
+                    println("CAROBD_LAN_PERMISSION_FLOW=NO_PROMPT_NO_GRANT_BLOCKED_PATH_VERIFIED")
+                }
+            } else println("CAROBD_LAN_PERMISSION_FLOW=GRANT_ALREADY_PRESENT")
+        }
     }
     private fun pickerStates() {
         tap(label(R.string.ui_add))

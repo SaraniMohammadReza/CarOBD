@@ -25,7 +25,7 @@ object TransportFactory {
     ): ObdTransport {
         com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(context, config)
         require(config.validate().isEmpty()) { config.validate().joinToString("; ") }
-        return when (config) {
+        val transport = when (config) {
         is TransportConfig.BluetoothClassic -> {
             if (config.deviceAddress.isBlank()) error("bluetooth address required")
             BluetoothClassicTransport(config.deviceAddress, bluetoothAdapter)
@@ -48,5 +48,12 @@ object TransportFactory {
             IsolatedSimulatorTransport(simulatorScenarioFromId(config.scenarioId))
         }
     }
+        // Runtime grants can be revoked after initial admission. All physical
+        // BT/BLE/LAN writes and the session's passive link monitor re-use the
+        // same AndroidAccess policy; simulator and USB keep their own lifecycles.
+        return if (config is TransportConfig.BluetoothClassic || config is TransportConfig.Ble || config is TransportConfig.Wifi)
+            com.sarani.carobd.core.adapter.transport.AdmissionGuardedTransport(transport) {
+                com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(context, config)
+            } else transport
     }
 }
