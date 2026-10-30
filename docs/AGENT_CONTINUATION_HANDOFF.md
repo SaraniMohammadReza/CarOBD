@@ -8,9 +8,9 @@ CarOBD; `git@github.com:SaraniMohammadReza/CarOBD.git`; branch **feat/car-obd-de
 
 ## 2. Current Git State
 
-Verified source snapshot: `08ff3e806009a6a3044ae1533eb5054d6f9c92d1`, equal to origin after push. Branch `feat/car-obd-development` only. Later commits containing this document necessarily sit above the sampled source hash; inspect actual HEAD rather than resetting to this snapshot.
+Verified source snapshot: `1f327633e3375e1ea20d7d324c0f93f772694703`, equal to origin after push. Branch `feat/car-obd-development` only. Later commits containing this document necessarily sit above the sampled source hash; inspect actual HEAD rather than resetting to this snapshot.
 
-The localized numeric-input checkpoint is active; see section4. Final integration documentation is being completed in ARCHITECTURE.md, OBD_SUPPORT_MATRIX.md, COMPETITOR_FEATURE_MATRIX.md, COMPETITOR_GAP_DEVELOPMENT.md, ANDROID_STUDIO_OFFLINE_SETUP.md and the safety/gaps documents. Staging is explicit per checkpoint.
+Localized numeric input is verified and pushed; final integration is recorded in section4. Final documentation is published in ARCHITECTURE.md, OBD_SUPPORT_MATRIX.md, COMPETITOR_FEATURE_MATRIX.md, COMPETITOR_GAP_DEVELOPMENT.md, ANDROID_STUDIO_OFFLINE_SETUP.md and the safety/gaps documents. Staging is explicit per checkpoint.
 
 Pre-existing untracked `report.md` must remain unchanged and uncommitted. SHA256 `cc39511e9fccbc8f31fcb15fcf84e1927d85695058e1af72fe8810cc58cf4325` verified repeatedly. No dependency on it; no caches/SDK/JDK/APK enter Git. No master modification or force push.
 
@@ -30,14 +30,15 @@ All listed source checkpoints were tested and pushed immediately:
 | `70704aa` | DiagnosticReportExport/JsonStrings; history ViewModel/Card/Screen SAF; core/VM/Android JSON tests | App139/model57/adapter115 pass; Android9/9 exit0,2m59s; SAF launch/cancel |
 | `98953bb` | Backup XML exclusions; packaged-policy regression; actual DocumentsUI Save/readback | Android10/10 exit0,3m6s; no cloud backup/migration executed |
 | `08ff3e8` | NotificationMeasurements; foreground saved units/language; four unit tests and Settings/notification UI assertion | App143 pass exit0,3s; Android10/10 exit0,3m11s; same session through imperial→metric |
+| `1f32763` | VehicleSetupNumbers; onboarding validation/error support; four regressions and actual form acceptance/rejection/clear | App147 pass exit0,3s; FA10/10 exit0,3m22s; final full offline gate464 tests,lint84/0 |
 
-Full details/path explanations: [overnight engineering record](OVERNIGHT_DEVELOPMENT_HANDOFF.md), [competitor continuation draft](COMPETITOR_GAP_DEVELOPMENT.md), [previous runtime QA](RUNTIME_QA_CONTINUATION.md). The draft may contain explicitly pending fields until final integration; this file is the current task authority.
+Full details/path explanations: [overnight engineering record](OVERNIGHT_DEVELOPMENT_HANDOFF.md), [full development report](COMPETITOR_GAP_DEVELOPMENT.md), [previous runtime QA](RUNTIME_QA_CONTINUATION.md). The final report qualifies historical results separately from the current source gate; this file is the continuation authority.
 
 ## 4. Current Active Task
 
-**VERIFIED: localized numeric metadata input**. VehicleSetupNumbers normalizes English/Persian/Arabic digits and Arabic decimal separator; rejects ambiguous grouping, exponent/nonfinite/overflow/fractional odometer input; blank stays null. VehicleOnboardingModal uses exactly the same parsed values for validation/save and highlights errors. Four parser regressions passed in app147/0failure/error/skip, exit0,3s (`/tmp/carobd-overnight-numeric-unit.log`). Complete FA/RTL900×2000/font130 instrumentation passed: Android10/10, zero failures/errors/skips, exit0,3m22s (`/tmp/carobd-overnight-numeric-fa-ui.log`). Android test sets Persian decimal, rejects grouping and clears back to optional blank.
+**VERIFIED source; next report scope NOT_STARTED.** Localized numeric metadata input is complete. VehicleSetupNumbers normalizes English/Persian/Arabic digits and Arabic decimal separator; rejects ambiguous grouping, exponent/nonfinite/overflow/fractional odometer input; blank stays null. VehicleOnboardingModal uses exactly the same parsed values for validation/save and highlights errors. Four parser regressions passed in app147/0failure/error/skip, exit0,3s (`/tmp/carobd-overnight-numeric-unit.log`). Complete FA/RTL900×2000/font130 instrumentation passed: Android10/10, zero failures/errors/skips, exit0,3m22s (`/tmp/carobd-overnight-numeric-fa-ui.log`). Android test sets Persian decimal, rejects grouping and clears back to optional blank.
 
-Do not repeat earlier vehicle/report/dashboard/service/export/notification implementation. Do not weaken assertions to hide failures. Next publish this checkpoint, then fresh full offline gate, EN instrumentation, cache revalidation and final documentation.
+Do not repeat earlier vehicle/report/dashboard/service/export/notification implementation. Do not weaken assertions to hide failures. Source checkpoint1f32763 is pushed. The fresh full offline gate and cache revalidation now pass; final EN instrumentation passed10/10,exit0,3m12s. No unfinished source changes. Next engineering task is the combined report scope in section11.
 
 LAN nuance: ACCESS_LOCAL_NETWORK shares NEARBY_DEVICES and may grant without another dialog. Actual emulator marker was `PREGRANTED_ON_REQUEST_NO_DIALOG`. Earlier new test wrongly demanded a deny button; corrected to handle real permission states. No actual LAN denial/regrant or physical OS revocation is established, and no vehicle/LAN socket is opened by this UI test.
 
@@ -92,7 +93,9 @@ ANDROID_HOME=/home/mohammad/Android/Sdk \
  :core:protocol:test :core:telemetry:test :core:vehicle:test :app:assembleDebugAndroidTest --console=plain
 ```
 
-Prior full gate on7ef5476: exit0,1m24s,107 executed tasks,JVM441/0fail/error/skip,lint84warnings/0errors. Subsequent targeted and Android results are in section3; latest localized parser app147 passed. Full integration will be refreshed before delivery.
+Final fresh gate on1f32763: exit0,1m28s,107/107 tasks executed (`/tmp/carobd-overnight-final-offline-gate.log`). JVM464/0fail/error/skip: app147,model57,adapter115,protocol125,telemetry19,vehicle1. Lint84warnings/0errors, no suppressions; duplicate-class check and both app/test APK assemblies pass. apksigner verification exit0,v2 true; debug APK22,114,928 bytes,SHA256 f4f7a8a90c0eacfe6ac4155fb3a509902cf0284a6d3834ad92058e2dcfbcb65b. APK ignored, not in Git.
+
+Offline cache warm-up exit0,3s:133 artifact-bearing configurations/2331 artifact occurrences/56 metadata buckets/0 failures; normal /home/mohammad/.gradle and Temurin24.0.2+12. Offline help exit0,921ms. Logs `/tmp/carobd-overnight-final-cache.log`, `/tmp/carobd-overnight-final-offline-help.log`. Existing Studio actual imports14:38:40 and16:35:12 remain the GUI proof; no new GUI sync claimed from CLI. Final FA10/10 exit0,3m22s,900×2000/font130; final EN10/10,exit0,3m12s (`/tmp/carobd-overnight-final-en-ui.log`). Resource checker448 keys and production SQL migration/recreation/rollback host checks pass.
 
 Emulator: official Pixel_10 API37 x86_64 Playstore16KiB; isolated adb5038. Verify `adb -P5038 devices` and ro.kernel.qemu=1 before emulator operations; never select physical serial. Prefix Android task with `ANDROID_ADB_SERVER_PORT=5038 ADB_SERVER_SOCKET=tcp:localhost:5038`; task `:app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.qaLocale=en` (fa for Persian). FA uses wm900×2000/font1.3, then restore wm reset/font1.0. UTP fresh-install fixture is required by onboarding/permissions; do not clear owner device data.
 
@@ -104,11 +107,13 @@ Combined report readiness/MIL/02/09/06 absent; no diagnostic health verdict; cod
 
 ## 11. Exact Next Actions
 
-1. Localized metadata is green: app147 and FA10/10 passed. Publish intended checkpoint and record actual hash; no wire changes. Do not repeat successful FA tests without a new change.
-2. Execute the exact fresh offline gate and final Android EN/FA where changed. Record actual counts/lint/APK hash/size/signature; no pending placeholders in final reports.
-3. Run offline all-configuration warm-up then offline help in normal ~/.gradle. See ANDROID_STUDIO_OFFLINE_SETUP.md; do not move caches or put machine routing in project repositories.
-4. Reconcile final documents, commit/push all verified work, fetch and verify exact local/remote heads; only unrelated report.md may remain untracked. Verify no active builds/tests before final native sleep.
-5. Morning engineering: add one combined report scope via existing typed readers and expected generation guard; separately preserve partial failures and unread services. Then lazy archive details and existing-widget editing. Physical validation stays explicitly separate.
+1. Fetch/switch/pull safely as section12; inspect actual HEAD/status and this document. No source task is half-implemented. Do not reset to a historical hash or rerun successful gates absent a change/environment issue.
+2. Add one combined report scope through existing typed readiness/MIL/02/09/06 readers in ObdRepositoryImpl and the existing DiagnosticSession generation owner. Capture expected token before any read; preserve returned per-service partial outcomes, nullable identities/raw evidence, and explicit unread services. Do not auto-retry or manufacture completeness. Extend core model/store/UI/export schema intentionally and add cancellation/replacement/partial-failure regressions before exposing the scope.
+3. Optimize DiagnosticReportStore.recent: currently reads up to100 full records plus raw evidence. Introduce lightweight summaries and lazy selected detail loading, keeping old records/export exact; test archive bounds/recreation/error paths.
+4. Add editing of existing dashboard widget style using DashboardLayoutCodec and existing shared telemetry; preserve conservative decoder/support gating and 24-widget bound. No new producer or arbitrary polling.
+5. Physical phone/adapter bench validation remains REQUIRES_DEVICE/ADAPTER; no vehicle action authorized by this handoff. Follow SPRINT5_BENCH_CHECKLIST.md only with explicit authorization. Preserve typed safety invariants and do not expand physical capability from software PASS.
+
+After every coherent verified checkpoint: review diff, relevant tests, git diff --check, inspect status, explicit intended staging, commit and immediate push origin feat/car-obd-development. Never master/force. Update this file and preserve report.md. Full app backup, broader fuel/maintenance provenance and alerts remain later gaps.
 
 ## 12. Morning Resume Instructions
 
@@ -125,6 +130,8 @@ Do not discard local changes to switch/pull. Open the Git root directory in Andr
 
 ## 13. Last Updated
 
-2026-10-30 23:44 +03:30, Asia/Tehran. Requested window ends2026-10-31 07:00 or actual execution budget/blocker first; no artificial waiting. Final native sleep is authorized only after final report/source push, remote equality and completed builds/tests. No sleep has been invoked.
+2026-10-30 23:50 +03:30, Asia/Tehran. Requested window ends2026-10-31 07:00 or actual execution budget/blocker first; no artificial waiting. Final native sleep is authorized only after final report/source push, remote equality and completed builds/tests. No sleep has been invoked.
 
 Host preflight: Linux/systemd on ext4; systemd-detect-virt=none; active local Wayland seat0 session42 Remote=no; Lenovo hardware; no SSH_CONNECTION; logind CanSuspend=yes. Recheck before final action. Never suspend a container/VM/SSH/shared host, never force through inhibitors, and do not perform later development after suspend invocation. Full chronological evidence remains in OVERNIGHT_DEVELOPMENT_HANDOFF.md.
+
+Final delivery is a safe execution-budget checkpoint before07:00, not a claim that the entire roadmap or physical validation is complete. All source through1f32763 is tested and pushed; this documentation publication follows it. Final APK was reinstalled/launched on emulator-5554 only, leaving fresh Persian onboarding with no active diagnostic session. Final Git equality and clean tracked tree are checked after publication; exact delivery hash is in Git history/final chat. Requested suspend is only invoked after that verification and no active build/test. No further development is scheduled after suspend.

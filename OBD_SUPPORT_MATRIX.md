@@ -49,3 +49,12 @@ Current software scope, 2026-10-30. See [Sprint 5 evidence and limitations](docs
 | Health engine / post-drive report | NOT_IMPLEMENTED | No health inference from absent DTCs; needs validated provenance-aware trip/evidence model |
 
 Sprint5 adds explicit setup bench capture using the canonical transcript, paged recording lists, import bound regressions and source-backed legacy VIN sequence assembly. Mode06 admission requires observed ISO15765-4; scaling/pass-fail remain unknown. Dashboard fuel/range/cost no longer use stale inputs or a fabricated default average. See [device/vehicle execution checklist](docs/SPRINT5_BENCH_CHECKLIST.md).
+
+## Competitor-gap checkpoint (2026-10-30)
+
+- Diagnostic reports: SOFTWARE_TESTED / EMULATOR_TESTED for executed 03/07/0A scope, including partial/malformed/no-data outcomes, source identity, ordered raw lines, categorized codes and SQLite v4 recreation/rollback. Readiness/MIL, Mode02/09/06 are **not collected in this report**; standalone readers retain their prior limitations. No diagnostic depth levels or health verdicts were added.
+- Dashboard: SOFTWARE_TESTED for capability-gated canonical selection, persisted order/style/size and per-PID bounded graphs. Live candidates are the seven existing PidPollingPlan Mode01 PIDs plus observed ATRV. A catalog definition alone does not enable selection or dispatch; no extra polling loop is created.
+- Vehicle setup: unentered metadata stays absent. No sample Peugeot/TU5, displacement, fuel capacity/price or odometer is supplied. Existing persisted owner metadata is retained; setup does not select an ECU/vehicle routing profile.
+- Physical adapter and vehicle validation are still required. See [competitor-gap report](docs/COMPETITOR_GAP_DEVELOPMENT.md) for current test totals and remaining scope, rather than interpreting historical rows above as newly executed checks.
+
+Overnight additions remain SOFTWARE/EMULATOR scoped: generation-locked foreground actions; ongoing runtime admission; structured captured-report JSON export via explicit SAF destination; cloud backup exclusion; notification unit/freshness presentation. No physical service or PID expansion accompanies them. See [safety status](docs/CAROBD_SAFETY_STATUS.md), [remaining gaps](docs/CAROBD_REMAINING_GAPS.md) and the canonical [agent handoff](docs/AGENT_CONTINUATION_HANDOFF.md).
