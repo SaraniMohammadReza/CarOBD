@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -69,7 +70,7 @@ fun BluetoothTargetPicker(ble: Boolean, onSelected: (String) -> Unit) {
             timedOut && devices.isEmpty() -> Text(stringResource(R.string.qa_scan_timeout))
             attempted && devices.isEmpty() -> Text(stringResource(R.string.qa_scan_empty))
             !attempted -> Text(stringResource(R.string.qa_scan_idle))
-            else -> Text(stringResource(R.string.qa_scan_found, devices.size))
+            else -> Text(pluralStringResource(R.plurals.qa_scan_found, devices.size, devices.size))
         }
         devices.forEach { device ->
             OutlinedButton(onClick = { job?.cancel(); onSelected(device.address) }, modifier = Modifier.fillMaxWidth()) {

@@ -393,7 +393,10 @@
     <string name="qa_scan_timeout">مهلت جست‌وجو بدون یافتن دستگاه پایان یافت. روشن‌بودن و قابل کشف‌بودن آداپتور را بررسی و دوباره تلاش کنید. شبیه‌ساز ممکن است رادیوی بلوتوث نداشته باشد.</string>
     <string name="qa_scan_empty">دستگاهی پیدا نشد. روشن‌بودن و قابل کشف‌بودن آداپتور را بررسی و دوباره تلاش کنید.</string>
     <string name="qa_scan_idle">دستگاهی انتخاب نشده است. جست‌وجو را شروع کنید یا نشانی دقیق را در بالا وارد کنید.</string>
-    <string name="qa_scan_found">%1$d دستگاه پیدا شد. برای درج نشانی، یک دستگاه را انتخاب کنید.</string>
+    <plurals name="qa_scan_found">
+        <item quantity="one">%1$d دستگاه پیدا شد. برای درج نشانی، یک دستگاه را انتخاب کنید.</item>
+        <item quantity="other">%1$d دستگاه پیدا شد. برای درج نشانی، یک دستگاه را انتخاب کنید.</item>
+    </plurals>
     <string name="qa_paired">جفت‌شده</string>
     <string name="qa_discovered">کشف‌شده در اطراف</string>
     <string name="qa_more">بیشتر</string>

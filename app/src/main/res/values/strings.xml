@@ -393,7 +393,10 @@
     <string name="qa_scan_timeout">Scan window ended with no devices. Check adapter power and discoverability, then retry. Emulators may have no Bluetooth radio.</string>
     <string name="qa_scan_empty">No devices returned. Check adapter power and discoverability, then retry.</string>
     <string name="qa_scan_idle">No device selected. Start discovery or enter the exact address above.</string>
-    <string name="qa_scan_found">%1$d devices found. Select one to fill its address.</string>
+    <plurals name="qa_scan_found">
+        <item quantity="one">%1$d device found. Select it to fill its address.</item>
+        <item quantity="other">%1$d devices found. Select one to fill its address.</item>
+    </plurals>
     <string name="qa_paired">Paired</string>
     <string name="qa_discovered">Discovered nearby</string>
     <string name="qa_more">More</string>
