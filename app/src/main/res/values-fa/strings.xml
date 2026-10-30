@@ -79,21 +79,21 @@
     <string name="state_active">فعال</string>
     <string name="settings_units">سیستم یکاها و واحدها (Units)</string>
     <string name="state_selected">انتخاب شده</string>
-    <string name="settings_adapter_inspector">بررسی سخت‌افزار دانگل و پین‌اوت موتورسیکلت</string>
-    <string name="settings_adapter_inspector_desc">مشخصات گزارش‌شده آداپتور و محدودیت شواهد اتصال</string>
+    <string name="settings_adapter_inspector">اطلاعات آداپتور و راهنمای اتصال</string>
+    <string name="settings_adapter_inspector_desc">هویت گزارش‌شدهٔ آداپتور و محدودیت شواهد؛ اصالت تراشه تأیید نشده است.</string>
     <string name="action_view_more">مشاهده ></string>
     <string name="language_persian_label">فارسی (پیش‌فرض)</string>
     <string name="language_english_label">English</string>
     <string name="settings_reset_vehicle">تغییر مشخصات خودرو / موتورسیکلت (تنظیم مجدد پروفایل)</string>
-    <string name="settings_architecture_title">مشخصات معماری سوپر اپلیکیشن</string>
-    <string name="settings_architecture_body">• معماری ماژولار Clean Architecture + MVI&#10;• سیستم کشینگ آفلاین با DataStore Preferences&#10;• آماده اتصال به بک‌اند ابری (Cloud Sync Ready)&#10;• پشتیبانی از ۱۰۰+ سنسور خودرو و موتورسیکلت&#10;• پشتیبانی از خط K-Line و شبکه CAN تمام خودروهای داخلی، چینی و بین‌المللی</string>
+    <string name="settings_architecture_title">دربارهٔ CarOBD</string>
+    <string name="settings_architecture_body">عیب‌یابی فقط خواندنی با شبیه‌ساز مستقل. دسترسی به پارامترها و پروتکل‌ها به شواهد آداپتور و ECU بستگی دارد. همگام‌سازی ابری در دسترس نیست. اعتبارسنجی آداپتور فیزیکی و خودرو همچنان لازم است.</string>
     <!-- Dashboard (§3 #9 / §4 Checkpoint E — migrated from hardcoded strings) -->
-    <string name="dashboard_no_vehicle">خودروی تشخه انتخاب نشده</string>
+    <string name="dashboard_no_vehicle">پروفایل خودرو انتخاب نشده</string>
     <string name="dashboard_select_profile">انتخاب پروفایل تشخیسی</string>
     <string name="simulator_warning">حالت شبیه‌ساز • داده‌ها واقعی خودرو نیستند</string>
     <string name="dashboard_metric_speed">سرعت</string>
     <string name="dashboard_metric_rpm">RPM</string>
-    <string name="dashboard_metric_coolant">آب‌خنک</string>
+    <string name="dashboard_metric_coolant">مایع خنک‌کننده</string>
     <string name="dashboard_metric_battery">ولتاژ گزارش‌شده آداپتور (ATRV)</string>
     <string name="dashboard_fuel_title">مصرف سوخت و پیمایش (%1$s)</string>
     <string name="dashboard_range_label">پیمایش باقی‌مانده با سوخت فعلی:</string>
@@ -201,7 +201,7 @@
     <string name="ui_bt_pick_help">دستگاه‌های جفت شده و دانگل‌های ELM327 اطراف را لمس کنید تا اتصال برقرار شود:</string>
     <string name="ui_bt_empty">فهرست خالی است؛ ابتدا مجوز و وضعیت بلوتوث را بررسی و سپس جستجو کنید.</string>
     <string name="ui_terminal_ready">&gt; Terminal ready. Send an AT command or OBD PID above.</string>
-    <string name="ui_adapter_title">سلامت سخت‌افزار دانگل دیاگ و راهنمای اتصالات</string>
+    <string name="ui_adapter_title">اطلاعات آداپتور و راهنمای اتصال</string>
     <string name="ui_adapter_tab">مشخصات دانگل</string>
     <string name="ui_troubleshoot_tab">حل مشکل عدم اتصال</string>
     <string name="ui_motorcycle_tab">دیاگ موتورسیکلت</string>
@@ -215,7 +215,7 @@
     <string name="ui_widget_full">بزرگ (تمام‌عرض)</string>
     <string name="ui_widget_add">افزودن به داشبورد</string>
     <string name="ui_onboarding_title">خوش آمدید! راه‌اندازی پروفایل وسیله نقلیه</string>
-    <string name="ui_onboarding_limits">مشخصات خودرو یا موتورسیکلت را وارد کنید تا محاسبات مصرف سوخت، تخمین مسافت و سرویس‌ها دقیق شود:</string>
+    <string name="ui_onboarding_limits">این مشخصات را خودتان برای نمایش و یادآوری وارد می‌کنید. این اطلاعات هویت خودرو، داده‌های موتور یا سازگاری عیب‌یابی را تأیید نمی‌کند.</string>
     <string name="ui_car">خودرو سواری</string>
     <string name="ui_motorcycle">موتورسیکلت</string>
     <string name="ui_make">سازنده / برند:</string>
@@ -223,7 +223,7 @@
     <string name="ui_fuel">نوع سوخت و پیشرانه:</string>
     <string name="ui_tank_capacity">حجم باک (لیتر)</string>
     <string name="ui_odometer">کیلومتر فعلی (km)</string>
-    <string name="ui_onboarding_save">تأیید و ورود به سوپر اپ CarOBD Pro</string>
+    <string name="ui_onboarding_save">ذخیرهٔ مشخصات و ادامه</string>
     <string name="ui_connect_sim">متصل — شبیه‌ساز</string>
     <string name="ui_sim_test">شواهد آزمون شبیه‌ساز</string>
     <string name="ui_physical_test">شواهد آزمون فیزیکی فقط خواندنی</string>
@@ -376,7 +376,7 @@
     <plurals name="s5_frames"><item quantity="one">%1$d نمونه</item><item quantity="other">%1$d نمونه</item></plurals>
     <string name="s5_newer">ثبت‌های جدیدتر</string>
     <string name="s5_older">ثبت‌های قدیمی‌تر</string>
-    <string name="s5_preview_limits">۵۰ ثبت در هر صفحه بر اساس زمان به‌روزرسانی فایل. پیش‌نمایش رخداد و بازپخش ۱۰۰ مورد اول را نشان می‌دهد؛ خروجی همه رخدادهای ذخیره‌شده را نگه می‌دارد.</string>
+    <string name="s5_preview_limits">۵۰ ثبت در هر صفحه بر اساس زمان به‌روزرسانی فایل. پیش‌نمایش رخداد و بازپخش ۱۰۰ مورد اول را نشان می‌دهد؛ پیش‌نمایش هر فریم حداکثر۲۰۴۸ نویسه و۱۲ فیلد فراداده را نشان می‌دهد؛ خروجی همه رخدادهای ذخیره‌شده را نگه می‌دارد.</string>
     <string name="s5_connection_progress">راه‌اندازی اتصال در جریان است؛ شواهد مراحل را بررسی کنید.</string>
     <string name="s5_session_connected">نشست عیب‌یابی فقط‌خواندنی متصل است</string>
     <string name="s5_disconnecting">در حال قطع اتصال…</string>
@@ -386,4 +386,26 @@
     <string-array name="s5_car_makes"><item>ایران خودرو</item><item>سایپا</item><item>مدیران خودرو (MVM/Chery)</item><item>کرمان موتور (KMC/JAC)</item><item>بهمن موتور</item><item>تویوتا / هیوندای</item><item>پارس خودرو</item></string-array>
     <string-array name="s5_bike_makes"><item>بنلی (Benelli)</item><item>باجاج (Bajaj Pulsar)</item><item>تی‌وی‌اس (TVS Apache)</item><item>کی‌تی‌ام (KTM)</item><item>هوندا (Honda)</item><item>کویر موتور</item></string-array>
     <string-array name="s5_fuel_options"><item>بنزینی</item><item>دوگانه‌سوز CNG</item><item>توربوشارژ</item><item>هیبریدی</item></string-array>
+    <string name="qa_ble_help">جست‌وجوی BLE دستگاه‌های در حال اعلان را نشان می‌دهد. نشانی را خودتان انتخاب کنید؛ سرویس سازگار آداپتور نیز لازم است.</string>
+    <string name="qa_classic_help">جست‌وجوی کلاسیک شامل دستگاه‌های جفت‌شده و دستگاه‌های قابل کشف اطراف است. حالت قابل کشف آداپتور را فعال کنید.</string>
+    <string name="qa_scanning">جست‌وجو تا ۱۰ ثانیه…</string>
+    <string name="qa_scan_failed">جست‌وجو شروع نشد یا خطا داد. مجوز و بلوتوث را بررسی و دوباره تلاش کنید.</string>
+    <string name="qa_scan_timeout">مهلت جست‌وجو بدون یافتن دستگاه پایان یافت. روشن‌بودن و قابل کشف‌بودن آداپتور را بررسی و دوباره تلاش کنید. شبیه‌ساز ممکن است رادیوی بلوتوث نداشته باشد.</string>
+    <string name="qa_scan_empty">دستگاهی پیدا نشد. روشن‌بودن و قابل کشف‌بودن آداپتور را بررسی و دوباره تلاش کنید.</string>
+    <string name="qa_scan_idle">دستگاهی انتخاب نشده است. جست‌وجو را شروع کنید یا نشانی دقیق را در بالا وارد کنید.</string>
+    <string name="qa_scan_found">%1$d دستگاه پیدا شد. برای درج نشانی، یک دستگاه را انتخاب کنید.</string>
+    <string name="qa_paired">جفت‌شده</string>
+    <string name="qa_discovered">کشف‌شده در اطراف</string>
+    <string name="qa_more">بیشتر</string>
+    <string name="qa_network_access">دسترسی به آداپتور در شبکهٔ محلی</string>
+    <string name="qa_bluetooth_reason">مجوز دستگاه‌های نزدیک برای یافتن یا اتصال به آداپتور بلوتوث انتخاب‌شده لازم است. دادن مجوز باعث اتصال خودکار نمی‌شود.</string>
+    <string name="qa_notifications_reason">برای مشاهدهٔ وضعیت اتصال هنگام پایش پس‌زمینه، مجوز اعلان را بدهید. می‌توانید نپذیرید و همچنان برنامه یا شبیه‌ساز را بررسی کنید.</string>
+    <string name="qa_network_reason">اندروید ۱۷ برای اتصال TCP به نشانی آداپتور وای‌فای که وارد می‌کنید، مجوز شبکهٔ محلی می‌خواهد. جست‌وجوی شبکه یا اتصال خودکار انجام نمی‌شود.</string>
+    <string name="qa_location_disabled">مکان‌یابی خاموش است؛ برای جست‌وجوی بلوتوث در اندروید قدیمی، تنظیمات را باز کنید</string>
+    <string name="qa_new_connection">اتصال جدید</string>
+    <string name="qa_last_sim_scan">شروع آخرین اسکن: %1$s · شبیه‌سازی</string>
+    <string name="qa_last_physical_scan">شروع آخرین اسکن: %1$s · آداپتور فیزیکی</string>
+    <string name="qa_last_unknown_scan">شروع آخرین اسکن: %1$s · منبع نامشخص</string>
+    <string name="qa_stop_scan">توقف جست‌وجو</string>
+    <string name="qa_scan_canceled">جست‌وجو متوقف شد. هیچ اتصالی شروع نشده است.</string>
 </resources>

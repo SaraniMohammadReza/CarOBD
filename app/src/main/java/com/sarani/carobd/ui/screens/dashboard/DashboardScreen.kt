@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -39,6 +41,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -102,7 +106,7 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // 1. Status Header
-            item { com.sarani.carobd.ui.components.RuntimeAccessControls(); Text(com.sarani.carobd.ui.components.recordingLabel(recording)); Text(state.activeConnectionName ?: state.connectingName ?: "—") }
+            item { Text(com.sarani.carobd.ui.components.recordingLabel(recording)); Text(state.activeConnectionName ?: state.connectingName ?: "—") }
             item {
                 StatusHeader(
                     connectionState = state.connectionState,
@@ -323,12 +327,22 @@ fun DashboardScreen(
         }
 
         if (state.showBluetoothDialog) {
-            BluetoothDeviceDialog(
-                devices = state.discoveredDevices,
-                isScanning = state.isScanningBt,
-                onDeviceSelected = { viewModel.onIntent(DashboardIntent.ConnectToDevice(it)) },
-                onRefreshScan = { viewModel.onIntent(DashboardIntent.TriggerBtScan) },
-                onDismiss = { viewModel.onIntent(DashboardIntent.CloseBluetoothDialog) }
+            AlertDialog(
+                onDismissRequest = { viewModel.onIntent(DashboardIntent.CloseBluetoothDialog) },
+                title = { Text(stringResource(R.string.ui_bt_pick)) },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        com.sarani.carobd.ui.components.BluetoothTargetPicker(
+                            ble = state.selectedConnectionType == ConnectionType.BLUETOOTH_LE
+                        ) { address ->
+                            viewModel.onIntent(DashboardIntent.ConnectToDevice(
+                                com.sarani.carobd.core.connectivity.DiscoveredBluetoothDevice("", address, false, false)
+                            ))
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = { TextButton(onClick = { viewModel.onIntent(DashboardIntent.CloseBluetoothDialog) }) { Text(stringResource(R.string.ui_cancel)) } }
             )
         }
     }
@@ -495,26 +509,21 @@ fun PrimaryMetricsRow(
         MetricItem(stringResource(R.string.dashboard_metric_coolant), "0105", telemetry.coolantTempCelsius, "°C"),
         MetricItem(stringResource(R.string.dashboard_metric_battery), "ATRV", telemetry.batteryVoltage, "V")
     )
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        items.forEach { item ->
-            val signal = telemetry.signal(item.pid, now)
-            val measured = signal.quality == com.sarani.carobd.core.model.SignalQuality.GOOD
-            val converted = signal.value?.let { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), item.unit, com.sarani.carobd.ui.theme.LocalUnitSystem.current) }
-            val display = converted?.value?.let { String.format(java.util.Locale.US, "%.1f", it) }?.let { if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) it + " · " + stringResource(R.string.signal_stale) else it } ?: "—"
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(item.label, color = TextMuted, fontSize = 10.sp)
-                Text(
-                    text = display,
-                    color = if (measured) TextPrimary else TextMuted,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
-                Text(converted?.unit ?: item.unit, color = TextMuted, fontSize = 9.sp)
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pair.forEach { item ->
+                    val signal = telemetry.signal(item.pid, now)
+                    val converted = signal.value?.let { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), item.unit, com.sarani.carobd.ui.theme.LocalUnitSystem.current) }
+                    val display = converted?.value?.let { String.format(java.util.Locale.US, if (item.pid in listOf("010D", "010C", "0105")) "%.0f" else "%.1f", it) } ?: "—"
+                    androidx.compose.material3.Card(Modifier.weight(1f)) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(item.label, color = TextMuted, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
+                            com.sarani.carobd.ui.components.DiagnosticIdentifier(display + " " + (converted?.unit ?: item.unit))
+                            if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) Text(stringResource(R.string.signal_stale), color = NeonAmber)
+                        }
+                    }
+                }
             }
         }
     }

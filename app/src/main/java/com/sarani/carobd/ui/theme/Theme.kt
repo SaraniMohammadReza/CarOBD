@@ -59,7 +59,13 @@ fun CarObdTheme(
     SideEffect { AppAppearance.mode = themeMode }
     val isDarkTheme = themeMode != AppThemeMode.LIGHT_THEME
     val colorScheme = (if (isDarkTheme) DarkColorScheme else LightColorScheme).copy(
-        primary = palette.primary, background = palette.background, surface = palette.surface,
+        primary = palette.primary,
+        onPrimary = if (isDarkTheme) palette.background else Color.White,
+        primaryContainer = palette.card, onPrimaryContainer = palette.primary,
+        background = palette.background, surface = palette.surface,
+        surfaceContainer = palette.card, surfaceContainerHigh = palette.card,
+        surfaceContainerHighest = palette.card, surfaceContainerLow = palette.surface,
+        surfaceContainerLowest = palette.background,
         surfaceVariant = palette.card, onBackground = palette.text, onSurface = palette.text,
         onSurfaceVariant = palette.secondaryText, outline = palette.border)
 

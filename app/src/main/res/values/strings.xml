@@ -79,14 +79,14 @@
     <string name="state_active">Active</string>
     <string name="settings_units">Units &amp; Measurements</string>
     <string name="state_selected">Selected</string>
-    <string name="settings_adapter_inspector">Dongle Hardware &amp; Pin-out Inspector</string>
-    <string name="settings_adapter_inspector_desc">Verify ELM327 chip authenticity and 6-pin adapter cables</string>
+    <string name="settings_adapter_inspector">Adapter information and connection help</string>
+    <string name="settings_adapter_inspector_desc">Reported adapter identity and evidence limits; chip authenticity is unverified.</string>
     <string name="action_view_more">View &gt;</string>
     <string name="language_persian_label">Persian (default)</string>
     <string name="language_english_label">English</string>
     <string name="settings_reset_vehicle">Vehicle / Motorcycle Profile</string>
-    <string name="settings_architecture_title">Super-app Architecture</string>
-    <string name="settings_architecture_body">• Clean Architecture &amp; MVI&#10;• Offline caching with DataStore Preferences&#10;• Cloud sync ready (backend-ready)&#10;• 100+ car &amp; motorcycle sensors&#10;• K-Line + CAN support for Iranian, Chinese &amp; global vehicles</string>
+    <string name="settings_architecture_title">About CarOBD</string>
+    <string name="settings_architecture_body">Read-only diagnostics with a separate simulator. Available PIDs and protocols depend on adapter and ECU evidence. Cloud sync is unavailable. Physical adapter and vehicle validation remain required.</string>
     <!-- Dashboard (§3 #9 / §4 Checkpoint E — migrated from hardcoded strings) -->
     <string name="dashboard_no_vehicle">Vehicle profile not selected</string>
     <string name="dashboard_select_profile">Select Profile</string>
@@ -201,7 +201,7 @@
     <string name="ui_bt_pick_help">Select a listed device by its exact address. Permission and Bluetooth state are shown below.</string>
     <string name="ui_bt_empty">Empty list. Check permissions and Bluetooth state, then scan.</string>
     <string name="ui_terminal_ready">Read-only terminal ready. Only authorized commands are admitted.</string>
-    <string name="ui_adapter_title">Adapter evidence and connection guide</string>
+    <string name="ui_adapter_title">Adapter information and connection help</string>
     <string name="ui_adapter_tab">Adapter details</string>
     <string name="ui_troubleshoot_tab">Connection troubleshooting</string>
     <string name="ui_motorcycle_tab">Motorcycle connections</string>
@@ -376,7 +376,7 @@
     <plurals name="s5_frames"><item quantity="one">%1$d sample</item><item quantity="other">%1$d samples</item></plurals>
     <string name="s5_newer">Newer captures</string>
     <string name="s5_older">Older captures</string>
-    <string name="s5_preview_limits">50 captures per page, ordered by file update time. Event and replay previews show the first100 entries; transcript exports retain all stored events.</string>
+    <string name="s5_preview_limits">50 captures per page, ordered by file update time. Event and replay previews show the first100 entries; frame previews show up to2048 characters and12 metadata fields; transcript exports retain all stored events.</string>
     <string name="s5_connection_progress">Connection setup in progress; review stage evidence below.</string>
     <string name="s5_session_connected">Read-only diagnostic session connected</string>
     <string name="s5_disconnecting">Disconnecting…</string>
@@ -386,4 +386,26 @@
     <string-array name="s5_car_makes"><item>IKCO</item><item>SAIPA</item><item>MVM/Chery</item><item>KMC/JAC</item><item>Bahman Motor</item><item>Toyota / Hyundai</item><item>Pars Khodro</item></string-array>
     <string-array name="s5_bike_makes"><item>Benelli</item><item>Bajaj Pulsar</item><item>TVS Apache</item><item>KTM</item><item>Honda</item><item>Kavir Motor</item></string-array>
     <string-array name="s5_fuel_options"><item>Gasoline</item><item>Dual-fuel CNG</item><item>Turbocharged</item><item>Hybrid</item></string-array>
+    <string name="qa_ble_help">BLE discovery lists nearby advertising devices. Select an address explicitly; a matching adapter service is still required.</string>
+    <string name="qa_classic_help">Classic discovery includes paired devices and nearby discoverable devices. Put your adapter in discoverable mode.</string>
+    <string name="qa_scanning">Scanning for up to 10 seconds…</string>
+    <string name="qa_scan_failed">Discovery could not start or failed. Check access and Bluetooth, then retry.</string>
+    <string name="qa_scan_timeout">Scan window ended with no devices. Check adapter power and discoverability, then retry. Emulators may have no Bluetooth radio.</string>
+    <string name="qa_scan_empty">No devices returned. Check adapter power and discoverability, then retry.</string>
+    <string name="qa_scan_idle">No device selected. Start discovery or enter the exact address above.</string>
+    <string name="qa_scan_found">%1$d devices found. Select one to fill its address.</string>
+    <string name="qa_paired">Paired</string>
+    <string name="qa_discovered">Discovered nearby</string>
+    <string name="qa_more">More</string>
+    <string name="qa_network_access">Local network adapter access</string>
+    <string name="qa_bluetooth_reason">Nearby device access is needed to discover or connect to your selected Bluetooth adapter. Granting access does not connect automatically.</string>
+    <string name="qa_notifications_reason">Allow notifications to keep connection status visible during background monitoring. You can decline and continue exploring the app or simulator.</string>
+    <string name="qa_network_reason">Android 17 requires local network access for a TCP connection to the Wi-Fi adapter address you enter. No network discovery or automatic connection is performed.</string>
+    <string name="qa_location_disabled">Location services are off; open Settings to enable legacy Bluetooth discovery</string>
+    <string name="qa_new_connection">New connection</string>
+    <string name="qa_last_sim_scan">Last scan started: %1$s · SIMULATION</string>
+    <string name="qa_last_physical_scan">Last scan started: %1$s · physical adapter</string>
+    <string name="qa_last_unknown_scan">Last scan started: %1$s · source unknown</string>
+    <string name="qa_stop_scan">Stop discovery</string>
+    <string name="qa_scan_canceled">Discovery stopped. No connection was started.</string>
 </resources>

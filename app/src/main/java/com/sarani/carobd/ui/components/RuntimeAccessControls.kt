@@ -30,7 +30,7 @@ private tailrec fun Context.activity(): Activity? = when (this) {
 
 /** Requests are user initiated. Granting access never retries a connection or command. */
 @Composable
-fun RuntimeAccessControls() {
+fun RuntimeAccessControls(accesses: Set<RuntimeAccess> = RuntimeAccess.entries.toSet()) {
     val recorder = org.koin.compose.koinInject<com.sarani.carobd.data.recording.RecordingController>()
     val context = LocalContext.current
     val activity = context.activity()
@@ -49,12 +49,13 @@ fun RuntimeAccessControls() {
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
     Column {
-        RuntimeAccess.entries.forEach { access ->
+        accesses.forEach { access ->
             val state = remember(revision, access) { AndroidAccess.state(context, access, activity) }
             val label = stringResource(when (access) {
                 RuntimeAccess.Connect -> R.string.access_connect
                 RuntimeAccess.Scan -> R.string.access_scan
                 RuntimeAccess.Notifications -> R.string.access_notifications
+                RuntimeAccess.LocalNetwork -> R.string.qa_network_access
             })
             val status = stringResource(when (state) {
                 AccessState.Granted -> R.string.access_granted
@@ -64,11 +65,18 @@ fun RuntimeAccessControls() {
                 AccessState.UnsupportedDevice -> R.string.access_unsupported
                 AccessState.BluetoothUnavailable -> R.string.access_unavailable
                 AccessState.BluetoothDisabled -> R.string.access_disabled
+                AccessState.LocationDisabled -> R.string.qa_location_disabled
             })
-            if (state == AccessState.Granted) Text("$label: $status")
+            if (state != AccessState.Granted) Text(stringResource(when (access) {
+                RuntimeAccess.Connect, RuntimeAccess.Scan -> R.string.qa_bluetooth_reason
+                RuntimeAccess.Notifications -> R.string.qa_notifications_reason
+                RuntimeAccess.LocalNetwork -> R.string.qa_network_reason
+            }), style = androidx.compose.material3.MaterialTheme.typography.bodySmall)
+            if (state == AccessState.Granted || state == AccessState.UnsupportedDevice || state == AccessState.BluetoothUnavailable) Text("$label: $status")
             else TextButton(onClick = {
                 when (state) {
                     AccessState.PermanentlyDenied -> context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+                    AccessState.LocationDisabled -> context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
                     AccessState.BluetoothDisabled -> context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
                     AccessState.NotRequested, AccessState.Denied -> { requesting = access.name; recorder.bench(BenchPhase.PermissionRequested, access.name); launcher.launch(AndroidAccess.permissions(access)) }
                     else -> Unit

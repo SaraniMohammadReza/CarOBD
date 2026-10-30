@@ -1,6 +1,10 @@
 package com.sarani.carobd.ui.components
 
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,6 +56,7 @@ import com.sarani.carobd.ui.theme.NeonGreen
 import com.sarani.carobd.ui.theme.TextMuted
 import com.sarani.carobd.ui.theme.TextPrimary
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VehicleOnboardingModal(
     onSetupSaved: (UserVehicleSetup) -> Unit
@@ -91,7 +96,7 @@ fun VehicleOnboardingModal(
             }
         },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 // Type selector: Car vs Motorcycle
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -187,7 +192,7 @@ fun VehicleOnboardingModal(
                 // Fuel type row
                 Text(stringResource(com.sarani.carobd.R.string.ui_fuel), color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     fuelOptions.forEach { f ->
                         FilterChip(
                             selected = fuelType == f,

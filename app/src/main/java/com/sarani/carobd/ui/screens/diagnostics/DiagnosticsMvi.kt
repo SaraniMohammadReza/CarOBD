@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 enum class ScanPresentation { NONE, COMPLETE, INCOMPLETE, CANCELED, SIMULATOR_CLEARED, CLEAR_FAILED }
 
 data class DiagnosticsState(
+    val resultSimulator: Boolean? = null,
+    val resultTimeMs: Long? = null,
     val troubleCodes: List<DiagnosticCode> = emptyList(),
     val isScanning: Boolean = false,
     val isClearing: Boolean = false,
@@ -54,7 +56,7 @@ class DiagnosticsViewModel(
     private fun performScan() {
         if (scanJob?.isActive == true || clearJob?.isActive == true) return
         scanJob = viewModelScope.launch {
-            setState { copy(isScanning = true, troubleCodes = emptyList(), lastScanMessage = null, presentation = ScanPresentation.NONE, responderEvidence = emptyList(), scanCompletedSuccessfully = false) }
+            setState { copy(resultSimulator = (scanDtcUseCase.connectionState.value as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator, resultTimeMs = System.currentTimeMillis(), isScanning = true, troubleCodes = emptyList(), lastScanMessage = null, presentation = ScanPresentation.NONE, responderEvidence = emptyList(), scanCompletedSuccessfully = false) }
             try {
                 val result = scanDtcUseCase()
                 result.fold(

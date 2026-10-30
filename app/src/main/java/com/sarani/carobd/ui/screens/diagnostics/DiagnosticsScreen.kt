@@ -59,6 +59,7 @@ fun DiagnosticsScreen(
     onEvidence: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val connection by org.koin.compose.koinInject<com.sarani.carobd.domain.repository.ObdRepository>().connectionState.collectAsState()
 
     Box(
         modifier = modifier
@@ -67,6 +68,13 @@ fun DiagnosticsScreen(
             .padding(16.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            state.resultTimeMs?.let { time ->
+                Text(stringResource(when (state.resultSimulator) {
+                    true -> R.string.qa_last_sim_scan
+                    false -> R.string.qa_last_physical_scan
+                    null -> R.string.qa_last_unknown_scan
+                }, java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT, androidx.compose.ui.platform.LocalConfiguration.current.locales[0]).format(java.util.Date(time))), color = TextMuted)
+            }
             onEvidence?.let { TextButton(onClick = it) { Text(stringResource(R.string.open_evidence)) } }
             // Action Buttons Bar
             Row(
@@ -93,7 +101,7 @@ fun DiagnosticsScreen(
                 if (state.troubleCodes.isNotEmpty()) {
                     OutlinedButton(
                         onClick = { viewModel.onIntent(DiagnosticsIntent.RequestClearCodes) },
-                        enabled = !state.isScanning && !state.isClearing,
+                        enabled = (connection as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator == true && !state.isScanning && !state.isClearing,
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonRed),
                         shape = RoundedCornerShape(12.dp)
                     ) {

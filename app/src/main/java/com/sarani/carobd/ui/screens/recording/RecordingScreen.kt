@@ -63,7 +63,10 @@ fun RecordingScreen(viewModel: RecordingViewModel) {
                 TextButton(enabled = !state.busy, onClick = viewModel::replay) { Text(stringResource(R.string.record_replay)) }
                 TextButton(enabled = !state.busy, onClick = { viewModel.delete(t.metadata.sessionId) }) { Text(stringResource(R.string.record_delete)) }
             }
-            t.events.take(100).forEach { Text("${it.elapsedMs} · ${it.direction} · ${it.command ?: "—"} · ${it.rawHex}") }
+            t.events.take(100).forEach { event ->
+                val metadata = event.protocolMetadata.entries.take(12).joinToString(" · ") { "${it.key.take(80)}=${it.value.take(160)}" }
+                com.sarani.carobd.ui.components.DiagnosticIdentifier("${event.elapsedMs} · ${event.direction} · ${event.command ?: "—"} · ${event.responder ?: "—"} · ${event.outcome}\n$metadata\n${event.rawHex.take(2048)}")
+            }
         }
         state.replay.take(100).forEach { result ->
             Text("REPLAY · ${result.command} · ${result.detail ?: ""}")

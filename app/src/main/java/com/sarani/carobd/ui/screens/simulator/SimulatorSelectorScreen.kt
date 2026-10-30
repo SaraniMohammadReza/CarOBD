@@ -58,6 +58,9 @@ fun SimulatorSelectorScreen(
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsState()
+    val canConnect = state.connectionState is com.sarani.carobd.core.model.ConnectionState.Idle ||
+        state.connectionState is com.sarani.carobd.core.model.ConnectionState.Disconnected ||
+        state.connectionState is com.sarani.carobd.core.model.ConnectionState.Failure
     val scope = rememberCoroutineScope()
     val snackBar = remember { SnackbarHostState() }
 
@@ -79,7 +82,7 @@ fun SimulatorSelectorScreen(
                 navigationIcon = {
                     onBack?.let {
                         IconButton(onClick = it) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = null, tint = NeonCyan)
+                            Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.ui_back), tint = NeonCyan)
                         }
                     }
                 },
@@ -88,7 +91,7 @@ fun SimulatorSelectorScreen(
         },
         snackbarHost = { SnackbarHost(snackBar) },
         floatingActionButton = {
-            FloatingActionButton(
+            if (canConnect) FloatingActionButton(
                 onClick = { viewModel.onIntent(SimulatorSelectorIntent.Connect) },
                 containerColor = NeonCyan,
             ) {
@@ -113,6 +116,28 @@ fun SimulatorSelectorScreen(
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
+            androidx.compose.material3.Card(Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.simulator_warning), fontWeight = FontWeight.Bold)
+                    when (val connection = state.connectionState) {
+                        is com.sarani.carobd.core.model.ConnectionState.Connected -> {
+                            Text(stringResource(if (connection.isSimulator) R.string.s5_connected_sim else R.string.ui_connection_state))
+                            androidx.compose.material3.OutlinedButton(onClick = { viewModel.onIntent(SimulatorSelectorIntent.Disconnect) }) { Text(stringResource(R.string.btn_disconnect)) }
+                        }
+                        is com.sarani.carobd.core.model.ConnectionState.Failure -> {
+                            Text(com.sarani.carobd.ui.components.connectionIssueLabel(connection.issue))
+                            com.sarani.carobd.ui.components.DeveloperEvidence(connection.technicalMessage)
+                        }
+                        com.sarani.carobd.core.model.ConnectionState.Idle, com.sarani.carobd.core.model.ConnectionState.Disconnected -> Text(stringResource(R.string.s5_disconnected))
+                        else -> {
+                            androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
+                            Text(stringResource(R.string.s5_connection_progress))
+                            androidx.compose.material3.TextButton(onClick = { viewModel.onIntent(SimulatorSelectorIntent.Disconnect) }) { Text(stringResource(R.string.ui_cancel)) }
+                        }
+                    }
+                }
+            }
+            com.sarani.carobd.ui.components.RuntimeAccessControls(setOf(com.sarani.carobd.core.model.RuntimeAccess.Notifications))
             state.scenarios.forEach { scenario ->
                 val selected = scenario.id == state.selectedScenarioId
                 ScenarioRow(scenario, selected) {
@@ -145,12 +170,12 @@ private fun ScenarioRow(
         )
         Column(Modifier.padding(start = 8.dp)) {
             Text(
-                scenario.labelEn,
-                color = if (selected) NeonCyan else Color.White,
+                if (androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "fa") scenario.labelFa else scenario.labelEn,
+                color = if (selected) NeonCyan else com.sarani.carobd.ui.theme.TextPrimary,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp,
             )
-            Text(scenario.labelFa, color = TextMuted, fontSize = 12.sp)
+            com.sarani.carobd.ui.components.DiagnosticIdentifier(scenario.id)
         }
     }
 }

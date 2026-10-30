@@ -69,7 +69,7 @@ class ObdRepositoryImpl(
     },
     private val historySink: ((com.sarani.carobd.core.model.DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null,
     private val recordings: com.sarani.carobd.data.recording.RecordingController? = null,
-    private val admitTransport: (TransportConfig) -> Unit = { if (it is TransportConfig.BluetoothClassic || it is TransportConfig.Ble) com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(requireNotNull(context), it) },
+    private val admitTransport: (TransportConfig) -> Unit = { if (it is TransportConfig.BluetoothClassic || it is TransportConfig.Ble || it is TransportConfig.Wifi) com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(requireNotNull(context), it) },
     private val admitBackground: () -> Unit = { context?.let { com.sarani.carobd.core.permissions.AndroidAccess.require(it, com.sarani.carobd.core.model.RuntimeAccess.Notifications) } },
     private val startService: (String) -> Unit = { com.sarani.carobd.service.ConnectionForegroundService.start(requireNotNull(context), it) },
     private val stopService: () -> Unit = { com.sarani.carobd.service.ConnectionForegroundService.stop(requireNotNull(context)) },

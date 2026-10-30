@@ -21,6 +21,6 @@ class ExampleInstrumentedTest
     {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.sarani.myapplication", appContext.packageName)
+        assertEquals("com.sarani.carobd", appContext.packageName)
     }
 }

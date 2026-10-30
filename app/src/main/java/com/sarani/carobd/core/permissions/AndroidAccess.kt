@@ -15,9 +15,14 @@ object AndroidAccess {
         RuntimeAccess.Connect -> if (Build.VERSION.SDK_INT >= 31) arrayOf(Manifest.permission.BLUETOOTH_CONNECT) else emptyArray()
         RuntimeAccess.Scan -> if (Build.VERSION.SDK_INT >= 31) arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
             else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        RuntimeAccess.LocalNetwork -> if (Build.VERSION.SDK_INT >= 37) arrayOf(Manifest.permission.ACCESS_LOCAL_NETWORK) else emptyArray()
         RuntimeAccess.Notifications -> if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.POST_NOTIFICATIONS) else emptyArray()
     }
     fun state(context: Context, access: RuntimeAccess, activity: Activity? = null): AccessState {
+        if (access == RuntimeAccess.Connect || access == RuntimeAccess.Scan) {
+            if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH) &&
+                !context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) return AccessState.UnsupportedDevice
+        }
         val missing = permissions(access).filter { ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED }
         val history = context.getSharedPreferences("runtime_access", Context.MODE_PRIVATE)
         val permission = RuntimeAdmission.evaluate(AccessSnapshot(
@@ -31,6 +36,11 @@ object AndroidAccess {
             if (Build.VERSION.SDK_INT >= 26 && context.getSystemService(android.app.NotificationManager::class.java)?.getNotificationChannel("carobd_telemetry_channel")?.importance == android.app.NotificationManager.IMPORTANCE_NONE)
                 return AccessState.PermanentlyDenied
             return AccessState.Granted
+        }
+        if (access == RuntimeAccess.LocalNetwork) return AccessState.Granted
+        if (access == RuntimeAccess.Scan && Build.VERSION.SDK_INT < 31) {
+            val location = context.getSystemService(android.location.LocationManager::class.java)
+            if (location == null || !androidx.core.location.LocationManagerCompat.isLocationEnabled(location)) return AccessState.LocationDisabled
         }
         val ble = context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)
         if (access == RuntimeAccess.Scan && !ble && !context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) return AccessState.UnsupportedDevice
@@ -49,6 +59,7 @@ object AndroidAccess {
         if (state != AccessState.Granted) throw AccessDeniedException(access, state)
     }
     fun requireTransport(context: Context, config: TransportConfig) {
+        if (config is TransportConfig.Wifi) require(context, RuntimeAccess.LocalNetwork)
         if (config is TransportConfig.BluetoothClassic || config is TransportConfig.Ble) require(context, RuntimeAccess.Connect)
         if (config is TransportConfig.Ble && !context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE))
             throw AccessDeniedException(RuntimeAccess.Connect, AccessState.UnsupportedDevice)

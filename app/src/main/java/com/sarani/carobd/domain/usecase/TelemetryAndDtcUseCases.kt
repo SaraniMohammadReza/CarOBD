@@ -19,6 +19,7 @@ class ObserveTelemetryUseCase(private val repository: ObdRepository) {
 }
 
 class ScanDtcUseCase(private val repository: ObdRepository) {
+    val connectionState: StateFlow<ConnectionState> = repository.connectionState
     suspend operator fun invoke(): Result<List<DiagnosticCode>> {
         return repository.scanDiagnosticTroubleCodes()
     }

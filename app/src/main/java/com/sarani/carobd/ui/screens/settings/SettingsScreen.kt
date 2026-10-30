@@ -1,5 +1,9 @@
 package com.sarani.carobd.ui.screens.settings
 
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -133,7 +137,8 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { scope.launch { appPreferencesManager.setThemeMode(mode) } }
+                                .selectable(selected = themeMode == mode, role = androidx.compose.ui.semantics.Role.RadioButton, onClick = { scope.launch { appPreferencesManager.setThemeMode(mode) } })
+                                .heightIn(min = 48.dp)
                                 .padding(vertical = 6.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -196,7 +201,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.DeveloperBoard, contentDescription = null, tint = NeonCyan)
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
@@ -208,43 +213,22 @@ fun SettingsScreen(
                 }
             }
 
-            // Language Card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(DarkCardBg, RoundedCornerShape(14.dp))
-                    .border(1.dp, DarkCardBorder, RoundedCornerShape(14.dp))
-                    .padding(16.dp)
+            // Explicit language choices retain their meaning without knowing a switch convention.
+            Column(
+                Modifier.fillMaxWidth().background(DarkCardBg, RoundedCornerShape(14.dp))
+                    .border(1.dp, DarkCardBorder, RoundedCornerShape(14.dp)).padding(16.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Language, contentDescription = null, tint = NeonCyan)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(stringResource(R.string.settings_language), color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text(if (isPersian) stringResource(R.string.language_persian_label) else stringResource(R.string.language_english_label), color = TextMuted, fontSize = 12.sp)
-                        }
-                    }
-
-                    Switch(
-                        checked = isPersian,
-                        onCheckedChange = { nextIsPersian ->
-                            val lang = if (nextIsPersian) AppLanguage.PERSIAN else AppLanguage.ENGLISH
-                            // §3 #3: persist FIRST, then recreate. recreate triggers
-                            // attachBaseContext, which re-reads the freshly persisted
-                            // language — no race on a stale DataStore write (the old
-                            // path recreated before setLanguage() had necessarily
-                            // persisted).
-                            scope.launch {
-                                appPreferencesManager.setLanguage(lang)
+                Text(stringResource(R.string.settings_language), color = TextPrimary, style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+                AppLanguage.entries.forEach { option ->
+                    FilterChip(
+                        selected = language == option,
+                        onClick = {
+                            if (language != option) scope.launch {
+                                appPreferencesManager.setLanguage(option)
                                 activity?.recreate()
                             }
                         },
-                        colors = SwitchDefaults.colors(checkedThumbColor = NeonCyan)
+                        label = { Text(stringResource(if (option == AppLanguage.PERSIAN) R.string.language_persian_label else R.string.language_english_label)) }
                     )
                 }
             }

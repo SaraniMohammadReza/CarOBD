@@ -19,11 +19,28 @@ class DiagnosticsCancellationTest {
         override suspend fun connect(profile: ConnectionProfile) = Result.success(Unit)
         override suspend fun disconnect() {}
         override suspend fun setVehicleProfile(profile: VehicleProfile) {}
-        override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = throw CancellationException("Session disconnected")
+        var successfulScan = false
+        override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = if (successfulScan) Result.success(emptyList()) else throw CancellationException("Session disconnected")
         override suspend fun clearDiagnosticTroubleCodes(): Result<Unit> = throw CancellationException("Session disconnected")
         override suspend fun sendRawCommand(command: String) = Result.failure<String>(IllegalStateException("Disconnected"))
         override fun startTelemetryLoop() = emptyFlow<LiveTelemetry>()
         override fun stopTelemetryLoop() {}
+    }
+    @Test fun completedSimulatorScanRetainsOriginAfterDisconnect() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val repository = CanceledRepository().apply {
+                successfulScan = true
+                connectionState.value = ConnectionState.Connected("sim", "sim", "CAN", "sim", 13.9f, isSimulator = true)
+            }
+            val vm = DiagnosticsViewModel(ScanDtcUseCase(repository), ClearDtcUseCase(repository))
+            vm.onIntent(DiagnosticsIntent.ScanCodes); runCurrent()
+            assertTrue(vm.uiState.value.scanCompletedSuccessfully)
+            repository.connectionState.value = ConnectionState.Disconnected
+            runCurrent()
+            assertEquals(true, vm.uiState.value.resultSimulator)
+            assertNotNull(vm.uiState.value.resultTimeMs)
+        } finally { Dispatchers.resetMain() }
     }
     @Test fun canceledOperationsNeverLeaveLoadingOrSuccessfulEmptyScan() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))

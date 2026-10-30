@@ -173,16 +173,7 @@ class DashboardViewModel(
                 setState { copy(widgets = widgets.filter { it.id != intent.widgetId }) }
             }
             is DashboardIntent.OpenBluetoothDialog -> {
-                val paired = try { bluetoothScanner.getPairedDevices() } catch (e: Exception) {
-                    viewModelScope.launch { setEffect { DashboardEffect.ShowMessage(e.message ?: "Bluetooth access unavailable") } }
-                    return
-                }
-                setState {
-                    copy(
-                        showBluetoothDialog = true,
-                        discoveredDevices = paired
-                    )
-                }
+                setState { copy(showBluetoothDialog = true, discoveredDevices = emptyList()) }
             }
             is DashboardIntent.CloseBluetoothDialog -> {
                 stopDiscovery()

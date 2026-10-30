@@ -1,7 +1,7 @@
 package com.sarani.carobd.core.model
 
-enum class AccessState { Granted, NotRequested, Denied, PermanentlyDenied, UnsupportedDevice, BluetoothUnavailable, BluetoothDisabled }
-enum class RuntimeAccess { Connect, Scan, Notifications }
+enum class AccessState { Granted, NotRequested, Denied, PermanentlyDenied, UnsupportedDevice, BluetoothUnavailable, BluetoothDisabled, LocationDisabled }
+enum class RuntimeAccess { Connect, Scan, Notifications, LocalNetwork }
 data class AccessSnapshot(
     val supported: Boolean = true,
     val permissionGranted: Boolean,

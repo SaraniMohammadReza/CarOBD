@@ -29,6 +29,7 @@ data class SimulatorSelectorState(
 
 sealed interface SimulatorSelectorIntent {
     data class SelectScenario(val id: String) : SimulatorSelectorIntent
+    data object Disconnect : SimulatorSelectorIntent
     data object Connect : SimulatorSelectorIntent
     data object ClearSelection : SimulatorSelectorIntent
 }
@@ -57,7 +58,8 @@ class SimulatorSelectorViewModel(
     fun onIntent(intent: SimulatorSelectorIntent) {
         when (intent) {
             is SimulatorSelectorIntent.SelectScenario -> selectedScenarioId.value = intent.id
-            is SimulatorSelectorIntent.Connect -> connect()
+            is SimulatorSelectorIntent.Connect -> { if (uiState.value.connectionState !is ConnectionState.Connected) connect() }
+            is SimulatorSelectorIntent.Disconnect -> viewModelScope.launch { obdRepository.disconnect() }
             is SimulatorSelectorIntent.ClearSelection -> {
                 viewModelScope.launch {
                     val defaultId = profiles.defaultProfile().id

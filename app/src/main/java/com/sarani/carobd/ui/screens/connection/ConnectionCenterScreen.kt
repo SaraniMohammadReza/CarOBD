@@ -15,6 +15,7 @@ import com.sarani.carobd.data.transport.SimulatorScenario
 @Composable
 fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> Unit)? = null, modifier: Modifier = Modifier) {
     val state by viewModel.uiState.collectAsState()
+    val newConnectionName = stringResource(com.sarani.carobd.R.string.qa_new_connection)
     var editing by remember { mutableStateOf<ConnectionProfile?>(null) }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
@@ -24,7 +25,7 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
         TopAppBar(title = { Text(stringResource(com.sarani.carobd.R.string.ui_connection_title)) }, navigationIcon = {
             onBack?.let { TextButton(onClick = it) { Text(stringResource(com.sarani.carobd.R.string.ui_back)) } }
         }, actions = {
-            TextButton(onClick = { editing = ConnectionProfile.newProfile("New connection", TransportConfig.Simulator("healthy")) }) { Text(stringResource(com.sarani.carobd.R.string.ui_add)) }
+            TextButton(onClick = { editing = ConnectionProfile.newProfile(newConnectionName, TransportConfig.Simulator("healthy")) }) { Text(stringResource(com.sarani.carobd.R.string.ui_add)) }
         })
     }) { padding ->
         Column(Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -76,6 +77,7 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onSave: (ConnectionProfile) -> Unit) {
     var name by remember(profile.id) { mutableStateOf(profile.name) }
@@ -97,8 +99,16 @@ private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onS
     AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(com.sarani.carobd.R.string.ui_profile)) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(name, { name = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_name)) }, singleLine = true)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TransportType.entries.forEach { choice ->
-                FilterChip(selected = type == choice, onClick = { type = choice }, label = { Text(choice.name) })
+                FilterChip(selected = type == choice, onClick = { type = choice }, label = { Text(stringResource(when (choice) {
+                    TransportType.BLUETOOTH_CLASSIC -> com.sarani.carobd.R.string.connection_bt
+                    TransportType.BLUETOOTH_LE -> com.sarani.carobd.R.string.connection_ble
+                    TransportType.WIFI_TCP -> com.sarani.carobd.R.string.connection_wifi
+                    TransportType.USB_SERIAL -> com.sarani.carobd.R.string.connection_usb
+                    TransportType.SIMULATOR -> com.sarani.carobd.R.string.connection_simulator
+                })) })
+            }
             }
             when (type) {
                 TransportType.BLUETOOTH_CLASSIC, TransportType.BLUETOOTH_LE -> {

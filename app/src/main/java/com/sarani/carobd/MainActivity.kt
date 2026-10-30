@@ -24,6 +24,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.testTag
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -74,6 +84,7 @@ sealed class AppDestination(val route: String, val titleRes: Int, val icon: Imag
     data object Trip : AppDestination("trip", R.string.nav_trip, Icons.Default.Navigation)
     data object EcuProfiles : AppDestination("ecu_profiles", R.string.nav_ecu_profiles, Icons.Default.DirectionsCar)
     data object Settings : AppDestination("settings", R.string.nav_settings, Icons.Default.Settings)
+    data object Terminal : AppDestination("terminal", R.string.nav_terminal, Icons.Default.Terminal)
     data object Simulator : AppDestination("simulator", R.string.nav_simulator, Icons.Default.Terminal)
 }
 
@@ -120,31 +131,51 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
         AppDestination.Trip,
         AppDestination.EcuProfiles,
         AppDestination.Settings,
-        AppDestination.Simulator
+        AppDestination.Simulator,
+        AppDestination.Terminal
     )
 
+    val sessionState by org.koin.compose.koinInject<com.sarani.carobd.domain.repository.ObdRepository>().connectionState.collectAsState()
+    var moreOpen by remember { mutableStateOf(false) }
+    val primaryDestinations = listOf(AppDestination.Dashboard, AppDestination.ConnectionCenter, AppDestination.Diagnostics, AppDestination.Settings)
+    fun navigate(route: String) {
+        if (currentRoute != route) navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = false
+        }
+    }
+    if (moreOpen) AlertDialog(
+        onDismissRequest = { moreOpen = false },
+        title = { Text(stringResource(R.string.qa_more)) },
+        text = { Column { destinations.filter { it !in primaryDestinations }.forEach { dest ->
+            TextButton(modifier = Modifier.testTag("nav_" + dest.route), onClick = { moreOpen = false; navigate(dest.route) }) {
+                Icon(dest.icon, contentDescription = null)
+                Text(stringResource(dest.titleRes))
+            }
+        } } },
+        confirmButton = { TextButton(onClick = { moreOpen = false }) { Text(stringResource(R.string.ui_cancel)) } }
+    )
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = DarkBg,
+        topBar = {
+            if ((sessionState as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator == true) {
+                Text(stringResource(R.string.simulator_warning),
+                    modifier = Modifier.fillMaxWidth().background(DarkCardBg).statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = NeonCyan, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
+            }
+        },
         bottomBar = {
             NavigationBar(
                 containerColor = DarkCardBg
             ) {
-                destinations.forEach { dest ->
+                primaryDestinations.forEach { dest ->
                     val selected = currentRoute == dest.route
                     NavigationBarItem(
                         selected = selected,
-                        onClick = {
-                            if (currentRoute != dest.route) {
-                                navController.navigate(dest.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
+                        modifier = Modifier.testTag("nav_" + dest.route),
+                        onClick = { navigate(dest.route) },
                         icon = {
                             Icon(
                                 imageVector = dest.icon,
@@ -155,8 +186,8 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
                         label = {
                             Text(
                                 text = stringResource(dest.titleRes),
-                                fontSize = 9.5.sp,
-                                maxLines = 1,
+                                fontSize = 12.sp,
+                                maxLines = 2,
                                 color = if (selected) NeonCyan else TextMuted
                             )
                         },
@@ -165,6 +196,13 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
                         )
                     )
                 }
+                NavigationBarItem(
+                    modifier = Modifier.testTag("nav_more"),
+                    selected = currentRoute in destinations.filter { it !in primaryDestinations }.map { it.route },
+                    onClick = { moreOpen = true },
+                    icon = { Icon(Icons.Default.MoreHoriz, contentDescription = null) },
+                    label = { Text(stringResource(R.string.qa_more)) }
+                )
             }
         }
     ) { innerPadding ->
@@ -183,7 +221,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
                                 saveState = true
                             }
                             launchSingleTop = true
-                            restoreState = true
+                            restoreState = false
                         }
                     }
                 )
