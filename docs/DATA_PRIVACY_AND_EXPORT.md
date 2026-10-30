@@ -1,0 +1,9 @@
+# Local evidence, export and Android backup
+
+Diagnostic reports, raw evidence, profiles and preferences remain in app-private storage unless the owner exports a document or selects an Android device transfer. JSON export uses the Android document picker: the selected provider may itself be a cloud service. The app does not choose or automatically upload to that provider. Reports can contain identifying labels and raw diagnostic evidence; inspect the destination before saving.
+
+`res/xml/data_extraction_rules.xml` excludes all Android backup domains from automatic cloud backup. Modern Android device transfer remains eligible for owner data, except `sharedpref/runtime_access.xml`: permission-request history belongs to the original device. New-device transport permissions must be checked and granted there. Android 11 and earlier cannot separate these two modes with modern rules, so `backup_rules.xml` excludes all domains for both modes. These rules do not delete existing local records or remote backups made by an earlier application version.
+
+The policy follows [Android Auto Backup documentation](https://developer.android.com/identity/data/autobackup). Actual cloud-service backup and cross-device transfer have not been executed or certified. Packaged XML instrumentation verifies exclusions; no account or cloud backup is contacted during QA. OEM migration behavior still requires device validation.
+
+The schema1 `CAROBD_DTC_REPORT` export contains only an already captured Mode03/07/0A report. Unknown identities stay null, incomplete outcomes/raw evidence are preserved, simulator source is explicit, unread services are listed, and no health or adapter authenticity verdict is asserted. Export never initiates a diagnostic scan. It is a portable evidence document, not a full application backup or restore format. Uninstalling without an exported copy can lose local evidence. Full application backup/restore remains unimplemented.

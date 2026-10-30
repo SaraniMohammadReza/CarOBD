@@ -258,6 +258,20 @@ class RuntimeNavigationInstrumentedTest {
         shot("diagnosis-export-document-picker")
         back() // Cancellation must not create a successful export or issue diagnostics.
         assertNull(find(label(R.string.diagnosis_export_saved)))
+        val exportedReport = kotlinx.coroutines.runBlocking { repo.recentDiagnosticReports().getOrThrow().first() }
+        tap(label(R.string.diagnosis_export_json))
+        val save = nodes(root()).firstOrNull { it.text?.toString().equals("Save", ignoreCase = true) && it.isVisibleToUser }
+            ?: error("DocumentsUI Save action unavailable")
+        tapNode(save)
+        await(label(R.string.diagnosis_export_saved)); shot("diagnosis-export-saved")
+        val exportedText = automation.executeShellCommand("cat /sdcard/Download/carobd-dtc-${exportedReport.startedAtMs}.json").use {
+            android.os.ParcelFileDescriptor.AutoCloseInputStream(it).readBytes().toString(Charsets.UTF_8)
+        }
+        val exported = org.json.JSONObject(exportedText)
+        assertEquals(exportedReport.id, exported.getString("id"))
+        assertEquals("SIMULATOR", exported.getString("source"))
+        assertEquals(exportedReport.scope, exported.getString("scope"))
+        assertEquals(exportedReport.outcomes.size, exported.getJSONArray("outcomes").length())
         readConnectedEvidence()
         val oldServiceToken = requireNotNull(repo.foregroundSessionId.value)
         nav(R.string.nav_connection_center); tap(label(R.string.ui_disconnect_cancel)); shot("disconnected-after-simulation")
