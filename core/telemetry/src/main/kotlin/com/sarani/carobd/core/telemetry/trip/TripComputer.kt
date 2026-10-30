@@ -68,7 +68,7 @@ class TripComputer(val tripId: String, val vehicleId: String, val startTimeMs: L
         return TripRecord(tripId, vehicleId, startTimeMs, end, durationMs / 1000, distance,
             speed.max?.toInt(), rpm.max?.toInt(), ev.first { it.metric == TripMetric.AVERAGE_SPEED }.value, fuelUsed,
             // Legacy score fields are compatibility data, never evidence or a health score.
-            drivingStyle = DrivingStyleMetrics(smoothnessScore = 0, ecoScore = 0), sampleCount = samples,
+            drivingStyle = null, sampleCount = samples,
             evidence = ev, legacyUnverified = false)
     }
 }

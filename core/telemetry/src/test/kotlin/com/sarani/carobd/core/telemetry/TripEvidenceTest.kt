@@ -13,7 +13,7 @@ class TripEvidenceTest {
         t.processSample(0, null, null, 1000)
         val r = t.getTripRecord(1000)
         assertEquals(0.0, r.distanceKm!!, 0.0)
-        assertNull(r.estimatedFuelUsedLiters); assertNull(r.maxRpm)
+        assertNull(r.estimatedFuelUsedLiters); assertNull(r.maxRpm); assertNull(r.drivingStyle)
         assertEquals(MetricProvenance.UNAVAILABLE, r.metric(TripMetric.FUEL_USED).provenance)
         assertEquals(2, r.metric(TripMetric.MAX_SPEED).sampleCount)
         assertEquals("010D", r.metric(TripMetric.DISTANCE).source)

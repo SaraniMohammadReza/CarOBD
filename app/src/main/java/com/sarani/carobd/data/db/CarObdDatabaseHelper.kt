@@ -220,12 +220,12 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
             put("max_rpm", trip.maxRpm ?: 0) // Legacy compatibility column; evidence is authoritative.
             put("avg_speed", trip.averageSpeedKmh ?: 0.0) // Legacy compatibility column; evidence is authoritative.
             put("fuel_liters", trip.estimatedFuelUsedLiters ?: 0.0) // Legacy compatibility column; evidence is authoritative.
-            put("hard_accel", trip.drivingStyle.hardAccelerationsCount)
-            put("hard_brake", trip.drivingStyle.hardBrakingCount)
-            put("high_rpm_sec", trip.drivingStyle.highRpmDurationSeconds)
-            put("idle_sec", trip.drivingStyle.idleDurationSeconds)
-            put("smoothness", trip.drivingStyle.smoothnessScore)
-            put("eco_score", trip.drivingStyle.ecoScore)
+            put("hard_accel", trip.drivingStyle?.hardAccelerationsCount ?: 0)
+            put("hard_brake", trip.drivingStyle?.hardBrakingCount ?: 0)
+            put("high_rpm_sec", trip.drivingStyle?.highRpmDurationSeconds ?: 0L)
+            put("idle_sec", trip.drivingStyle?.idleDurationSeconds ?: 0L)
+            put("smoothness", trip.drivingStyle?.smoothnessScore ?: 0)
+            put("eco_score", trip.drivingStyle?.ecoScore ?: 0)
             put("sample_count", trip.sampleCount)
         }
         cv.put("provenance", "CAPTURED_WITH_EVIDENCE")
@@ -276,14 +276,14 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
                         maxRpm = value(TripMetric.MAX_RPM)?.toInt(),
                         averageSpeedKmh = value(TripMetric.AVERAGE_SPEED),
                         estimatedFuelUsedLiters = value(TripMetric.FUEL_USED),
-                        drivingStyle = DrivingStyleMetrics(
+                        drivingStyle = if (legacy) DrivingStyleMetrics(
                             hardAccelerationsCount = c.getInt(c.getColumnIndexOrThrow("hard_accel")),
                             hardBrakingCount = c.getInt(c.getColumnIndexOrThrow("hard_brake")),
                             highRpmDurationSeconds = c.getLong(c.getColumnIndexOrThrow("high_rpm_sec")),
                             idleDurationSeconds = c.getLong(c.getColumnIndexOrThrow("idle_sec")),
                             smoothnessScore = c.getInt(c.getColumnIndexOrThrow("smoothness")),
                             ecoScore = c.getInt(c.getColumnIndexOrThrow("eco_score"))
-                        ),
+                        ) else null,
                         sampleCount = c.getInt(c.getColumnIndexOrThrow("sample_count")), evidence = evidence, legacyUnverified = legacy
                     )
                 )
@@ -306,7 +306,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
             }
         }
         check(result.map { it.metric }.toSet() == TripMetric.entries.toSet()) { "Incomplete trip evidence" }
-        return result
+        return result.sortedBy { it.metric.ordinal }
     }
 
     // -------------------------------------------------------------

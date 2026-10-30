@@ -20,7 +20,7 @@ data class TripRecord(
     val maxRpm: Int?,
     val averageSpeedKmh: Double?,
     val estimatedFuelUsedLiters: Double?,
-    val drivingStyle: DrivingStyleMetrics = DrivingStyleMetrics(),
+    val drivingStyle: DrivingStyleMetrics? = null,
     val sampleCount: Int = 0,
     val evidence: List<TripMetricEvidence> = emptyList(),
     val legacyUnverified: Boolean = true,
