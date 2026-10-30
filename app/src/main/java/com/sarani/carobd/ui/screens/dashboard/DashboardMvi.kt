@@ -25,9 +25,11 @@ data class DashboardState(
     val telemetry: LiveTelemetry = LiveTelemetry(),
     val connectionState: ConnectionState = ConnectionState.Disconnected,
     val activeProfile: VehicleProfile? = null,
+    val activeConnectionName: String? = null,
+    val connectingName: String? = null,
     val selectedConnectionType: ConnectionType = ConnectionType.VIRTUAL_SIMULATOR,
     val hasActiveVehicle: Boolean = activeProfile != null,
-    val isSimulator: Boolean = selectedConnectionType == ConnectionType.VIRTUAL_SIMULATOR,
+    val isSimulator: Boolean = (connectionState as? ConnectionState.Connected)?.isSimulator == true,
     val isHudMode: Boolean = false,
     val isChartMode: Boolean = false,
     val showBluetoothDialog: Boolean = false,
@@ -83,6 +85,8 @@ class DashboardViewModel(
     val recordingState = recordings?.state ?: kotlinx.coroutines.flow.MutableStateFlow("Stopped")
 
     init {
+        viewModelScope.launch { observeTelemetryUseCase.activeConnectionProfile.collect { p -> setState { copy(activeConnectionName = p?.name) } } }
+        viewModelScope.launch { observeTelemetryUseCase.connectingProfile.collect { p -> setState { copy(connectingName = p?.name) } } }
         // Observe preferences & onboarding state
         viewModelScope.launch {
             appPreferencesManager.isOnboardingDone.collect { done ->
@@ -97,9 +101,9 @@ class DashboardViewModel(
         viewModelScope.launch {
             observeTelemetryUseCase.telemetry.collect { tele ->
                 val maxBuffer = 35
-                val newRpmHistory = (uiState.value.rpmHistory + tele.rpm.toFloat()).takeLast(maxBuffer)
-                val newSpeedHistory = (uiState.value.speedHistory + tele.speedKmh.toFloat()).takeLast(maxBuffer)
-                val newO2History = (uiState.value.o2History + tele.oxygenSensor1Volt).takeLast(maxBuffer)
+                val newRpmHistory = (uiState.value.rpmHistory + listOfNotNull(tele.signal("010C").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value)).takeLast(maxBuffer)
+                val newSpeedHistory = (uiState.value.speedHistory + listOfNotNull(tele.signal("010D").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value)).takeLast(maxBuffer)
+                val newO2History = (uiState.value.o2History + listOfNotNull(tele.signal("0114").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value)).takeLast(maxBuffer)
 
                 val fuelEco = FuelEconomyEngine.calculate(
                     telemetry = tele,

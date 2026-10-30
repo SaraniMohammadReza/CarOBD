@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 interface ObdRepository {
+    val activeConnectionProfile: StateFlow<ConnectionProfile?> get() = kotlinx.coroutines.flow.MutableStateFlow(null)
+    val connectingProfile: StateFlow<ConnectionProfile?> get() = kotlinx.coroutines.flow.MutableStateFlow(null)
     val historyWarning: StateFlow<String?> get() = kotlinx.coroutines.flow.MutableStateFlow(null)
     val foregroundSessionId: StateFlow<String?> get() = kotlinx.coroutines.flow.MutableStateFlow(null)
     fun foregroundServiceReady(sessionId: String) {}

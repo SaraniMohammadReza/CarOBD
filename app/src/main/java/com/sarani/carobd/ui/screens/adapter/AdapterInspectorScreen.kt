@@ -82,7 +82,7 @@ fun AdapterInspectorScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "تست اصالت چیپ ELM327، بررسی پین‌اوت موتورسیکلت و عیب‌یابی خطاهای اتصال",
+                text = "مشخصات گزارش‌شده آداپتور و شواهد اتصال؛ رشته ATI اصالت سخت‌افزار را اثبات نمی‌کند.",
                 color = TextMuted,
                 fontSize = 12.sp
             )
@@ -207,7 +207,7 @@ fun AdapterHealthView(
                     )
                     HealthRow(
                         label = "ولتاژ پین ۱۶ پورت OBD:",
-                        value = if (isConnected && telemetry.batteryVoltage > 0f) {
+                        value = if (isConnected && telemetry.signal("ATRV").quality == com.sarani.carobd.core.model.SignalQuality.GOOD) {
                             String.format(java.util.Locale.US, "%.1f ولت", telemetry.batteryVoltage)
                         } else "—"
                     )
@@ -231,11 +231,11 @@ fun AdapterHealthView(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("راهنمای تشخیص دانگل‌های تقلبی ELM327 نسخه ۲.۱:", color = NeonAmber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("محدودیت شناسایی آداپتور:", color = NeonAmber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "دانگل‌های بسیار ارزان نسخه ۲.۱ تقلبی فاقد کنترلر اصلی PIC18F25K80 بوده و دستورات تنظیم هدر (AT SH) و دستورات بیدارباش (AT WM) ایسیوهای ایرانی را اجرا نمی‌کنند و به خودروهای پراید، تیبا و پژو با پروتکل KWP متصل نمی‌شوند. همیشه از دانگل‌های v1.5 دارای بورد دوطبقه و کریستال ۴ مگاهرتز استفاده فرمایید.",
+                        text = "نسخه گزارش‌شده به‌تنهایی اصالت یا سازگاری آداپتور را اثبات نمی‌کند. برای هر مدل، مستندات سازنده و آزمون کنترل‌شده لازم است. پین‌اوت یا فرمان اختصاصی نباید حدس زده شود.",
                         color = TextMuted,
                         fontSize = 11.sp,
                         lineHeight = 17.sp

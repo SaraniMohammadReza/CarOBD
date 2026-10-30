@@ -125,17 +125,22 @@ class ConnectionForegroundService : Service(), KoinComponent {
             combine(
                 repository.connectionState,
                 repository.liveTelemetry,
-                repository.activeVehicleProfile
-            ) { conn, tele, profile ->
+                repository.activeVehicleProfile,
+                kotlinx.coroutines.flow.flow { while (true) { emit(System.currentTimeMillis()); kotlinx.coroutines.delay(1000) } }
+            ) { conn, tele, profile, _ ->
                 Triple(conn, tele, profile)
             }.collect { (conn, tele, profile) ->
                 when (conn) {
                     is ConnectionState.Connected -> {
                         val title = "${profile?.modelNameFa ?: "خودرو"} • ${conn.deviceName}"
-                        val content = if (tele.speedKmh > 0 || tele.rpm > 0) {
-                            "سرعت: ${tele.speedKmh} km/h | دور موتور: ${tele.rpm} RPM | آب: ${tele.coolantTempCelsius}°C"
+                        val speed = tele.signal("010D").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
+                        val rpm = tele.signal("010C").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
+                        val coolant = tele.signal("0105").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
+                        val voltage = tele.signal("ATRV").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
+                        val content = if (tele.isMeasured("010D") || tele.isMeasured("010C")) {
+                            "سرعت: $speed km/h | دور موتور: $rpm RPM | آب: $coolant°C"
                         } else {
-                            "ایسیو آنلاین (${conn.protocolName}) | ولتاژ: ${String.format(java.util.Locale.US, "%.1f", tele.batteryVoltage)}V"
+                            "ایسیو آنلاین (${conn.protocolName}) | ولتاژ: $voltage V"
                         }
                         updateNotification(title, content)
                     }

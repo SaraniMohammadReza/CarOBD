@@ -79,6 +79,7 @@ class TelemetryProducer(
             val delayMs = pollMode.value.delayMs
             try {
                 var current = _liveTelemetry.value
+                val measurementTimes = current.measurementTimesMs.toMutableMap()
                 val measured = mutableSetOf<String>() // Each cycle must re-establish measurement evidence.
 
                 // §9/§22: discover capability once per session (lazy extension bit).
@@ -107,6 +108,7 @@ class TelemetryProducer(
                     }
                     if (v != null) {
                         measured.add("ATRV")
+                        measurementTimes["ATRV"] = System.currentTimeMillis()
                         current = current.copy(batteryVoltage = v)
                     }
                 }
@@ -118,6 +120,7 @@ class TelemetryProducer(
                     val bytes = canonicalPayload(spec.command, raw) ?: continue
                     PidPollingPlan.decodePoll(spec, bytes, current)?.let { next ->
                         measured.add(spec.pidHex)
+                        measurementTimes[spec.pidHex] = System.currentTimeMillis()
                         current = next
                     }
                 }
@@ -140,7 +143,7 @@ class TelemetryProducer(
                     timestampMs = System.currentTimeMillis()
                 )
 
-                current = current.copy(measuredPids = measured, timestamp = System.currentTimeMillis())
+                current = current.copy(measuredPids = measured, measurementTimesMs = measurementTimes.toMap(), timestamp = System.currentTimeMillis())
                 _liveTelemetry.value = current
                 onTelemetry(current)
 

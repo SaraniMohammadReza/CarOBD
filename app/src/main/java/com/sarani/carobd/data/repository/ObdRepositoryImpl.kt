@@ -74,6 +74,10 @@ class ObdRepositoryImpl(
 
     val database by lazy { CarObdDatabaseHelper(requireNotNull(context)) }
 
+    private val _activeConnectionProfile = MutableStateFlow<ConnectionProfile?>(null)
+    override val activeConnectionProfile = _activeConnectionProfile.asStateFlow()
+    private val _connectingProfile = MutableStateFlow<ConnectionProfile?>(null)
+    override val connectingProfile = _connectingProfile.asStateFlow()
     private val _historyWarning = MutableStateFlow<String?>(null)
     override val historyWarning = _historyWarning.asStateFlow()
     private val _foregroundSessionId = MutableStateFlow<String?>(null)
@@ -173,6 +177,7 @@ class ObdRepositoryImpl(
             sessionMutex.withLock {
                 disconnectLocked()
                 var created: DiagnosticSession? = null
+                _connectingProfile.value = profile
                 try {
                     require(profile.validate().isEmpty()) { "Invalid connection profile: ${profile.validate()}" }
                     val forced = when (profile.protocolMode) {
@@ -204,6 +209,7 @@ class ObdRepositoryImpl(
                     if (testOnly) {
                         disconnectLocked()
                     } else {
+                        _activeConnectionProfile.value = profile
                         currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
                         (session.adapter.state.value as? ConnectionState.Connected)?.let { recordings?.identity(it) }
                         _connectionState.value = session.adapter.state.value
@@ -220,6 +226,7 @@ class ObdRepositoryImpl(
                     }
                     Result.success(Unit)
                 } catch (e: CancellationException) {
+                    _activeConnectionProfile.value = null
                     _foregroundSessionId.value = null
                     if (activeSession === created) activeSession = null
                     created?.close()
@@ -229,6 +236,7 @@ class ObdRepositoryImpl(
                     _connectionState.value = ConnectionState.Disconnected
                     throw e
                 } catch (e: Exception) {
+                    _activeConnectionProfile.value = null
                     _foregroundSessionId.value = null
                     if (activeSession === created) activeSession = null
                     created?.close()
@@ -240,6 +248,7 @@ class ObdRepositoryImpl(
                 }
             }
         } finally {
+            _connectingProfile.value = null
             connecting.compareAndSet(connectionJob, null)
             connectionAdmission.release()
         }
@@ -256,6 +265,8 @@ class ObdRepositoryImpl(
     }
 
     private suspend fun disconnectLocked() {
+        _activeConnectionProfile.value = null
+        _connectingProfile.value = null
         _foregroundSessionId.value = null
         serviceAcknowledged = null
         val old = activeSession

@@ -33,7 +33,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -76,6 +76,7 @@ fun DashboardScreen(
     onNavigateToVehicleCatalog: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
+    val currentTime by telemetryClock()
     val recording by viewModel.recordingState.collectAsState()
 
     Box(
@@ -95,12 +96,12 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // 1. Status Header
-            item { com.sarani.carobd.ui.components.RuntimeAccessControls(); Text(recording) }
+            item { com.sarani.carobd.ui.components.RuntimeAccessControls(); Text(recording); Text(state.activeConnectionName ?: state.connectingName ?: "—") }
             item {
                 StatusHeader(
                     connectionState = state.connectionState,
                     activeProfile = state.activeProfile,
-                    batteryVoltage = state.telemetry.batteryVoltage,
+                    batteryVoltage = state.telemetry.signal("ATRV", currentTime).takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value,
                     onConnectClicked = { viewModel.onIntent(DashboardIntent.ToggleConnection) },
                     onDisconnectClicked = { viewModel.onIntent(DashboardIntent.ToggleConnection) }
                 )
@@ -396,39 +397,16 @@ fun RenderCustomWidget(
 ) {
     val sensor = SensorCatalog.findById(config.sensorId)
 
-    // §4 / §8 truthfulness: an unknown (not-yet-measured) sensor must render "—"
-    // for EVERY widget type. Previously only DIGITAL_CARD was guarded, so a
-    // CircularGauge / BarGauge / Oscilloscope rendered numeric 0 for an unknown
-    // sensor — a fabricated zero (§4: "unknown custom-gauge values can still
-    // show numeric 0").
-    if (!telemetry.isMeasured(sensor.pid)) {
-        DigitalMetricCard(
-            title = sensor.nameFa,
-            value = "—",
-            unit = sensor.unitMetric,
-            accentColor = TextMuted
-        )
+    val now by telemetryClock()
+    val signal = telemetry.signal(sensor.pid, now)
+    val sensorValue = signal.value
+    if (sensorValue == null) {
+        DigitalMetricCard(title = sensor.nameEn, value = "—", unit = sensor.unitMetric, accentColor = TextMuted)
         return
     }
-
-    // Extract sensor value dynamically from telemetry
-    val sensorValue = when (sensor.id) {
-        "rpm" -> telemetry.rpm.toFloat()
-        "speed" -> telemetry.speedKmh.toFloat()
-        "coolant_temp" -> telemetry.coolantTempCelsius.toFloat()
-        "throttle_pos" -> telemetry.throttlePositionPercent
-        "module_voltage" -> telemetry.batteryVoltage
-        "engine_load" -> telemetry.engineLoadPercent
-        "fuel_level" -> telemetry.fuelLevelPercent
-        "intake_temp" -> telemetry.intakeAirTempCelsius.toFloat()
-        "maf" -> telemetry.mafGramsPerSec
-        "map" -> telemetry.intakeManifoldPressureKpa.toFloat()
-        "o2_b1s1" -> telemetry.oxygenSensor1Volt
-        "o2_b1s2" -> telemetry.oxygenSensor2Volt
-        "stepper_steps" -> telemetry.stepperMotorSteps.toFloat()
-        "knock_retard" -> telemetry.knockRetardDegrees
-        "cng_tank_press" -> telemetry.cngPressureBar
-        else -> 0f
+    if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) {
+        DigitalMetricCard(title = sensor.nameEn, value = "$sensorValue · " + stringResource(R.string.signal_stale), unit = sensor.unitMetric, accentColor = NeonAmber)
+        return
     }
 
     when (config.widgetType) {
@@ -494,11 +472,12 @@ fun PrimaryMetricsRow(
     telemetry: LiveTelemetry,
     modifier: Modifier = Modifier
 ) {
+    val now by telemetryClock()
     val items = listOf(
         MetricItem(stringResource(R.string.dashboard_metric_speed), "010D", telemetry.speedKmh, "km/h"),
         MetricItem(stringResource(R.string.dashboard_metric_rpm), "010C", telemetry.rpm, "RPM"),
         MetricItem(stringResource(R.string.dashboard_metric_coolant), "0105", telemetry.coolantTempCelsius, "°C"),
-        MetricItem(stringResource(R.string.dashboard_metric_battery), "0142", telemetry.batteryVoltage, "V")
+        MetricItem(stringResource(R.string.dashboard_metric_battery), "ATRV", telemetry.batteryVoltage, "V")
     )
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -506,8 +485,9 @@ fun PrimaryMetricsRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         items.forEach { item ->
-            val measured = telemetry.isMeasured(item.pid)
-            val display = if (measured) item.value.toString() else "—"
+            val signal = telemetry.signal(item.pid, now)
+            val measured = signal.quality == com.sarani.carobd.core.model.SignalQuality.GOOD
+            val display = signal.value?.toString()?.let { if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) it + " · " + stringResource(R.string.signal_stale) else it } ?: "—"
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(item.label, color = TextMuted, fontSize = 10.sp)
                 Text(
@@ -527,9 +507,14 @@ private data class MetricItem(val label: String, val pid: String, val value: Any
 
 /**
  * §4 Canonical first-screen primary metric PID set, in display order:
- * Speed (010D) → RPM (010C) → Coolant (0105) → Battery (0142). These four are
+ * Speed (010D) → RPM (010C) → Coolant (0105) → Adapter supply (ATRV). These four are
  * rendered compactly by [PrimaryMetricsRow] and are NOT also emitted as
  * dashboard CIRCULAR_GAUGE widgets — this removes the duplicate 132dp circular
  * gauges §4 calls out. Pure top-level fn so the order is JVM-unit-testable.
  */
-fun primaryMetricPids(): List<String> = listOf("010D", "010C", "0105", "0142")
+fun primaryMetricPids(): List<String> = listOf("010D", "010C", "0105", "ATRV")
+
+@Composable
+private fun telemetryClock(): State<Long> = produceState(System.currentTimeMillis()) {
+    while (true) { kotlinx.coroutines.delay(1000); value = System.currentTimeMillis() }
+}

@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.StateFlow
 class ObserveTelemetryUseCase(private val repository: ObdRepository) {
     val telemetry: StateFlow<LiveTelemetry> = repository.liveTelemetry
     val connectionState: StateFlow<ConnectionState> = repository.connectionState
+    val activeConnectionProfile = repository.activeConnectionProfile
+    val connectingProfile = repository.connectingProfile
     val activeProfile: StateFlow<VehicleProfile?> = repository.activeVehicleProfile
 }
 

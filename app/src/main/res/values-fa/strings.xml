@@ -94,7 +94,7 @@
     <string name="dashboard_metric_speed">سرعت</string>
     <string name="dashboard_metric_rpm">RPM</string>
     <string name="dashboard_metric_coolant">آب‌خنک</string>
-    <string name="dashboard_metric_battery">باتری</string>
+    <string name="dashboard_metric_battery">ولتاژ گزارش‌شده آداپتور (ATRV)</string>
     <string name="dashboard_fuel_title">مصرف سوخت و پیمایش (%1$s)</string>
     <string name="dashboard_range_label">پیمایش باقی‌مانده با سوخت فعلی:</string>
     <string name="dashboard_cost_per_km">هزینه هر کیلومتر:</string>
@@ -144,4 +144,5 @@
     <string name="mil_off">خاموش (مشاهده‌شده)</string>
     <string name="mil_unknown">نامشخص / اندازه‌گیری نشده</string>
     <string name="history_legacy">رکورد قدیمی: دسته خطا، چراغ MIL و پروتکل تأیید نشده‌اند.</string>
+    <string name="signal_stale">قدیمی</string>
 </resources>

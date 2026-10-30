@@ -26,16 +26,11 @@ class DashboardStateTest {
     }
 
     @Test
-    fun isSimulator_trueOnlyForVirtualSimulator() {
-        assertTrue(
-            DashboardState(selectedConnectionType = ConnectionType.VIRTUAL_SIMULATOR).isSimulator
-        )
-        assertFalse(
-            DashboardState(selectedConnectionType = ConnectionType.BLUETOOTH_CLASSIC).isSimulator
-        )
-        assertFalse(
-            DashboardState(selectedConnectionType = ConnectionType.WIFI_TCP).isSimulator
-        )
+    fun simulatorIndicatorRequiresActualConnectedSession() {
+        assertFalse(DashboardState(selectedConnectionType = ConnectionType.VIRTUAL_SIMULATOR).isSimulator)
+        val sim = com.sarani.carobd.core.model.ConnectionState.Connected("sim", "ELM", "CAN", "test", 12f, isSimulator = true)
+        assertTrue(DashboardState(connectionState = sim, selectedConnectionType = ConnectionType.WIFI_TCP).isSimulator)
+        assertFalse(DashboardState(connectionState = sim.copy(isSimulator = false), selectedConnectionType = ConnectionType.VIRTUAL_SIMULATOR).isSimulator)
     }
 
     @Test
@@ -43,7 +38,7 @@ class DashboardStateTest {
         // §4: first-screen primary metrics must be exactly Speed/RPM/Coolant/
         // Battery in that order — and must NOT also render as 132dp circular
         // gauges (PrimaryMetricsRow owns them; defaults no longer include them).
-        assertEquals(listOf("010D", "010C", "0105", "0142"), primaryMetricPids())
+        assertEquals(listOf("010D", "010C", "0105", "ATRV"), primaryMetricPids())
     }
 
     @Test

@@ -94,7 +94,7 @@
     <string name="dashboard_metric_speed">Speed</string>
     <string name="dashboard_metric_rpm">RPM</string>
     <string name="dashboard_metric_coolant">Coolant</string>
-    <string name="dashboard_metric_battery">Battery</string>
+    <string name="dashboard_metric_battery">Adapter supply (ATRV)</string>
     <string name="dashboard_fuel_title">Fuel Consumption &amp; Range (%1$s)</string>
     <string name="dashboard_range_label">Remaining range on current fuel:</string>
     <string name="dashboard_cost_per_km">Cost per kilometer:</string>
@@ -144,4 +144,5 @@
     <string name="mil_off">Off (observed)</string>
     <string name="mil_unknown">Unknown / not measured</string>
     <string name="history_legacy">Legacy record: category, MIL and protocol were not verified.</string>
+    <string name="signal_stale">Stale</string>
 </resources>

@@ -46,7 +46,7 @@ import com.sarani.carobd.ui.theme.TextPrimary
 fun StatusHeader(
     connectionState: ConnectionState,
     activeProfile: VehicleProfile?,
-    batteryVoltage: Float,
+    batteryVoltage: Float?,
     onConnectClicked: () -> Unit,
     onDisconnectClicked: () -> Unit,
     modifier: Modifier = Modifier
@@ -101,7 +101,7 @@ fun StatusHeader(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (batteryVoltage > 0f) String.format(java.util.Locale.US, "%.1f V", batteryVoltage) else "—",
+                        text = if (batteryVoltage != null) String.format(java.util.Locale.US, "%.1f V", batteryVoltage) else "—",
                         color = TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -126,7 +126,7 @@ fun StatusHeader(
                         maxLines = 1
                     )
                     Text(
-                        text = activeProfile?.let { "${it.ecuName} • ${it.ecuProtocol.standard.displayName}" } ?: "—",
+                        text = (connectionState as? ConnectionState.Connected)?.let { "${if (it.isSimulator) "SIMULATOR · " else ""}${it.protocolName}" } ?: "—",
                         color = TextMuted,
                         fontSize = 11.sp,
                         maxLines = 1
