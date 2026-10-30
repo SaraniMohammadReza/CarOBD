@@ -68,7 +68,9 @@ class IsolatedSimulatorTransport(
     }
 
     private fun processCommand(cmd: String): String {
-        simulationStep += 0.1
+        // One deterministic snapshot per speed/poll cycle. Metadata requests do not
+        // advance engine state or make concurrently displayed sensors disagree.
+        if (cmd == "010D") simulationStep += 0.1
 
         // 1. AT Command Handling
         if (cmd.startsWith("AT")) {
@@ -82,7 +84,7 @@ class IsolatedSimulatorTransport(
                 cmd == "ATI" -> "ELM327 v1.5"
                 cmd == "AT@1" -> "CarObd Virtual Simulator"
                 cmd == "AT@2" -> "SIM-IKCO-TU5-2026"
-                cmd == "ATRV" -> "13.9V"
+                cmd == "ATRV" -> if (scenario == SimulatorScenario.ENGINE_STOPPED) "12.4V" else "13.9V"
                 cmd.startsWith("ATSP") -> "OK"
                 cmd == "ATDP" -> "ISO 15765-4 (CAN 11/500)"
                 cmd == "ATDPN" -> "6" // ISO 15765-4 CAN 11-bit 500k
@@ -105,12 +107,15 @@ class IsolatedSimulatorTransport(
             SimulatorScenario.MALFORMED -> if (cmd == "03") "43 FFFFFFFF" else respondOod(cmd)
             SimulatorScenario.MULTI_ECU -> if (cmd == "03") "7E8 43 01 01 33\r7E9 43 01 01 33\r7EA 7F 03 12" else respondOod(cmd)
             SimulatorScenario.STORED_DTC, SimulatorScenario.PENDING_DTC, SimulatorScenario.PERMANENT_DTC,
-            SimulatorScenario.DISCONNECT, SimulatorScenario.HEALTHY_VEHICLE, SimulatorScenario.LATE_PROMPT -> respondOod(cmd)
+            SimulatorScenario.ENGINE_STOPPED, SimulatorScenario.ENGINE_IDLE, SimulatorScenario.DISCONNECT, SimulatorScenario.HEALTHY_VEHICLE, SimulatorScenario.LATE_PROMPT -> respondOod(cmd)
             SimulatorScenario.BUFFER_FULL -> "BUFFER FULL"
         }
     }
 
     /** Healthy-vehicle synthetic responses for Mode 01/03/04/07/09 (§39 baseline). */
+    private val engineStopped get() = scenario == SimulatorScenario.ENGINE_STOPPED
+    private val stationary get() = engineStopped || scenario == SimulatorScenario.ENGINE_IDLE
+    private val speed get() = if (stationary) 0 else (60 + 20 * sin(simulationStep)).toInt()
     private fun respondOod(cmd: String): String = when {
         cmd == "0600" -> "46 00 80 00 00 00"
         cmd == "0601" -> "46 01 01 FE 00 10 00 00 FF FF"
@@ -118,20 +123,20 @@ class IsolatedSimulatorTransport(
         cmd == "020C00" -> "42 0C 00 1A F8"
         cmd == "020D00" -> "42 0D 00 55"
         // Mode 01 PID 00 (Supported PIDs 01-20)
-        cmd == "0100" -> "41 00 BE 3F B8 11"
+        cmd == "0100" -> "41 00 98 3F 80 01"
 
         // Mode 01 PID 20 (Supported PIDs 21-40)
-        cmd == "0120" -> "41 20 80 05 B0 11"
+        cmd == "0120" -> "41 20 00 02 00 01"
 
         // Mode 01 PID 40 (Supported PIDs 41-60)
-        cmd == "0140" -> "41 40 7A D0 80 00"
+        cmd == "0140" -> "41 40 40 00 00 00"
 
         // Mode 01 PID 01 (Monitor status)
         cmd == "0101" -> if (scenario == SimulatorScenario.STORED_DTC && !isDtcsCleared) "41 01 82 07 65 00" else "41 01 00 07 65 00"
 
         // Mode 01 PID 0C (RPM: 800 - 3200 with sine oscillation)
         cmd == "010C" -> {
-            val rpm = 1800 + (1000 * sin(simulationStep)).toInt()
+            val rpm = if (engineStopped) 0 else 800 + speed * 30
             val encoded = (rpm * 4)
             val a = (encoded ushr 8) and 0xFF
             val b = encoded and 0xFF
@@ -140,7 +145,7 @@ class IsolatedSimulatorTransport(
 
         // Mode 01 PID 0D (Speed: 0 - 110 km/h)
         cmd == "010D" -> {
-            val speed = (55 + (45 * sin(simulationStep * 0.7))).toInt().coerceIn(0, 160)
+            val speed = this.speed
             String.format("41 0D %02X", speed)
         }
 
@@ -153,14 +158,14 @@ class IsolatedSimulatorTransport(
 
         // Mode 01 PID 11 (Throttle: 15% - 65%)
         cmd == "0111" -> {
-            val throttlePercent = 35 + (20 * sin(simulationStep)).toFloat()
+            val throttlePercent = if (engineStopped) 0f else 15f + speed * 0.25f
             val raw = (throttlePercent * 255.0 / 100.0).toInt().coerceIn(0, 255)
             String.format("41 11 %02X", raw)
         }
 
         // Mode 01 PID 04 (Engine Load: 25% - 70%)
         cmd == "0104" -> {
-            val loadPercent = 40 + (25 * sin(simulationStep)).toFloat()
+            val loadPercent = if (engineStopped) 0f else 25f + speed * 0.3f
             val raw = (loadPercent * 255.0 / 100.0).toInt().coerceIn(0, 255)
             String.format("41 04 %02X", raw)
         }
@@ -179,14 +184,14 @@ class IsolatedSimulatorTransport(
 
         // Mode 01 PID 10 (MAF: 6.5 g/s)
         cmd == "0110" -> {
-            val maf = 6.5 + (3.0 * sin(simulationStep))
+            val maf = if (engineStopped) 0.0 else 2.5 + speed * 0.08
             val raw = (maf * 100.0).toInt().coerceIn(0, 65535)
             String.format("41 10 %02X %02X", (raw ushr 8) and 0xFF, raw and 0xFF)
         }
 
         // Mode 01 PID 42 (Control Module Voltage: 13.8V - 14.1V)
         cmd == "0142" -> {
-            val v = 13.9 + (0.2 * sin(simulationStep * 0.5))
+            val v = if (engineStopped) 12.4 else 13.9
             val raw = (v * 1000.0).toInt()
             String.format("41 42 %02X %02X", (raw ushr 8) and 0xFF, raw and 0xFF)
         }

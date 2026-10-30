@@ -40,7 +40,31 @@ class IsolatedSimulatorTransportTest {
         val t = IsolatedSimulatorTransport()
         t.connect()
         val out = t.collectResponse(this, "0100")
-        assertTrue("out=[$out]", out.contains("41 00 BE 3F B8 11"))
+        assertTrue("out=[$out]", out.contains("41 00 98 3F 80 01"))
+    }
+
+    @Test fun stoppedEngineRespondsWithZeroRpmSpeedAndMaf() = runTest {
+        val t = IsolatedSimulatorTransport(SimulatorScenario.ENGINE_STOPPED)
+        t.connect()
+        assertTrue(t.collectResponse(this, "010C").contains("41 0C 00 00"))
+        assertTrue(t.collectResponse(this, "010D").contains("41 0D 00"))
+        assertTrue(t.collectResponse(this, "0110").contains("41 10 00 00"))
+        assertTrue(t.collectResponse(this, "0142").contains("41 42 30 70"))
+    }
+    @Test fun metadataDoesNotChangeSensorSnapshotAndSupportIsTruthful() = runTest {
+        val t = IsolatedSimulatorTransport()
+        t.connect()
+        val rpm = t.collectResponse(this, "010C")
+        repeat(10) { t.collectResponse(this, "ATI") }
+        assertEquals(rpm, t.collectResponse(this, "010C"))
+        for (base in listOf(0, 32, 64)) {
+            val bitmap = t.collectResponse(this, "01%02X".format(base)).substringBefore("\r").split(" ").drop(2).joinToString("").toLong(16)
+            for (offset in 1..32) if (bitmap and (1L shl (32-offset)) != 0L) {
+                val command = "01%02X".format(base+offset)
+                assertTrue(command, t.collectResponse(this, command).startsWith("41 "))
+            }
+        }
+        assertTrue(t.collectResponse(this, "0112").contains("NO DATA"))
     }
 
     @Test
@@ -104,7 +128,7 @@ class IsolatedSimulatorTransportTest {
     fun latePromptStillDeliversResponse() = runTest {
         val t = IsolatedSimulatorTransport(SimulatorScenario.LATE_PROMPT)
         t.connect()
-        assertTrue(t.collectResponse(this, "0100").contains("41 00 BE 3F B8 11"))
+        assertTrue(t.collectResponse(this, "0100").contains("41 00 98 3F 80 01"))
     }
 
     @Test

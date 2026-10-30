@@ -10,10 +10,13 @@ enum class SimulatorScenario(
     val labelEn: String,
     val labelFa: String,
 ) {
-    HEALTHY_VEHICLE("healthy", "Healthy Vehicle", "خودرو سالم"),
+    HEALTHY_VEHICLE("healthy", "Steady cruise · no simulated DTCs", "حرکت یکنواخت · بدون کد خطای شبیه‌سازی‌شده"),
+
+    ENGINE_STOPPED("engine_stopped", "Engine stopped · ECU responding", "موتور خاموش · ECU پاسخ‌گو"),
+    ENGINE_IDLE("engine_idle", "Engine idling · stationary", "موتور درجا · خودرو متوقف"),
 
     /** ECU powers off / silent bus — no response frames are emitted (timeout path). */
-    ENGINE_OFF("engine_off", "Engine Off", "موتور خاموش"),
+    ENGINE_OFF("engine_off", "ECU powered off · silent", "ECU خاموش · بدون پاسخ"),
 
     /** ECU is silent; commands elicit no response, triggering adapter timeout. */
     TIMEOUT("timeout", "Timeout (Silent)", "تایم‌آوت (بی‌صدا)"),
