@@ -112,6 +112,8 @@ class IsolatedSimulatorTransport(
 
     /** Healthy-vehicle synthetic responses for Mode 01/03/04/07/09 (§39 baseline). */
     private fun respondOod(cmd: String): String = when {
+        cmd == "0600" -> "46 00 80 00 00 00"
+        cmd == "0601" -> "46 01 01 FE 00 10 00 00 FF FF"
         cmd == "020000" -> "42 00 00 00 18 00 00"
         cmd == "020C00" -> "42 0C 00 1A F8"
         cmd == "020D00" -> "42 0D 00 55"

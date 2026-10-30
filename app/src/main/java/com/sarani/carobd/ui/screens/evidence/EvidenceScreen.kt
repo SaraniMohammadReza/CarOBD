@@ -11,9 +11,10 @@ import androidx.compose.ui.unit.dp
 import com.sarani.carobd.R
 
 @Composable
-fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onFreezeFrame: () -> Unit, onRecordings: () -> Unit, onHistory: () -> Unit) {
+fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onFreezeFrame: () -> Unit, onRecordings: () -> Unit, onHistory: () -> Unit, onMonitorTests: () -> Unit) {
     val state by viewModel.state.collectAsState()
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = onMonitorTests) { Text(stringResource(R.string.monitor_tests)) }
         TextButton(onClick = onHistory) { Text(stringResource(R.string.dtc_history)) }
         TextButton(onClick = onRecordings) { Text(stringResource(R.string.recordings_title)) }
         TextButton(onClick = onFreezeFrame) { Text(stringResource(R.string.freeze_frame)) }
@@ -94,6 +95,27 @@ fun DtcHistoryScreen(viewModel: DtcHistoryViewModel) {
             if (s.legacy) Text(stringResource(R.string.history_legacy))
             if (s.codes.isEmpty()) Text(stringResource(R.string.dtc_no_codes))
             s.codes.forEach { c -> Text("${c.code} · ${c.category ?: "—"} · ${c.responder ?: "—"}") }
+        }
+    }
+}
+
+@Composable
+fun MonitorTestsScreen(viewModel: MonitorTestsViewModel) {
+    val state by viewModel.state.collectAsState()
+    var mid by remember { mutableStateOf("01") }
+    val number = mid.toIntOrNull(16)
+    Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.monitor_tests))
+        Text(stringResource(R.string.monitor_tests_limits))
+        OutlinedTextField(mid, { if (it.length <= 2 && it.all { c -> c in "0123456789abcdefABCDEF" }) mid = it.uppercase() }, label = { Text("MID (hex)") })
+        Button(enabled = !state.loading && number != null && number in 1..255 && number % 32 != 0, onClick = { number?.let(viewModel::refresh) }) { Text(stringResource(R.string.read_evidence)) }
+        Text(state.source)
+        if (state.loading) CircularProgressIndicator()
+        state.readings.forEach { r ->
+            Text(com.sarani.carobd.ui.components.readingLabel(r.state) + " · " + (r.evidence.firstOrNull()?.responderId ?: "—"))
+            r.value?.forEach { record -> Text("MID %02X · TID %02X · UASID %02X\nRAW %04X / %04X / %04X".format(record.monitorId, record.testId, record.unitScalingId, record.rawMeasured, record.rawMinimum, record.rawMaximum)) }
+            r.detail?.let { Text(it) }
+            Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
         }
     }
 }

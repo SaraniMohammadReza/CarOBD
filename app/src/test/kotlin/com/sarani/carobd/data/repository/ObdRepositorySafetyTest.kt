@@ -268,4 +268,24 @@ class ObdRepositorySafetyTest {
         repo.disconnect()
     }
 
+    @Test fun mode06ProductionPathKeepsUnknownScalingAndFailedPeers() = runTest {
+        val t = Physical(can = true); t.overrides = mapOf("0600" to "7E8 460080000000\r7E9 7F 06 12", "0601" to "7E8 460101FE80010000FFFF")
+        val repo = repository(backgroundScope, t)
+        assertTrue(repo.connect(profile).isSuccess)
+        val r = com.sarani.carobd.domain.usecase.MonitorTestsUseCase(repo)(1)
+        assertTrue(r.any { it.state == ReadingState.NegativeResponse && it.evidence.single().responderId == "7E9" })
+        val record = r.first { it.value != null }.value!!.single()
+        assertEquals(32769, record.rawMeasured); assertNull(record.passed); assertNull(record.measured)
+        assertFalse(t.writes.any { it == "04" || it.startsWith("08") || it.startsWith("05") })
+        repo.disconnect()
+    }
+    @Test fun mode06DoesNotApplyCanLayoutToNonCanOrBlindlyReadMonitor() = runTest {
+        val t = Physical(); val repo = repository(backgroundScope, t)
+        assertTrue(repo.connect(profile).isSuccess)
+        val r = com.sarani.carobd.domain.usecase.MonitorTestsUseCase(repo)(1)
+        assertEquals(ReadingState.Unsupported, r.single().state)
+        assertFalse(t.writes.any { it.startsWith("06") })
+        repo.disconnect()
+    }
+
 }

@@ -11,7 +11,7 @@ object ElmResponseEnvelopeParser {
         val lines = rawLines.filter { it.isNotBlank() && !it.trim().equals("SEARCHING...", true) }
         // ELM CAF1 numbered CAN output: explicit total length and sequence, one
         // headerless assembly only. Never infer a responder or merge ECU streams.
-        if (request.startsWith("09") && lines.firstOrNull()?.trim()?.matches(Regex("[0-9A-Fa-f]{3}")) == true && lines.drop(1).any { it.contains(":") }) {
+        if (request.take(2) in setOf("09", "06") && lines.firstOrNull()?.trim()?.matches(Regex("[0-9A-Fa-f]{3}")) == true && lines.drop(1).any { it.contains(":") }) {
             val total = lines.first().trim().toInt(16)
             val bytes = mutableListOf<Byte>()
             var valid = total in 3..4095 && lines.size <= 600
@@ -27,7 +27,7 @@ object ElmResponseEnvelopeParser {
                 val result = (decoded.result as? DiagnosticResult.Positive)?.copy(rawLines = lines) ?: decoded.result
                 return listOf(decoded.copy(rawLines = lines, result = result))
             }
-            return listOf(DiagnosticWireResponse(request, null, lines, byteArrayOf(), DiagnosticService.MODE_09, IsoTpFraming.RAW,
+            return listOf(DiagnosticWireResponse(request, null, lines, byteArrayOf(), DiagnosticService.fromNegativeServiceByte(request.take(2).toInt(16)), IsoTpFraming.RAW,
                 timestampMs, elapsedMs, DiagnosticResult.Malformed("Invalid numbered ELM assembly", lines)))
         }
         return lines.map { line -> parseLine(request, line.trim().removePrefix("SEARCHING...").trim(), timestampMs, elapsedMs) }

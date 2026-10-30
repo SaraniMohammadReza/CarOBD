@@ -282,4 +282,6 @@
     <string name="issue_unknown">اتصال در دسترس نیست؛ شواهد تشخیصی زیر را بررسی کنید.</string>
     <string name="issue_timeout">مهلت اتصال یا پاسخ آداپتور تمام شد؛ پیوند و تنظیمات مهلت را بررسی کنید.</string>
     <string name="issue_transport_eof">مسیر انتقال بسته شد؛ نشست دیگر متصل نیست.</string>
+    <string name="monitor_tests">شواهد پایش Mode06</string>
+    <string name="monitor_tests_limits">فقط رکورد CAN خوانده می‌شود. فیلد خام شامل الگوی بیت مقدار، کمینه و بیشینه است؛ واحد، علامت، معنی اختصاصی سازنده و قبولی/رد نامشخص می‌ماند. Mode05 در دسترس نیست. آزمون عملگر آغاز نمی‌شود.</string>
 </resources>

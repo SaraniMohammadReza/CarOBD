@@ -282,4 +282,6 @@
     <string name="issue_unknown">Connection unavailable. Review the diagnostic evidence below.</string>
     <string name="issue_timeout">Connection or adapter response timed out. Check the link and bounded timeout settings.</string>
     <string name="issue_transport_eof">Transport ended. The session is no longer connected.</string>
+    <string name="monitor_tests">Mode06 monitor evidence</string>
+    <string name="monitor_tests_limits">CAN records only. Raw fields are measured/minimum/maximum bit patterns; units, signedness, manufacturer meaning and pass/fail remain unknown. Mode05 is unavailable. No actuator tests are started.</string>
 </resources>
