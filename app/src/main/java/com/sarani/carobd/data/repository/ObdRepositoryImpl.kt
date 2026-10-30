@@ -64,6 +64,7 @@ class ObdRepositoryImpl(
     private val createTransport: (TransportConfig) -> com.sarani.carobd.core.adapter.transport.ObdTransport = {
         TransportFactory.createTransport(it, requireNotNull(context))
     },
+    private val recordings: com.sarani.carobd.data.recording.RecordingController? = null,
     private val admitTransport: (TransportConfig) -> Unit = { if (it is TransportConfig.BluetoothClassic || it is TransportConfig.Ble) com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(requireNotNull(context), it) },
     private val admitBackground: () -> Unit = { context?.let { com.sarani.carobd.core.permissions.AndroidAccess.require(it, com.sarani.carobd.core.model.RuntimeAccess.Notifications) } },
     private val startService: (String) -> Unit = { com.sarani.carobd.service.ConnectionForegroundService.start(requireNotNull(context), it) },
@@ -178,7 +179,9 @@ class ObdRepositoryImpl(
                     }
                     admitTransport(profile.transport)
                     if (!testOnly) admitBackground()
-                    val transport = createTransport(profile.transport)
+                    recordings?.session(profile)
+                    val rawTransport = createTransport(profile.transport)
+                    val transport = if (recordings != null) com.sarani.carobd.core.adapter.transport.RecordingTransport(rawTransport, { recordings.builder }, recordings::failure) else rawTransport
                     check(transport.transportType == profile.transport.type) { "Transport identity mismatch" }
                     lateinit var session: DiagnosticSession
                     session = DiagnosticSession(transport, scope,
@@ -188,7 +191,7 @@ class ObdRepositoryImpl(
                             val lost = created
                             scope.launch { sessionMutex.withLock { if (lost != null && activeSession === lost) disconnectLocked() } }
                         }, connectTimeoutMs = profile.connectTimeoutMs,
-                        commandTimeoutMs = profile.commandTimeoutMs, onEvidence = onEvidence)
+                        commandTimeoutMs = profile.commandTimeoutMs, onEvidence = onEvidence, onResponse = { command, response -> recordings?.parsed(command, response) })
                     activeCommandTimeoutMs = profile.commandTimeoutMs
                     created = session
                     activeSession = session
@@ -199,6 +202,7 @@ class ObdRepositoryImpl(
                         disconnectLocked()
                     } else {
                         currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
+                        (session.adapter.state.value as? ConnectionState.Connected)?.let { recordings?.identity(it) }
                         _connectionState.value = session.adapter.state.value
                         startTelemetryLoop()
                         val serviceId = UUID.randomUUID().toString()
@@ -254,6 +258,7 @@ class ObdRepositoryImpl(
         val old = activeSession
         activeSession = null // Generation guard closes BEFORE cancellation/join.
         old?.close()
+        recordings?.disconnected()
         currentTripComputer?.getTripRecord()?.let { record ->
             if (record.distanceKm > 0.05 || record.durationSeconds > 30) runCatching { database.insertTripRecord(record) }
         }

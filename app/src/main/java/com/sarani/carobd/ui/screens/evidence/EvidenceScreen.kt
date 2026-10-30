@@ -11,9 +11,10 @@ import androidx.compose.ui.unit.dp
 import com.sarani.carobd.R
 
 @Composable
-fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onFreezeFrame: () -> Unit) {
+fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onFreezeFrame: () -> Unit, onRecordings: () -> Unit) {
     val state by viewModel.state.collectAsState()
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = onRecordings) { Text(stringResource(R.string.recordings_title)) }
         TextButton(onClick = onFreezeFrame) { Text(stringResource(R.string.freeze_frame)) }
         TextButton(onClick = onVehicleInfo) { Text(stringResource(R.string.vehicle_information)) }
         Text(stringResource(R.string.readiness_title))

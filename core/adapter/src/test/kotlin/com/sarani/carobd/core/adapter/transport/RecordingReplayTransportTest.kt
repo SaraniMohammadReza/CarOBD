@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.runCurrent
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -48,7 +49,7 @@ class RecordingReplayTransportTest {
     private suspend fun Flow<ByteArray>.drain(scope: TestScope): List<ByteArray> {
         val out = mutableListOf<ByteArray>()
         val job = scope.launch { toList(out) }
-        scope.advanceUntilIdle()
+        scope.runCurrent(); scope.testScheduler.advanceTimeBy(100); scope.runCurrent(); scope.advanceUntilIdle()
         job.cancel()
         return out
     }
@@ -83,15 +84,17 @@ class RecordingReplayTransportTest {
                 DiagnosticEvent(Direction.ERR, 1030L, 30L, null, "BUS INIT: ERROR", outcome = DiagnosticOutcome.ADAPTER_FAILURE)
             )
         )
-        val replay = ReplayTransport(t)
+        val replay = ReplayTransport(t, parentScope = backgroundScope)
         replay.connect()
 
+        replay.write("0100\r".toByteArray())
         val collected = replay.incomingBytes.drain(this)
         // Only RX frames are emitted; TX and ERR are not wire returns.
         assertEquals(2, collected.size)
         assertArrayEquals("41 00 BE 3F B8 11".toByteArray(Charsets.US_ASCII), collected[0])
         assertArrayEquals("41 0C 1A F8".toByteArray(Charsets.US_ASCII), collected[1])
-        assertEquals("BLUETOOTH_CLASSIC", replay.transportType.name)
+        assertEquals("SIMULATOR", replay.transportType.name)
+        replay.disconnect()
     }
 
     @Test
@@ -111,11 +114,15 @@ class RecordingReplayTransportTest {
         assertEquals(original.events.size, reloaded.events.size)
         assertEquals(original.events, reloaded.events)
 
-        val replay = ReplayTransport(reloaded)
+        val replay = ReplayTransport(reloaded, parentScope = backgroundScope)
         replay.connect()
+        replay.write("0100\r".toByteArray())
+        runCurrent()
+        replay.write("03\r".toByteArray())
         val frames = replay.incomingBytes.drain(this)
         assertEquals(2, frames.size)
         assertArrayEquals("41 00 BE 3F B8 11".toByteArray(Charsets.US_ASCII), frames[0])
         assertArrayEquals("43 02 01 33 03 00".toByteArray(Charsets.US_ASCII), frames[1])
+        replay.disconnect()
     }
 }

@@ -131,4 +131,12 @@
     <string name="freeze_frame">Freeze-frame evidence</string>
     <string name="frame_index">Frame index (0–255)</string>
     <string name="frame_limitations">Only the selected frame and advertised base-page PIDs are read. This is not a list of all stored frames.</string>
+    <string name="recordings_title">Diagnostic recordings</string>
+    <string name="record_start">Start recording</string>
+    <string name="record_stop">Stop and save</string>
+    <string name="record_refresh">Refresh</string>
+    <string name="record_import">Import JSON</string>
+    <string name="record_replay">Isolated replay</string>
+    <string name="record_delete">Delete</string>
+    <string name="recording_limitations">Connect first, then start capture. Captures begin now, not at session initialization. Snapshots are saved every second and on stop. Replay is offline and never opens hardware. Detail preview is limited to 100 events; exports contain all events.</string>
 </resources>

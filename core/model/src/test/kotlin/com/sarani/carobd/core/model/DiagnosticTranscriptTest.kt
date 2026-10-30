@@ -87,7 +87,8 @@ class DiagnosticTranscriptTest {
             DiagnosticOutcome.ADAPTER_FAILURE,
             DiagnosticOutcome.MALFORMED,
             DiagnosticOutcome.PARTIAL,
-            DiagnosticOutcome.UNSUPPORTED
+            DiagnosticOutcome.UNSUPPORTED,
+            DiagnosticOutcome.RAW
         )
         assertEquals(expected, DiagnosticOutcome.entries.toSet())
     }

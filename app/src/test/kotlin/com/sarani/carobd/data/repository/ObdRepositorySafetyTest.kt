@@ -37,7 +37,7 @@ class ObdRepositorySafetyTest {
             rx.emit((raw + "\r>").toByteArray())
         }
     }
-    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical) = ObdRepositoryImpl(
+    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null) = ObdRepositoryImpl(
         context = null,
         activeVehicleRepository = ActiveVehicleRepository(MutableStateFlow(null), {}, {}),
         appPreferencesManager = null,
@@ -45,7 +45,7 @@ class ObdRepositorySafetyTest {
         scope = scope,
         ioDispatcher = scope.coroutineContext[kotlin.coroutines.ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
         pollModeFlow = MutableStateFlow(TelemetryPollMode.NORMAL),
-        createTransport = { physical }, startService = {}, stopService = {},
+        createTransport = { physical }, recordings = recordings, startService = {}, stopService = {},
     )
     private val profile = ConnectionProfile("test", "bench", TransportConfig.Wifi("bench", 35000))
     @Test fun repository_actualScanPathPreservesAllThreeNonCanCategories() = runTest {
@@ -231,6 +231,27 @@ class ObdRepositorySafetyTest {
         assertFalse(t.writes.contains("020C00"))
         assertFalse(t.writes.any { it == "04" || it.startsWith("08") })
         repo.disconnect()
+    }
+
+    @Test fun recordingObservesProductionWireWithoutTrimmingAndPersists() = runTest {
+        val directory = java.nio.file.Files.createTempDirectory("recording-production").toFile()
+        try {
+            val store = com.sarani.carobd.core.adapter.transport.FileTranscriptStore(directory)
+            val recording = com.sarani.carobd.data.recording.RecordingController(store, backgroundScope)
+            val t = Physical(); t.overrides = mapOf("0101" to "41 01 83 07 65 00")
+            val repo = repository(backgroundScope, t, recording)
+            assertTrue(repo.connect(profile).isSuccess)
+            recording.start()
+            assertTrue(repo.readEvidence("0101").isSuccess)
+            recording.stop()
+            val capture = store.read(store.list().single().sessionId)
+            assertEquals("0101\r", capture.events.first { it.direction == Direction.TX && it.command == "0101" }.rawHex)
+            assertEquals("41 01 83 07 65 00\r>", capture.events.first { it.direction == Direction.RX && it.rawHex.startsWith("41 01") }.rawHex)
+            assertTrue(capture.events.any { it.command == "0101" && it.protocolMetadata["event"] == "parsed" && it.outcome == DiagnosticOutcome.POSITIVE })
+            assertNull(capture.events.first { it.direction == Direction.RX }.responder)
+            assertFalse(capture.metadata.vehicleProtocol.isNullOrBlank())
+            repo.disconnect()
+        } finally { directory.deleteRecursively() }
     }
 
 }

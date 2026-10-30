@@ -39,7 +39,8 @@ open class Elm327Adapter(
     private val transport: ObdTransport,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
     private val maxCommandTimeoutMs: Long = 30_000L,
-    private val onEvidence: (ConnectionTestEvidence) -> Unit = {}
+    private val onEvidence: (ConnectionTestEvidence) -> Unit = {},
+    private val onResponse: (String, AdapterResponse) -> Unit = { _, _ -> }
 ) : ObdAdapter {
 
     private val _state = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
@@ -330,6 +331,12 @@ open class Elm327Adapter(
     }
 
     private suspend fun dispatch(authorized: AuthorizedDiagnosticCommand, timeoutMs: Long): AdapterResponse {
+        val response = dispatchInternal(authorized, timeoutMs)
+        runCatching { onResponse(authorized.canonical, response) }
+        return response
+    }
+
+    private suspend fun dispatchInternal(authorized: AuthorizedDiagnosticCommand, timeoutMs: Long): AdapterResponse {
         val command = authorized.canonical
         val startTime = System.currentTimeMillis()
         // §5: a prior timeout that could not be resynchronised leaves the inbound

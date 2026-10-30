@@ -20,7 +20,8 @@ class DiagnosticSession(
     connectTimeoutMs: Long = 3000L,
     commandTimeoutMs: Long = 2500L,
     onEvidence: (ConnectionTestEvidence) -> Unit = {},
-    adapterFactory: (ObdTransport, CoroutineScope) -> ObdAdapter = { t, s -> Elm327Adapter(t, s, commandTimeoutMs, onEvidence) },
+    onResponse: (String, com.sarani.carobd.core.adapter.command.AdapterResponse) -> Unit = { _, _ -> },
+    adapterFactory: (ObdTransport, CoroutineScope) -> ObdAdapter = { t, s -> Elm327Adapter(t, s, commandTimeoutMs, onEvidence, onResponse) },
 ) {
     private val owner = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext + owner)

@@ -1,59 +1,43 @@
 package com.sarani.carobd.core.model
 
-/**
- * Mutable accumulator that builds a [DiagnosticTranscript] as frames cross the
- * wire (§38). The [RecordingTransport] feeds it; the adapter layer can also
- * annotate events with responder/outcome after parsing.
- */
-class DiagnosticTranscriptBuilder(private val metadata: TranscriptMetadata) {
-
+/** Serialized wire observation with monotonic elapsed time; snapshots never expose mutable lists. */
+class DiagnosticTranscriptBuilder(private var metadata: TranscriptMetadata) {
     private val events = mutableListOf<DiagnosticEvent>()
-    private val startedAt = metadata.startedAtMs
+    private val startedNanos = System.nanoTime()
     private var connected = false
-
-    /** Records a host->wire transmit (command already ASCII-hex normalized). */
-    fun recordTx(command: String) = add(Direction.TX, command, command)
-
-    /** Records a wire->host receive (raw ASCII-hex frame, already normalized). */
-    fun recordRx(rawHex: String, responder: String? = null,
-                 outcome: DiagnosticOutcome = DiagnosticOutcome.POSITIVE,
-                 protocolMetadata: Map<String, String> = emptyMap()) =
-        add(Direction.RX, null, rawHex, responder, outcome, protocolMetadata)
-
-    /** Records an adapter-side error line (UNABLE TO CONNECT, CAN ERROR, ...). */
-    fun recordErr(message: String) = add(Direction.ERR, null, message, null,
-        DiagnosticOutcome.ADAPTER_FAILURE)
-
-    fun recordConnect() {
-        connected = true
-        // transport connect is implicit in startedAt; no frame emitted.
+    private var characters = 0
+    @Synchronized fun recordTx(command: String, raw: String = command) = add(Direction.TX, command, raw)
+    @Synchronized fun recordRx(rawHex: String, responder: String? = null, outcome: DiagnosticOutcome = DiagnosticOutcome.RAW,
+        protocolMetadata: Map<String, String> = emptyMap()) = add(Direction.RX, null, rawHex, responder, outcome, protocolMetadata)
+    @Synchronized fun recordErr(message: String) = add(Direction.ERR, null, message, outcome = DiagnosticOutcome.ADAPTER_FAILURE)
+    @Synchronized fun recordParsed(command: String, envelope: DiagnosticWireResponse) {
+        val outcome = when (envelope.result) {
+            is DiagnosticResult.Positive -> DiagnosticOutcome.POSITIVE
+            is DiagnosticResult.NegativeResponse -> DiagnosticOutcome.NEGATIVE_RESPONSE
+            is DiagnosticResult.NoData -> DiagnosticOutcome.NO_DATA
+            DiagnosticResult.Timeout -> DiagnosticOutcome.TIMEOUT
+            is DiagnosticResult.Malformed -> DiagnosticOutcome.MALFORMED
+            is DiagnosticResult.Partial -> DiagnosticOutcome.PARTIAL
+            is DiagnosticResult.Unsupported -> DiagnosticOutcome.UNSUPPORTED
+            is DiagnosticResult.AdapterFailure -> DiagnosticOutcome.ADAPTER_FAILURE
+        }
+        add(Direction.ERR, command, envelope.rawLines.joinToString("\r"), envelope.responderId, outcome, mapOf("event" to "parsed", "service" to envelope.service.name))
     }
-
-    fun recordDisconnect() {
+    @Synchronized fun updateIdentity(adapter: String?, protocol: String?) { metadata = metadata.copy(adapterIdentity = adapter, vehicleProtocol = protocol) }
+    @Synchronized fun recordConnect() { connected = true }
+    @Synchronized fun recordDisconnect() {
+        if (connected) add(Direction.ERR, null, "", outcome = DiagnosticOutcome.ADAPTER_FAILURE, extra = mapOf("event" to "disconnect"))
         connected = false
     }
-
-    fun isLive(): Boolean = connected
-
-    private fun add(direction: Direction, command: String?, rawHex: String,
-                    responder: String? = null,
-                    outcome: DiagnosticOutcome = DiagnosticOutcome.POSITIVE,
-                    protocolMetadata: Map<String, String> = emptyMap()) {
-        val now = System.currentTimeMillis()
-        events.add(
-            DiagnosticEvent(
-                direction = direction,
-                timestampMs = now,
-                elapsedMs = now - startedAt,
-                command = command,
-                rawHex = rawHex,
-                responder = responder,
-                outcome = outcome,
-                protocolMetadata = protocolMetadata
-            )
-        )
+    @Synchronized fun isLive(): Boolean = connected
+    private fun add(direction: Direction, command: String?, raw: String, responder: String? = null,
+        outcome: DiagnosticOutcome = DiagnosticOutcome.RAW, extra: Map<String, String> = emptyMap()) {
+        check(events.size < 50_000) { "Recording event limit reached" }
+        require(raw.length <= 65_536) { "Recording frame limit reached" }
+        check(characters + raw.length <= 1_048_576) { "Recording byte budget reached" }
+        characters += raw.length
+        events += DiagnosticEvent(direction, System.currentTimeMillis(), (System.nanoTime() - startedNanos) / 1_000_000,
+            command, raw, responder, outcome, extra.toMap())
     }
-
-    /** Snapshotted, immutable transcript ready for export or replay. */
-    fun toTranscript(): DiagnosticTranscript = DiagnosticTranscript(metadata, events.toList())
+    @Synchronized fun toTranscript() = DiagnosticTranscript(metadata, events.toList())
 }

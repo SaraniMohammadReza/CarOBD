@@ -74,10 +74,13 @@ class DashboardViewModel(
     private val connectUseCase: ConnectUseCase,
     private val disconnectUseCase: DisconnectUseCase,
     private val appPreferencesManager: AppPreferencesManager,
-    private val bluetoothScanner: com.sarani.carobd.core.connectivity.BluetoothDeviceScanner
+    private val bluetoothScanner: com.sarani.carobd.core.connectivity.BluetoothDeviceScanner,
+    recordings: com.sarani.carobd.data.recording.RecordingController? = null,
 ) : MviViewModel<DashboardState, DashboardIntent, DashboardEffect>(
     DashboardState(widgets = appPreferencesManager.getDefaultWidgets())
 ) {
+
+    val recordingState = recordings?.state ?: kotlinx.coroutines.flow.MutableStateFlow("Stopped")
 
     init {
         // Observe preferences & onboarding state

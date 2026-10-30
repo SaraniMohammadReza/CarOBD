@@ -131,4 +131,12 @@
     <string name="freeze_frame">شواهد فریز فریم</string>
     <string name="frame_index">شماره فریم (۰ تا ۲۵۵)</string>
     <string name="frame_limitations">فقط فریم انتخاب‌شده و پارامترهای اعلام‌شده صفحه پایه خوانده می‌شوند؛ این فهرست همه فریم‌های ذخیره‌شده نیست.</string>
+    <string name="recordings_title">ضبط نشست‌های عیب‌یابی</string>
+    <string name="record_start">شروع ضبط</string>
+    <string name="record_stop">توقف و ذخیره</string>
+    <string name="record_refresh">بازخوانی</string>
+    <string name="record_import">ورود JSON</string>
+    <string name="record_replay">بازپخش ایزوله</string>
+    <string name="record_delete">حذف</string>
+    <string name="recording_limitations">ابتدا متصل شوید، سپس ضبط را شروع کنید. ضبط از همین لحظه آغاز می‌شود. ذخیره هر ثانیه و هنگام توقف انجام می‌شود. بازپخش آفلاین است و به سخت‌افزار دسترسی ندارد. پیش‌نمایش ۱۰۰ رویداد است؛ خروجی همه رویدادها را دارد.</string>
 </resources>

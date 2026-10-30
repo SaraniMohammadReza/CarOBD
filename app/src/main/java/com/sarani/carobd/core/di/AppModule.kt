@@ -27,9 +27,10 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
+    single { com.sarani.carobd.data.recording.RecordingController(com.sarani.carobd.core.adapter.transport.FileTranscriptStore(java.io.File(androidContext().filesDir, "diagnostic-transcripts"))) }
     // Repositories, Loggers, Scanners & Storage
     single { val p = get<com.sarani.carobd.core.storage.AppPreferencesManager>(); ActiveVehicleRepository(p.activeVehicleId, { p.setActiveVehicleId(it) }, { p.clearActiveVehicleId() }) }
-    single<ObdRepository> { ObdRepositoryImpl(androidContext(), get(), get(), get()) }
+    single<ObdRepository> { ObdRepositoryImpl(androidContext(), get(), get(), get(), recordings = get()) }
     single<com.sarani.carobd.core.adapter.profile.ConnectionProfileRepository> {
         com.sarani.carobd.data.repository.DataStoreConnectionProfileRepository(androidContext())
     }
@@ -56,9 +57,11 @@ val appModule = module {
     factory { com.sarani.carobd.domain.usecase.FreezeFrameUseCase(get()) }
     viewModel { com.sarani.carobd.ui.screens.evidence.FreezeFrameViewModel(get()) }
 
+    viewModel { com.sarani.carobd.ui.screens.recording.RecordingViewModel(get()) }
+
     // ViewModels
     viewModel { ConnectionCenterViewModel(get(), get()) }
-    viewModel { DashboardViewModel(get(), get(), get(), get(), get()) }
+    viewModel { DashboardViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { DiagnosticsViewModel(get(), get()) }
     viewModel { VehicleProfileViewModel(get(), get(), get()) }
     viewModel { TerminalViewModel(get()) }

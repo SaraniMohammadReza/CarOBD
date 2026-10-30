@@ -1,65 +1,60 @@
 package com.sarani.carobd.core.adapter.transport
 
-import com.sarani.carobd.core.model.DiagnosticTranscript
-import com.sarani.carobd.core.model.Direction
-import com.sarani.carobd.core.model.TransportType
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
+import com.sarani.carobd.core.adapter.safety.AuthorizedDiagnosticCommand
+import com.sarani.carobd.core.adapter.safety.SingleCommandParser
+import com.sarani.carobd.core.model.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.flow
+import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Replays a recorded [DiagnosticTranscript] as a live [ObdTransport] (§38).
- *
- * `write` is a no-op (replay is read-only); [incomingBytes] emits the recorded
- * RX frames in capture order, optionally honoring the recorded inter-frame
- * timing so the adapter's timeout / late-prompt logic can be exercised against
- * previously captured physical sessions. The emitted bytes flow through the
- * **same** parsing stack as a live transport, so a recording becomes a
- * regression fixture for framing, multi-ECU and ISO-TP behaviour.
- *
- * This is explicitly a software-only replay: [transportType] advertises the
- * *original* recording transport for traceability and never asserts a physical
- * link is present.
- */
+/** Isolated one-shot, command-correlated replay. There is no physical delegate. */
 class ReplayTransport(
     private val transcript: DiagnosticTranscript,
-    /** When true, delay each RX frame by its recorded elapsed delta (deterministic). */
-    private val replayTiming: Boolean = false
+    private val replayTiming: Boolean = true,
+    parentScope: CoroutineScope = CoroutineScope(Dispatchers.Default),
 ) : ObdTransport {
-
-    /** Precomputed (ascii bytes, elapsedMs) of each recorded RX frame, in order. */
-    private val rxFrames: List<Pair<ByteArray, Long>> = transcript.events
-        .filter { it.direction == Direction.RX }
-        .mapNotNull { e ->
-            val ascii = e.rawHex.trim()
-            if (ascii.isEmpty()) null else ascii.toByteArray(Charsets.US_ASCII) to e.elapsedMs
-        }
-
-    override val transportType: TransportType get() = transcript.metadata.transportType
-    private var connected = false
-    override val isConnected: Boolean get() = connected
-
-    override suspend fun connect() {
-        connected = true
-    }
-
-    override suspend fun disconnect() {
-        connected = false
-    }
-
-    override suspend fun write(data: ByteArray) {
-        // Read-only replay: commands are ignored; recorded RX is emitted on demand.
-    }
-
-    override val incomingBytes: Flow<ByteArray> = flow {
-        var prev: Long? = null
-        for ((bytes, elapsed) in rxFrames) {
-            if (replayTiming && prev != null) {
-                val delayMs = elapsed - prev
-                if (delayMs > 0) delay(delayMs)
+    private val owner = SupervisorJob(parentScope.coroutineContext[Job])
+    private val scope = CoroutineScope(parentScope.coroutineContext + owner)
+    private val incoming = Channel<ByteArray>(64)
+    private val collected = AtomicBoolean(false)
+    private val segments = transcript.events.indices.filter { transcript.events[it].direction == Direction.TX }
+    private var position = 0
+    private var pending: Job? = null
+    private var retired = false
+    @Volatile private var connected = false
+    override val transportType = TransportType.SIMULATOR
+    override val isConnected get() = connected
+    override suspend fun connect() { check(!retired) { "Replay retired" }; connected = true }
+    override suspend fun disconnect() { connected = false; retired = true; owner.cancel(); incoming.close() }
+    override suspend fun write(data: ByteArray) = synchronized(this) {
+        check(connected && !retired) { "Replay disconnected" }
+        check(pending?.isActive != true) { "Replay response still pending" }
+        val command = SingleCommandParser.canonicalize(data.toString(Charsets.US_ASCII).removeSuffix("\r"))
+            ?: error("Invalid replay command")
+        check(AuthorizedDiagnosticCommand.initialization(command) != null) { "Unsafe replay command denied" }
+        check(position < segments.size) { "Replay exhausted" }
+        val start = segments[position]
+        val tx = transcript.events[start]
+        val expected = SingleCommandParser.canonicalize((tx.command ?: tx.rawHex).removeSuffix("\r"))
+        check(command == expected) { "Replay command mismatch: expected $expected" }
+        val end = segments.getOrNull(position + 1) ?: transcript.events.size
+        val response = transcript.events.subList(start + 1, end)
+        require(response.all { it.elapsedMs >= tx.elapsedMs && it.elapsedMs - tx.elapsedMs <= 60_000 }) { "Replay timing outside bounded window" }
+        position++
+        pending = scope.launch {
+            var previous = tx.elapsedMs
+            for (event in response) {
+                if (replayTiming) delay(event.elapsedMs - previous)
+                previous = event.elapsedMs
+                if (!connected) break
+                if (event.direction == Direction.RX) incoming.send(event.rawHex.toByteArray(Charsets.ISO_8859_1))
+                if (event.protocolMetadata["event"] == "disconnect") { connected = false; incoming.close(); break }
             }
-            prev = elapsed
-            emit(bytes)
         }
+    }
+    override val incomingBytes = flow {
+        check(collected.compareAndSet(false, true)) { "Replay has one reader" }
+        for (bytes in incoming) emit(bytes)
     }
 }

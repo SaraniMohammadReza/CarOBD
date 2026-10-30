@@ -1,53 +1,26 @@
 package com.sarani.carobd.core.adapter.transport
 
-import com.sarani.carobd.core.model.DiagnosticTranscriptBuilder
-import com.sarani.carobd.core.model.TransportType
-import kotlinx.coroutines.flow.Flow
+import com.sarani.carobd.core.model.*
 import kotlinx.coroutines.flow.onEach
 
-/**
- * Decorates an [ObdTransport], recording every TX/RX/ERR frame together with
- * timing into a [DiagnosticTranscriptBuilder] (§38).
- *
- * Transparent to the adapter: [incomingBytes] is the same byte sequence the
- * delegate would have produced, so the existing parsing stack is unchanged.
- * Transport-layer recording captures raw wire fidelity (timestamp, elapsed, TX,
- * RX, ERR); the adapter layer is responsible for annotating responder/outcome
- * once framing is decoded. Adapter write failures are recorded as [ERR] before
- * being rethrown.
- */
+/** Passive wire observation. Recorder failures never change transport dispatch/results. */
 class RecordingTransport(
     private val delegate: ObdTransport,
-    private val builder: DiagnosticTranscriptBuilder
+    private val builder: () -> DiagnosticTranscriptBuilder?,
+    private val onRecordingFailure: (Throwable) -> Unit = {},
 ) : ObdTransport {
-
-    override val transportType: TransportType get() = delegate.transportType
-    override val isConnected: Boolean get() = delegate.isConnected
-
-    override suspend fun connect() {
-        delegate.connect()
-        builder.recordConnect()
+    constructor(delegate: ObdTransport, builder: DiagnosticTranscriptBuilder) : this(delegate, { builder })
+    override val transportType get() = delegate.transportType
+    override val isConnected get() = delegate.isConnected
+    private fun observe(block: (DiagnosticTranscriptBuilder) -> Unit) {
+        try { builder()?.let(block) } catch (e: Exception) { runCatching { onRecordingFailure(e) } }
     }
-
-    override suspend fun disconnect() {
-        try {
-            delegate.disconnect()
-        } finally {
-            builder.recordDisconnect()
-        }
-    }
-
+    override suspend fun connect() { delegate.connect(); observe { it.recordConnect() } }
+    override suspend fun disconnect() { try { delegate.disconnect() } finally { observe { it.recordDisconnect() } } }
     override suspend fun write(data: ByteArray) {
-        val command = data.toString(Charsets.US_ASCII).trim()
-        try {
-            delegate.write(data)
-            builder.recordTx(command)
-        } catch (e: TransportException) {
-            builder.recordErr("write failed: ${e.message}")
-            throw e
-        }
+        val raw = data.toString(Charsets.ISO_8859_1)
+        observe { it.recordTx(raw.removeSuffix("\r"), raw) }
+        try { delegate.write(data) } catch (e: Exception) { observe { it.recordErr("write failed: ${e.message}") }; throw e }
     }
-
-    override val incomingBytes: Flow<ByteArray> = delegate.incomingBytes
-        .onEach { bytes -> builder.recordRx(bytes.toString(Charsets.US_ASCII).trim()) }
+    override val incomingBytes = delegate.incomingBytes.onEach { bytes -> observe { it.recordRx(bytes.toString(Charsets.ISO_8859_1)) } }
 }

@@ -76,6 +76,7 @@ fun DashboardScreen(
     onNavigateToVehicleCatalog: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
+    val recording by viewModel.recordingState.collectAsState()
 
     Box(
         modifier = modifier
@@ -94,7 +95,7 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // 1. Status Header
-            item { com.sarani.carobd.ui.components.RuntimeAccessControls() }
+            item { com.sarani.carobd.ui.components.RuntimeAccessControls(); Text(recording) }
             item {
                 StatusHeader(
                     connectionState = state.connectionState,
