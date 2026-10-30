@@ -300,7 +300,7 @@ class ObdRepositoryImpl(
         old?.close()
         recordings?.disconnected()
         currentTripComputer?.getTripRecord()?.let { record ->
-            if ((record.distanceKm ?: 0.0) > 0.05 || record.durationSeconds > 30) runCatching { database.insertTripRecord(record) }
+            if ((record.distanceKm ?: 0.0) > 0.05 || record.durationSeconds > 30) runCatching { database.insertTripRecord(record) }.onFailure { _historyWarning.value = "Trip evidence could not be saved: ${it.javaClass.simpleName}" }
         }
         currentTripComputer = null
         _connectionState.value = ConnectionState.Disconnected

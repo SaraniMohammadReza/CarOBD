@@ -397,7 +397,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         val out = mutableListOf<com.sarani.carobd.core.model.DtcHistorySession>()
         val db = readableDatabase
         fun Cursor.nullText(name: String): String? = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getString(it) }
-        fun Cursor.mil(): Boolean? = getColumnIndexOrThrow("observed_mil").let { if (isNull(it)) null else getInt(it) == 1 }
+        fun Cursor.mil(): Boolean? = getColumnIndexOrThrow("observed_mil").let { if (isNull(it)) null else when (getInt(it)) { 0 -> false; 1 -> true; else -> null } }
         db.query(TABLE_DIAGNOSTIC_SESSIONS, null, null, null, null, null, "start_time DESC", "100").use { sessions ->
             while (sessions.moveToNext()) {
                 val id = sessions.getString(sessions.getColumnIndexOrThrow("id"))

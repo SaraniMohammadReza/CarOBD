@@ -44,6 +44,13 @@ class TripViewModel(
                 tripLogger.logSample(tele)
             }
         }
+        viewModelScope.launch {
+            var previous: String? = null
+            observeTelemetryUseCase.sessionToken.collect { token ->
+                if (token != previous) tripLogger.stopTrip()
+                previous = token
+            }
+        }
         // Drive unit selection from persisted settings so the unit system is real & restart-safe (§Phase C).
         viewModelScope.launch {
             appPreferencesManager.unitSystem.collect { unit ->
@@ -58,7 +65,7 @@ class TripViewModel(
                 if (uiState.value.summary.isRecording) {
                     tripLogger.stopTrip()
                 } else {
-                    tripLogger.startTrip()
+                    tripLogger.startTrip(simulator = (observeTelemetryUseCase.connectionState.value as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator == true)
                 }
             }
             is TripIntent.ExportCsv -> {

@@ -84,7 +84,7 @@ fun TripScreen(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = if (isRecording) "در حال ضبط داده‌های زنده سنسورها..." else "آماده ثبت سفر جدید",
+                        text = if (isRecording) stringResource(com.sarani.carobd.R.string.s5_trip_recording) else stringResource(com.sarani.carobd.R.string.s5_trip_ready),
                         color = if (isRecording) NeonGreen else TextMuted,
                         fontSize = 12.sp
                     )
@@ -105,7 +105,7 @@ fun TripScreen(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isRecording) "توقف لاگ" else "شروع سفر",
+                        text = if (isRecording) stringResource(com.sarani.carobd.R.string.s5_trip_stop) else stringResource(com.sarani.carobd.R.string.s5_trip_start),
                         color = DarkBg,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
@@ -129,17 +129,17 @@ fun TripScreen(
                     state.unitSystem
                 )
                 DigitalMetricCard(
-                    title = "مسافت طی شده",
-                    value = if (state.summary.speedSamples >= 2) distanceValue else "—",
+                    title = stringResource(com.sarani.carobd.R.string.s5_trip_distance),
+                    value = if (state.summary.evidence.any { it.metric == com.sarani.carobd.core.model.TripMetric.DISTANCE && it.value != null }) distanceValue else "—",
                     unit = distanceUnit,
                     accentColor = NeonCyan,
                     modifier = Modifier.weight(1f)
                 )
 
                 DigitalMetricCard(
-                    title = "زمان سفر",
+                    title = stringResource(com.sarani.carobd.R.string.s5_trip_time),
                     value = durationFormatted,
-                    unit = "دقیقه",
+                    unit = stringResource(com.sarani.carobd.R.string.s5_minute),
                     icon = Icons.Default.Timer,
                     accentColor = NeonAmber,
                     modifier = Modifier.weight(1f)
@@ -157,7 +157,7 @@ fun TripScreen(
                     state.unitSystem
                 )
                 DigitalMetricCard(
-                    title = "حداکثر سرعت",
+                    title = stringResource(com.sarani.carobd.R.string.s5_max_speed),
                     value = if (state.summary.speedSamples > 0) maxSpeedValue else "—",
                     unit = maxSpeedUnit,
                     icon = Icons.Default.Speed,
@@ -170,8 +170,8 @@ fun TripScreen(
                     state.unitSystem
                 )
                 DigitalMetricCard(
-                    title = "سرعت میانگین",
-                    value = if (state.summary.speedSamples >= 2) avgSpeedValue else "—",
+                    title = stringResource(com.sarani.carobd.R.string.s5_avg_speed),
+                    value = if (state.summary.evidence.any { it.metric == com.sarani.carobd.core.model.TripMetric.AVERAGE_SPEED && it.value != null }) avgSpeedValue else "—",
                     unit = avgSpeedUnit,
                     accentColor = NeonGreen,
                     modifier = Modifier.weight(1f)
@@ -185,7 +185,7 @@ fun TripScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 DigitalMetricCard(
-                    title = "بیشینه دور موتور",
+                    title = stringResource(com.sarani.carobd.R.string.s5_max_rpm),
                     value = if (state.summary.rpmSamples > 0) "${state.summary.maxRpm}" else "—",
                     unit = "RPM",
                     accentColor = NeonCyan,
@@ -193,9 +193,9 @@ fun TripScreen(
                 )
 
                 DigitalMetricCard(
-                    title = "مصرف تخمینی سوخت",
-                    value = state.summary.estimatedFuelUsedLiters?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "—",
-                    unit = "لیتر",
+                    title = stringResource(com.sarani.carobd.R.string.s5_fuel_est),
+                    value = state.summary.estimatedFuelUsedLiters?.let { com.sarani.carobd.ui.theme.displayMeasurement(it, "L", com.sarani.carobd.ui.theme.LocalUnitSystem.current) }?.let { String.format(java.util.Locale.US, "%.2f", it.value) } ?: "—",
+                    unit = if (state.unitSystem == com.sarani.carobd.core.storage.UnitSystem.IMPERIAL) "US gal" else "L",
                     accentColor = NeonAmber,
                     modifier = Modifier.weight(1f)
                 )
@@ -203,6 +203,8 @@ fun TripScreen(
 
             if (state.summary.coverageLimited || state.summary.limitReached) Text(stringResource(R.string.trip_partial), color = NeonAmber)
             Text(stringResource(R.string.trip_fuel_unknown), color = TextMuted)
+            Text(stringResource(R.string.s5_trip_limits), color = TextMuted)
+            com.sarani.carobd.ui.components.TripEvidenceSummary(state.summary.evidence)
             Spacer(modifier = Modifier.height(14.dp))
 
             // Driving Quality & Events Card
@@ -221,7 +223,7 @@ fun TripScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(stringResource(com.sarani.carobd.R.string.ui_hard_accel), color = TextMuted, fontSize = 12.sp)
-                        Text("${state.summary.hardAccelerationsCount} بار", color = if (state.summary.hardAccelerationsCount > 3) NeonRed else NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(androidx.compose.ui.res.pluralStringResource(R.plurals.s5_times, state.summary.hardAccelerationsCount, state.summary.hardAccelerationsCount), color = if (state.summary.hardAccelerationsCount > 3) NeonRed else NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
@@ -229,7 +231,7 @@ fun TripScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(stringResource(com.sarani.carobd.R.string.ui_hard_brake), color = TextMuted, fontSize = 12.sp)
-                        Text("${state.summary.hardBrakingCount} بار", color = if (state.summary.hardBrakingCount > 2) NeonRed else NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text(androidx.compose.ui.res.pluralStringResource(R.plurals.s5_times, state.summary.hardBrakingCount, state.summary.hardBrakingCount), color = if (state.summary.hardBrakingCount > 2) NeonRed else NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
@@ -237,7 +239,7 @@ fun TripScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(stringResource(com.sarani.carobd.R.string.ui_sample_count), color = TextMuted, fontSize = 12.sp)
-                        Text("${state.summary.samplesCount} فریم", color = NeonCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text(androidx.compose.ui.res.pluralStringResource(R.plurals.s5_frames, state.summary.samplesCount, state.summary.samplesCount), color = NeonCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
             }

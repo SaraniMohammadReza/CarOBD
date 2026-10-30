@@ -115,7 +115,15 @@ fun DiagnosticsScreen(
                         .border(1.dp, DarkCardBorder, RoundedCornerShape(10.dp))
                         .padding(10.dp)
                 ) {
-                    Text(text = msg, color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                    Column {
+                        Text(stringResource(when(state.presentation) {
+                            ScanPresentation.COMPLETE -> R.string.s5_scan_complete
+                            ScanPresentation.CANCELED -> R.string.s5_scan_canceled
+                            ScanPresentation.SIMULATOR_CLEARED -> R.string.s5_sim_clear
+                            else -> R.string.s5_operation_failed
+                        }), color = if (state.scanCompletedSuccessfully) NeonGreen else NeonAmber)
+                        com.sarani.carobd.ui.components.DeveloperEvidence(msg)
+                    }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
             }
@@ -144,14 +152,14 @@ fun DiagnosticsScreen(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         Text(
-                            text = if (noCodesConfirmed) stringResource(R.string.dtc_no_codes) else "در انتظار اسکن یا اتصال برقرار نشده",
+                            text = if (noCodesConfirmed) stringResource(R.string.dtc_no_codes) else stringResource(com.sarani.carobd.R.string.s5_scan_wait),
                             color = if (noCodesConfirmed) TextPrimary else TextMuted,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "برای اسکن حافظه خطاهای ایسیو دکمه بالا را لمس کنید",
+                            text = stringResource(com.sarani.carobd.R.string.s5_scan_help),
                             color = TextMuted,
                             fontSize = 12.sp
                         )
@@ -266,7 +274,7 @@ fun DtcCard(dtc: DiagnosticCode) {
 
             // §7 / #15: source ECU + category identity (never guessed; never absent).
             Text(
-                text = "رد: ${dtc.responderAddressHex} • ${dtc.category.name.lowercase()}",
+                text = "${dtc.responderAddressHex ?: "—"} · ${com.sarani.carobd.ui.components.categoryLabel(dtc.category)}",
                 color = TextMuted,
                 fontSize = 11.sp
             )

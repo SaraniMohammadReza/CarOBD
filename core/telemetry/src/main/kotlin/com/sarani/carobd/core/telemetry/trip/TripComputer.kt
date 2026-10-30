@@ -32,7 +32,7 @@ class TripComputer(val tripId: String, val vehicleId: String, val startTimeMs: L
             return
         }
         samples++; lastTime = timestampMs
-        if (speedKmh == null || fuelRateLitersPerHour == null) matchedFuelSpeed = false
+        if (speedKmh == null || speedKmh < 0 || fuelRateLitersPerHour == null || !fuelRateLitersPerHour.isFinite() || fuelRateLitersPerHour < 0) matchedFuelSpeed = false
         speed.add(speedKmh?.takeIf { it >= 0 }?.toDouble(), timestampMs)
         this.rpm.add(rpm?.takeIf { it >= 0 }?.toDouble(), timestampMs)
         fuel.add(fuelRateLitersPerHour?.takeIf { it >= 0 }, timestampMs)

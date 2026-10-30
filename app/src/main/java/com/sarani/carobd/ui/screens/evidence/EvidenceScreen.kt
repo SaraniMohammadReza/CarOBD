@@ -25,14 +25,14 @@ fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onF
         if (state.loading) CircularProgressIndicator()
         state.readings.forEach { reading ->
             Text("${com.sarani.carobd.ui.components.readingLabel(reading.state)} · ${reading.evidence.firstOrNull()?.responderId ?: "—"}")
-            reading.detail?.let { Text(it) }
+            reading.detail?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it) }
             reading.value?.let { value ->
                 Text("MIL: " + stringResource(if (value.milActive) R.string.mil_on else R.string.mil_off) + " · DTC: ${value.dtcCount} · " + stringResource(if (value.ignitionType == com.sarani.carobd.core.model.IgnitionType.Spark) R.string.ui_ignition_spark else R.string.ui_ignition_compression))
                 value.monitors.forEach { monitor ->
                     Text("${monitor.id}: " + stringResource(if (!monitor.isSupported) R.string.monitor_unsupported else if (monitor.isComplete) R.string.monitor_complete else R.string.monitor_incomplete))
                 }
             }
-            Text(reading.evidence.flatMap { it.rawLines }.joinToString("\n"))
+            com.sarani.carobd.ui.components.DeveloperEvidence(reading.evidence.flatMap { it.rawLines }.joinToString("\n"))
         }
         Text(stringResource(R.string.evidence_limitations))
     }
@@ -49,9 +49,9 @@ fun VehicleInformationScreen(viewModel: VehicleInformationViewModel) {
         state.readings.forEach { row ->
             val r = row.reading
             Text("09%02X · %s · %s".format(row.pid, com.sarani.carobd.ui.components.readingLabel(r.state), r.evidence.firstOrNull()?.responderId ?: "—"))
-            r.value?.values?.forEach { Text(it) }
-            r.detail?.let { Text(it) }
-            Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
+            r.value?.values?.forEach { com.sarani.carobd.ui.components.DiagnosticIdentifier(it) }
+            r.detail?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it) }
+            com.sarani.carobd.ui.components.DeveloperEvidence(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
         }
         Text(stringResource(R.string.evidence_limitations))
     }
@@ -71,10 +71,10 @@ fun FreezeFrameScreen(viewModel: FreezeFrameViewModel) {
             Text("${com.sarani.carobd.ui.components.readingLabel(r.state)} · ${r.evidence.firstOrNull()?.responderId ?: "—"}")
             r.value?.let { v ->
                 val converted = v.value?.let { com.sarani.carobd.ui.theme.displayMeasurement(it, v.unit.orEmpty(), com.sarani.carobd.ui.theme.LocalUnitSystem.current) }
-                Text("PID %02X · frame %02X · %s %s · %s".format(v.pid, v.frameIndex, converted?.value ?: "—", converted?.unit.orEmpty(), v.rawHex))
+                Text(stringResource(R.string.s5_frame_line, v.pid, v.frameIndex, converted?.value ?: "—", converted?.unit.orEmpty(), v.rawHex))
             }
-            r.detail?.let { Text(it) }
-            Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
+            r.detail?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it) }
+            com.sarani.carobd.ui.components.DeveloperEvidence(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
         }
         Text(stringResource(R.string.frame_limitations))
     }
@@ -88,13 +88,13 @@ fun DtcHistoryScreen(viewModel: DtcHistoryViewModel) {
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.dtc_history))
         TextButton(onClick = viewModel::refresh) { Text(stringResource(R.string.record_refresh)) }
-        error?.let { Text(it) }; warning?.let { Text(it) }
+        error?.let { Text(stringResource(R.string.s5_operation_failed)); com.sarani.carobd.ui.components.DeveloperEvidence(it) }; warning?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it) }
         sessions.forEach { s ->
             Text("${s.observedAtMs} · ${s.protocol ?: "—"} · ${s.connectionSessionId ?: "—"}")
             Text("MIL: " + stringResource(when (s.mil) { true -> R.string.mil_on; false -> R.string.mil_off; null -> R.string.mil_unknown }))
             if (s.legacy) Text(stringResource(R.string.history_legacy))
             if (s.codes.isEmpty()) Text(stringResource(R.string.dtc_no_codes))
-            s.codes.forEach { c -> Text("${c.code} · ${c.category ?: "—"} · ${c.responder ?: "—"}") }
+            s.codes.forEach { c -> Text("${c.code} · ${com.sarani.carobd.ui.components.categoryLabel(c.category)} · ${c.responder ?: "—"}") }
         }
     }
 }
@@ -107,15 +107,15 @@ fun MonitorTestsScreen(viewModel: MonitorTestsViewModel) {
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.monitor_tests))
         Text(stringResource(R.string.monitor_tests_limits))
-        OutlinedTextField(mid, { if (it.length <= 2 && it.all { c -> c in "0123456789abcdefABCDEF" }) mid = it.uppercase() }, label = { Text("MID (hex)") })
+        OutlinedTextField(mid, { if (it.length <= 2 && it.all { c -> c in "0123456789abcdefABCDEF" }) mid = it.uppercase() }, label = { Text(stringResource(R.string.s5_mid)) })
         Button(enabled = !state.loading && number != null && number in 1..255 && number % 32 != 0, onClick = { number?.let(viewModel::refresh) }) { Text(stringResource(R.string.read_evidence)) }
         Text(state.source)
         if (state.loading) CircularProgressIndicator()
         state.readings.forEach { r ->
             Text(com.sarani.carobd.ui.components.readingLabel(r.state) + " · " + (r.evidence.firstOrNull()?.responderId ?: "—"))
             r.value?.forEach { record -> Text("MID %02X · TID %02X · UASID %02X\nRAW %04X / %04X / %04X".format(record.monitorId, record.testId, record.unitScalingId, record.rawMeasured, record.rawMinimum, record.rawMaximum)) }
-            r.detail?.let { Text(it) }
-            Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
+            r.detail?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it) }
+            com.sarani.carobd.ui.components.DeveloperEvidence(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
         }
     }
 }

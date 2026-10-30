@@ -179,11 +179,13 @@ fun DashboardScreen(
 
             // 3. Fuel Economy & Driving Range Prediction Banner
             item {
+                val fuelEvidence = com.sarani.carobd.core.calculator.FuelEconomyEngine.calculate(state.telemetry,
+                    state.userVehicleSetup.tankCapacityLiters, state.userVehicleSetup.fuelPriceTomans, nowMs = currentTime)
                 FuelEconomyBanner(
-                    instantL100km = state.fuelEconomy.instantLitersPer100Km,
-                    remainingRangeKm = state.fuelEconomy.remainingRangeKm,
-                    costPerKm = state.fuelEconomy.fuelCostPerKmTomans,
-                    vehicleName = state.vehicleDisplayLabel()
+                    instantL100km = fuelEvidence.instantLitersPer100Km,
+                    remainingRangeKm = fuelEvidence.remainingRangeKm,
+                    costPerKm = fuelEvidence.fuelCostPerKmTomans,
+                    vehicleName = state.activeProfile?.let { if (androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "fa") it.modelNameFa else it.modelNameEn } ?: stringResource(R.string.s5_unknown)
                 )
             }
 
@@ -334,9 +336,9 @@ fun DashboardScreen(
 
 @Composable
 fun FuelEconomyBanner(
-    instantL100km: Float,
-    remainingRangeKm: Int,
-    costPerKm: Float,
+    instantL100km: Float?,
+    remainingRangeKm: Int?,
+    costPerKm: Float?,
     vehicleName: String
 ) {
     Box(
@@ -355,11 +357,11 @@ fun FuelEconomyBanner(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("مصرف سوخت و پیمایش ($vehicleName)", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(com.sarani.carobd.R.string.s5_fuel_title, vehicleName), color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Text(
-                    text = if (instantL100km > 0.05f) String.format(java.util.Locale.US, "%.1f L/100km", instantL100km) else "—",
+                    text = if (instantL100km != null) com.sarani.carobd.ui.theme.displayMeasurement(instantL100km.toDouble(), "L/100km", com.sarani.carobd.ui.theme.LocalUnitSystem.current).let { "%.1f %s".format(java.util.Locale.US, it.value, it.unit) } else "—",
                     color = NeonAmber,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -367,6 +369,7 @@ fun FuelEconomyBanner(
                 )
             }
 
+            Text(stringResource(com.sarani.carobd.R.string.s5_fuel_assumptions), color = TextMuted, fontSize = 11.sp)
             Spacer(modifier = Modifier.height(10.dp))
 
             Row(
@@ -376,17 +379,17 @@ fun FuelEconomyBanner(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Route, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("پیمایش باقی‌مانده با سوخت فعلی:", color = TextMuted, fontSize = 11.sp)
+                    Text(stringResource(com.sarani.carobd.R.string.s5_range), color = TextMuted, fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (remainingRangeKm > 0) "$remainingRangeKm km" else "—", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (remainingRangeKm != null) com.sarani.carobd.core.calculator.UnitConverter.formatDistance(remainingRangeKm.toDouble(), com.sarani.carobd.ui.theme.LocalUnitSystem.current).let { "${it.first} ${it.second}" } else "—", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("هزینه هر کیلومتر:", color = TextMuted, fontSize = 11.sp)
+                    Text(stringResource(com.sarani.carobd.R.string.s5_cost), color = TextMuted, fontSize = 11.sp)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(if (costPerKm > 0f) "${costPerKm.toInt()} ت" else "—", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(if (costPerKm != null) "%.0f toman/%s".format(java.util.Locale.US, costPerKm * if (com.sarani.carobd.ui.theme.LocalUnitSystem.current == com.sarani.carobd.core.storage.UnitSystem.IMPERIAL) 1.609344 else 1.0, if (com.sarani.carobd.ui.theme.LocalUnitSystem.current == com.sarani.carobd.core.storage.UnitSystem.IMPERIAL) "mi" else "km") else "—", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

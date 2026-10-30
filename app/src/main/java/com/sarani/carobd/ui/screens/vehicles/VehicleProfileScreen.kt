@@ -70,7 +70,7 @@ fun VehicleProfileScreen(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "تشخیص خودکار پروتکل یا انتخاب دستی مدل خودرو جهت ارسال کدهای هماهنگ‌سازی (Init) و بیدرِیت خط K-Line و CAN.",
+                text = stringResource(com.sarani.carobd.R.string.s5_catalog_help),
                 color = TextMuted,
                 fontSize = 12.sp,
                 lineHeight = 18.sp
@@ -96,8 +96,8 @@ fun VehicleProfileScreen(
                             Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(22.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
-                                Text("اسکن و تشخیص خودکار پروتکل", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Text("تست متوالی تمام پروتکل‌های CAN و K-Line", color = TextMuted, fontSize = 11.sp)
+                                Text(stringResource(com.sarani.carobd.R.string.s5_protocol_read), color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(com.sarani.carobd.R.string.s5_protocol_read_help), color = TextMuted, fontSize = 11.sp)
                             }
                         }
 
@@ -111,10 +111,11 @@ fun VehicleProfileScreen(
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), color = DarkBg, strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(6.dp))
                             }
-                            Text(if (state.isAutoScanning) "در حال جستجو..." else "شروع اسکن", color = DarkBg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(if (state.isAutoScanning) stringResource(com.sarani.carobd.R.string.s5_probing) else stringResource(com.sarani.carobd.R.string.s5_probe), color = DarkBg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
+                    state.probeEvidence?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it) }
                     state.autoScanStatusMessage?.let { status ->
                         Spacer(modifier = Modifier.height(10.dp))
                         Box(
@@ -124,7 +125,12 @@ fun VehicleProfileScreen(
                                 .padding(8.dp)
                         ) {
                             Text(
-                                text = status,
+                                text = stringResource(when(status) {
+                                    ProtocolProbeStatus.DISCONNECTED -> R.string.s5_probe_disconnected
+                                    ProtocolProbeStatus.READING -> R.string.s5_probing
+                                    ProtocolProbeStatus.OBSERVED -> R.string.s5_probe_observed
+                                    ProtocolProbeStatus.UNAVAILABLE -> R.string.s5_probe_unavailable
+                                }),
                                 color = if (state.detectedProtocol != null) NeonGreen else NeonAmber,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -185,7 +191,7 @@ fun VehicleProfileCard(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = profile.modelNameFa,
+                            text = if (androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "fa") profile.modelNameFa else profile.modelNameEn,
                             color = TextPrimary,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold

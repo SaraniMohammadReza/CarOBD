@@ -9,7 +9,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
 data class RecordingUiState(val sessions: List<TranscriptMetadata> = emptyList(), val selected: DiagnosticTranscript? = null,
-    val replay: List<ReplayedCommand> = emptyList(), val busy: Boolean = false, val error: String? = null)
+    val replay: List<ReplayedCommand> = emptyList(), val offset: Int = 0, val busy: Boolean = false, val error: String? = null)
 class RecordingViewModel(private val controller: RecordingController) : ViewModel() {
     val recording = controller.state
     val benchEnabled = controller.benchEnabled
@@ -30,7 +30,12 @@ class RecordingViewModel(private val controller: RecordingController) : ViewMode
     fun start() = operation { controller.start() }
     fun stop() = operation { controller.stop(); refreshList() }
     fun refresh() = operation { refreshList() }
-    private suspend fun refreshList() { val list = withContext(Dispatchers.IO) { controller.store.list() }; _state.update { it.copy(sessions = list) } }
+    fun older() = operation { refreshList(_state.value.offset + 50) }
+    fun newer() = operation { refreshList((_state.value.offset - 50).coerceAtLeast(0)) }
+    private suspend fun refreshList(offset: Int = 0) {
+        val list = withContext(Dispatchers.IO) { controller.store.list(offset) }
+        _state.update { it.copy(sessions = list, offset = offset) }
+    }
     fun select(id: String) = operation { val t = withContext(Dispatchers.IO) { controller.store.read(id) }; _state.update { it.copy(selected = t, replay = emptyList()) } }
     fun delete(id: String) = operation { check(controller.builder?.toTranscript()?.metadata?.sessionId != id) { "Stop recording before deleting this session" }; withContext(Dispatchers.IO) { check(controller.store.delete(id)) }; _state.update { it.copy(selected = null, replay = emptyList()) }; refreshList() }
     fun replay() = operation {

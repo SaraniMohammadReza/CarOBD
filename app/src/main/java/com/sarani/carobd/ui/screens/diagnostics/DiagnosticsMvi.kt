@@ -10,12 +10,15 @@ import com.sarani.carobd.ui.mvi.UiIntent
 import com.sarani.carobd.ui.mvi.UiState
 import kotlinx.coroutines.launch
 
+enum class ScanPresentation { NONE, COMPLETE, INCOMPLETE, CANCELED, SIMULATOR_CLEARED, CLEAR_FAILED }
+
 data class DiagnosticsState(
     val troubleCodes: List<DiagnosticCode> = emptyList(),
     val isScanning: Boolean = false,
     val isClearing: Boolean = false,
     val showConfirmDialog: Boolean = false,
     val lastScanMessage: String? = null,
+    val presentation: ScanPresentation = ScanPresentation.NONE,
     val scanCompletedSuccessfully: Boolean = false,
     val responderEvidence: List<String> = emptyList()
 ) : UiState
@@ -51,7 +54,7 @@ class DiagnosticsViewModel(
     private fun performScan() {
         if (scanJob?.isActive == true || clearJob?.isActive == true) return
         scanJob = viewModelScope.launch {
-            setState { copy(isScanning = true, troubleCodes = emptyList(), lastScanMessage = null, responderEvidence = emptyList(), scanCompletedSuccessfully = false) }
+            setState { copy(isScanning = true, troubleCodes = emptyList(), lastScanMessage = null, presentation = ScanPresentation.NONE, responderEvidence = emptyList(), scanCompletedSuccessfully = false) }
             try {
                 val result = scanDtcUseCase()
                 result.fold(
@@ -60,7 +63,7 @@ class DiagnosticsViewModel(
                             copy(
                                 isScanning = false,
                                 troubleCodes = codes,
-                                lastScanMessage = if (codes.isEmpty()) "کد خطایی یافت نشد" else "${codes.size} کد خطا شناسایی شد",
+                                lastScanMessage = "Complete scan: ${codes.size} codes reported", presentation = ScanPresentation.COMPLETE,
                                 scanCompletedSuccessfully = true
                             )
                         }
@@ -69,7 +72,7 @@ class DiagnosticsViewModel(
                         setState {
                             copy(
                                 isScanning = false,
-                                lastScanMessage = "Scan incomplete: ${err.message}",
+                                lastScanMessage = "Scan incomplete: ${err.message}", presentation = ScanPresentation.INCOMPLETE,
                                 troubleCodes = (err as? com.sarani.carobd.core.model.DiagnosticScanException)?.report?.codes ?: emptyList(),
                                 responderEvidence = (err as? com.sarani.carobd.core.model.DiagnosticScanException)?.report?.responders?.map {
                                     "${it.request} / ${it.responder ?: "Unknown ECU"}: ${it.outcome}"
@@ -80,7 +83,7 @@ class DiagnosticsViewModel(
                     }
                 )
             } catch (e: kotlinx.coroutines.CancellationException) {
-                setState { copy(lastScanMessage = "Scan canceled; current session has no complete scan", scanCompletedSuccessfully = false) }
+                setState { copy(lastScanMessage = "Scan canceled; current session has no complete scan", presentation = ScanPresentation.CANCELED, scanCompletedSuccessfully = false) }
                 throw e
             } finally { setState { copy(isScanning = false) } }
         }
@@ -98,7 +101,7 @@ class DiagnosticsViewModel(
                             copy(
                                 isClearing = false,
                                 troubleCodes = emptyList(),
-                                lastScanMessage = "پاک‌سازی محلی شبیه‌ساز تأیید شد (0x44)",
+                                lastScanMessage = "Simulator-local clear acknowledged44", presentation = ScanPresentation.SIMULATOR_CLEARED,
                                 scanCompletedSuccessfully = false
                             )
                         }
@@ -107,7 +110,7 @@ class DiagnosticsViewModel(
                         setState {
                             copy(
                                 isClearing = false,
-                                lastScanMessage = "خطا در پاک کردن خطاها: ${err.message}",
+                                lastScanMessage = "Clear rejected: ${err.message}", presentation = ScanPresentation.CLEAR_FAILED,
                                 scanCompletedSuccessfully = false
                             )
                         }

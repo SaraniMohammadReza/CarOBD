@@ -23,12 +23,17 @@ class TripLogger {
     private var lastSpeed: Pair<Long, Float>? = null
     private var coveredMs = 0L
     private var computer: com.sarani.carobd.core.telemetry.trip.TripComputer? = null
-    @Synchronized fun startTrip(nowMs: Long = System.currentTimeMillis()) {
+    @Synchronized fun startTrip(nowMs: Long = System.currentTimeMillis(), simulator: Boolean = false) {
         samples.clear(); lastSpeed = null; coveredMs = 0
-        computer = com.sarani.carobd.core.telemetry.trip.TripComputer("manual", "unselected", nowMs)
+        computer = com.sarani.carobd.core.telemetry.trip.TripComputer("manual", "unselected", nowMs, simulator)
         _tripState.value = TripSummary(isRecording = true, startTimeMs = nowMs)
     }
-    @Synchronized fun stopTrip() { _tripState.value = _tripState.value.copy(isRecording = false) }
+    @Synchronized fun stopTrip(nowMs: Long = System.currentTimeMillis()) {
+        val record = computer?.getTripRecord(nowMs)
+        _tripState.value = _tripState.value.copy(isRecording = false,
+            durationSeconds = record?.durationSeconds ?: _tripState.value.durationSeconds,
+            evidence = record?.evidence ?: _tripState.value.evidence)
+    }
     @Synchronized fun logSample(telemetry: LiveTelemetry, nowMs: Long = System.currentTimeMillis()) {
         val current = _tripState.value
         if (!current.isRecording || telemetry.timestamp <= (samples.lastOrNull()?.timestampMs ?: Long.MIN_VALUE)) return
@@ -60,14 +65,15 @@ class TripLogger {
             lastSpeed = time to speed
         } else { lastSpeed = null; limited = true }
         samples += TelemetrySample(telemetry.timestamp, rpm, speed, coolant, throttle, voltage, load)
+        val record = computer?.getTripRecord(nowMs)
         _tripState.value = current.copy(durationSeconds = ((telemetry.timestamp - current.startTimeMs) / 1000).coerceAtLeast(0),
-            distanceKm = distance, maxSpeedKmh = speed?.toInt()?.let { maxOf(current.maxSpeedKmh, it) } ?: current.maxSpeedKmh,
+            distanceKm = record?.distanceKm ?: 0.0, maxSpeedKmh = speed?.toInt()?.let { maxOf(current.maxSpeedKmh, it) } ?: current.maxSpeedKmh,
             maxRpm = rpm?.toInt()?.let { maxOf(current.maxRpm, it) } ?: current.maxRpm,
-            averageSpeedKmh = if (coveredMs > 0) distance * 3_600_000 / coveredMs else 0.0,
+            averageSpeedKmh = record?.averageSpeedKmh ?: 0.0,
             hardAccelerationsCount = accel, hardBrakingCount = braking, samplesCount = samples.size,
             speedSamples = current.speedSamples + if (speed != null) 1 else 0,
             rpmSamples = current.rpmSamples + if (rpm != null) 1 else 0, coverageLimited = limited,
-            evidence = computer?.getTripRecord(nowMs)?.evidence.orEmpty())
+            evidence = record?.evidence.orEmpty())
     }
     @Synchronized fun exportToCsv(): String = buildString {
         append("Timestamp,RPM,Speed_kmh,Coolant_C,Throttle_pct,Adapter_ATRV_V,EngineLoad_pct\n")

@@ -88,7 +88,7 @@ fun TerminalScreen(
                 )
 
                 IconButton(onClick = { viewModel.onIntent(TerminalIntent.ClearLogs) }) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = TextMuted)
+                    Icon(Icons.Default.Clear, contentDescription = stringResource(com.sarani.carobd.R.string.s5_clear), tint = TextMuted)
                 }
             }
 
@@ -191,7 +191,7 @@ fun TerminalScreen(
                     if (state.isSending) {
                         CircularProgressIndicator(color = DarkBg, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.Default.Send, contentDescription = "Send", tint = DarkBg)
+                        Icon(Icons.Default.Send, contentDescription = stringResource(com.sarani.carobd.R.string.s5_send), tint = DarkBg)
                     }
                 }
             }

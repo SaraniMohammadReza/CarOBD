@@ -61,12 +61,12 @@ class MaintenanceViewModel(
         specSheet: VehicleSpecSheet?,
         lastChanged: Map<String, Int>
     ): List<ServiceReminderItem> = listOf(
-        item("oil", ServiceType.ENGINE_OIL, ServiceType.ENGINE_OIL.defaultIntervalKm, currentKm, "روغن ۱۰W-40 نیمه‌سنتتیک", lastChanged),
+        item("oil", ServiceType.ENGINE_OIL, ServiceType.ENGINE_OIL.defaultIntervalKm, currentKm, "", lastChanged),
         item("filter", ServiceType.OIL_FILTER, ServiceType.OIL_FILTER.defaultIntervalKm, currentKm, "", lastChanged),
-        item("timing_belt", ServiceType.TIMING_BELT, specSheet?.timingBeltIntervalKm ?: ServiceType.TIMING_BELT.defaultIntervalKm, currentKm, "تسمه تایم", lastChanged),
-        item("plugs", ServiceType.SPARK_PLUGS, ServiceType.SPARK_PLUGS.defaultIntervalKm, currentKm, "شمع دو پلاتین", lastChanged),
-        item("brake_pads", ServiceType.BRAKE_PADS, ServiceType.BRAKE_PADS.defaultIntervalKm, currentKm, "لنت تکستار اصلی", lastChanged),
-        item("gearbox", ServiceType.GEARBOX_OIL, ServiceType.GEARBOX_OIL.defaultIntervalKm, currentKm, "واسکازین ۷۵W-۸۰", lastChanged)
+        item("timing_belt", ServiceType.TIMING_BELT, specSheet?.timingBeltIntervalKm ?: ServiceType.TIMING_BELT.defaultIntervalKm, currentKm, "", lastChanged),
+        item("plugs", ServiceType.SPARK_PLUGS, ServiceType.SPARK_PLUGS.defaultIntervalKm, currentKm, "", lastChanged),
+        item("brake_pads", ServiceType.BRAKE_PADS, ServiceType.BRAKE_PADS.defaultIntervalKm, currentKm, "", lastChanged),
+        item("gearbox", ServiceType.GEARBOX_OIL, ServiceType.GEARBOX_OIL.defaultIntervalKm, currentKm, "", lastChanged)
     )
 
     private fun item(

@@ -25,7 +25,12 @@ class FileTranscriptStore(private val directory: File) {
         require(source.length() <= 16 * 1024 * 1024) { "Transcript too large" }
         return DiagnosticTranscript.fromJson(source.readText(Charsets.UTF_8))
     }
-    @Synchronized fun list(): List<TranscriptMetadata> = directory.listFiles()?.filter { it.extension == "json" }
-        ?.map { read(it.nameWithoutExtension).metadata }?.sortedByDescending { it.startedAtMs } ?: emptyList()
+    /** Pages are ordered by file update time, then ID. Only this page's bounded files are parsed. */
+    @Synchronized fun list(offset: Int = 0, limit: Int = 50): List<TranscriptMetadata> {
+        require(offset >= 0 && limit in 1..100)
+        return directory.listFiles()?.filter { it.isFile && it.extension == "json" }
+            ?.sortedWith(compareByDescending<File> { it.lastModified() }.thenBy { it.name })
+            ?.drop(offset)?.take(limit)?.map { read(it.nameWithoutExtension).metadata } ?: emptyList()
+    }
     @Synchronized fun delete(id: String): Boolean = file(id).delete()
 }

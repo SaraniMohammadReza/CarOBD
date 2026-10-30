@@ -16,11 +16,14 @@ import com.sarani.carobd.ui.mvi.UiState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+enum class ProtocolProbeStatus { DISCONNECTED, READING, OBSERVED, UNAVAILABLE }
+
 data class VehicleProfileState(
     val profiles: List<VehicleProfile> = IranianEcuRegistry.PRESET_VEHICLES,
     val selectedProfile: VehicleProfile? = null,
     val isAutoScanning: Boolean = false,
-    val autoScanStatusMessage: String? = null,
+    val autoScanStatusMessage: ProtocolProbeStatus? = null,
+    val probeEvidence: String? = null,
     val detectedProtocol: EcuProtocol? = null
 ) : UiState
 
@@ -62,65 +65,20 @@ class VehicleProfileViewModel(
     }
 
     private fun performAutoScan() {
+        if (uiState.value.isAutoScanning) return
         viewModelScope.launch {
-            val conn = repository.connectionState.value
-            if (conn !is com.sarani.carobd.core.model.ConnectionState.Connected) {
-                setState {
-                    copy(
-                        isAutoScanning = false,
-                        autoScanStatusMessage = "اتصال به دیاگ برقرار نیست. ابتدا آداپتور OBD-II را متصل نمایید.",
-                        detectedProtocol = null
-                    )
-                }
-                setEffect { VehicleProfileEffect.ShowToast("ابتدا آداپتور OBD-II را متصل نمایید.") }
+            val token = repository.foregroundSessionId.value
+            if (token == null) {
+                setState { copy(autoScanStatusMessage = ProtocolProbeStatus.DISCONNECTED, probeEvidence = null) }
                 return@launch
             }
-
-            setState {
-                copy(
-                    isAutoScanning = true,
-                    autoScanStatusMessage = "در حال ارسال فرمان شناسایی پروتکل به آداپتور...",
-                    detectedProtocol = null
-                )
-            }
-
-            // Real probe via AT DPN (Describe Protocol by Number)
-            val dpnResult = repository.sendRawCommand("AT DPN")
-            val rawDpn = dpnResult.getOrNull()?.replace(">", "")?.trim() ?: ""
-            val protocolNum = rawDpn.removePrefix("A").trim()
-
-            val matchedStandard = when (protocolNum) {
-                "6" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_15765_4_CAN_11_500
-                "7" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_15765_4_CAN_29_500
-                "5" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_14230_4_KWP_FAST
-                "4" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_14230_4_KWP_5BAUD
-                "3" -> com.sarani.carobd.core.model.ProtocolStandard.ISO_9141_2
-                "1" -> com.sarani.carobd.core.model.ProtocolStandard.SAE_J1850_PWM
-                "2" -> com.sarani.carobd.core.model.ProtocolStandard.SAE_J1850_VPW
-                else -> null
-            }
-
-            val matchedProtocol = if (matchedStandard != null) {
-                IranianEcuRegistry.ALL_PROTOCOLS.find { it.standard == matchedStandard }
-            } else null
-
-            if (matchedProtocol != null) {
-                setState {
-                    copy(
-                        isAutoScanning = false,
-                        detectedProtocol = matchedProtocol,
-                        autoScanStatusMessage = "پروتکل سخت‌افزاری فعال ایسیو: ${matchedProtocol.nameFa} (${matchedProtocol.standard.displayName})"
-                    )
-                }
-            } else {
-                setState {
-                    copy(
-                        isAutoScanning = false,
-                        detectedProtocol = null,
-                        autoScanStatusMessage = if (rawDpn.isNotBlank()) "پاسخ آداپتور: $rawDpn (پروتکل استاندارد قفل نشده)" else "ایسیو پاسخ نداد (UNABLE TO CONNECT)"
-                    )
-                }
-            }
+            setState { copy(isAutoScanning = true, autoScanStatusMessage = ProtocolProbeStatus.READING, detectedProtocol = null, probeEvidence = null) }
+            try {
+                val result = repository.sendRawCommand("ATDPN")
+                val stillCurrent = repository.foregroundSessionId.value == token
+                setState { copy(autoScanStatusMessage = if (result.isSuccess && stillCurrent) ProtocolProbeStatus.OBSERVED else ProtocolProbeStatus.UNAVAILABLE,
+                    probeEvidence = if (stillCurrent) result.getOrNull() ?: result.exceptionOrNull()?.message else "Session changed") }
+            } finally { setState { copy(isAutoScanning = false) } }
         }
     }
 }

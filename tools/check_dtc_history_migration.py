@@ -11,11 +11,14 @@ for sql in create:
     db.execute(sql)
 db.execute("INSERT INTO diagnostic_sessions VALUES ('legacy','vehicle',1,2,1,1,'Engine ECU','Standard OBD-II')")
 db.execute("INSERT INTO dtc_records VALUES ('code','legacy','P0133','','','','','MODERATE','POWERTRAIN','STORED',1,'Engine ECU',2)")
+for category in ['PENDING', 'PERMANENT']:
+    db.execute("INSERT INTO dtc_records VALUES (?, 'legacy','P0133','','','','','MODERATE','POWERTRAIN',?,1,'Engine ECU',2)", (category, category))
 source = (root / 'app/src/main/java/com/sarani/carobd/data/db/DtcHistoryMigration.kt').read_text()
 for sql in re.findall(r'"(ALTER TABLE [^"]+)"', source): db.execute(sql)
 assert db.execute('SELECT code, category, observed_mil, observed_protocol, responder, provenance FROM dtc_records').fetchone() == ('P0133', 'STORED', None, None, None, 'LEGACY_UNVERIFIED')
 assert db.execute('SELECT vehicle_id, observed_mil, observed_protocol, connection_session_id, provenance FROM diagnostic_sessions').fetchone() == ('vehicle', None, None, None, 'LEGACY_UNVERIFIED')
-assert db.execute('SELECT COUNT(*) FROM dtc_records').fetchone()[0] == 1
+assert db.execute('SELECT COUNT(*) FROM dtc_records').fetchone()[0] == 3
+assert db.execute("SELECT COUNT(*) FROM dtc_records WHERE provenance='LEGACY_UNVERIFIED' AND observed_mil IS NULL AND observed_protocol IS NULL AND responder IS NULL").fetchone()[0] == 3
 print('PASS: production migration preserves legacy rows and marks unobserved fields unknown')
 
 # v3 uses the exact production migration, persists unknown values and is transactional.

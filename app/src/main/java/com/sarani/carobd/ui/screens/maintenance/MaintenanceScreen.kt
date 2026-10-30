@@ -82,13 +82,13 @@ fun MaintenanceScreen(
             ) {
                 Column {
                     Text(
-                        text = "اطلاعات فنی و سرویس‌های ${state.activeProfile?.modelNameFa ?: "خودروی انتخاب‌شده"}",
+                        text = stringResource(com.sarani.carobd.R.string.s5_maintenance_title),
                         color = TextPrimary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "موتور: ${state.specSheet?.engineCode ?: "—"}",
+                        text = stringResource(com.sarani.carobd.R.string.s5_engine, state.specSheet?.engineCode ?: "—"),
                         color = NeonCyan,
                         fontSize = 12.sp
                     )
@@ -101,7 +101,7 @@ fun MaintenanceScreen(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "${state.currentOdometerKm} km",
+                        text = com.sarani.carobd.core.calculator.UnitConverter.formatDistance((state.currentOdometerKm).toDouble(), com.sarani.carobd.ui.theme.LocalUnitSystem.current).let { "${it.first} ${it.second}" },
                         color = TextPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -238,14 +238,14 @@ fun ServiceReminderCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = if (isUnknown) "ثبت نشده — تاریخچه سرویس ناشناست" else if (isOverdue) "منقضی شده! (${-reminder.remainingKm} km گذشته)" else "باقی‌مانده: ${reminder.remainingKm} km",
+                    text = if (isUnknown) stringResource(com.sarani.carobd.R.string.s5_unrecorded) else if (isOverdue) com.sarani.carobd.core.calculator.UnitConverter.formatDistance((-reminder.remainingKm).toDouble(), com.sarani.carobd.ui.theme.LocalUnitSystem.current).let { stringResource(com.sarani.carobd.R.string.s5_overdue, it.first, it.second) } else com.sarani.carobd.core.calculator.UnitConverter.formatDistance((reminder.remainingKm).toDouble(), com.sarani.carobd.ui.theme.LocalUnitSystem.current).let { stringResource(com.sarani.carobd.R.string.s5_remaining, it.first, it.second) },
                     color = barColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    text = "تعویض در: ${reminder.nextDueKm} km",
+                    text = com.sarani.carobd.core.calculator.UnitConverter.formatDistance((reminder.nextDueKm).toDouble(), com.sarani.carobd.ui.theme.LocalUnitSystem.current).let { stringResource(com.sarani.carobd.R.string.s5_due, it.first, it.second) },
                     color = TextMuted,
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace
@@ -263,37 +263,37 @@ fun TechnicalSpecsView(specs: VehicleSpecSheet) {
     ) {
         item {
             SpecRowCard(
-                title = "روغن موتور توصیه شده",
-                mainValue = "${specs.engineOilGrade} (${specs.engineOilCapacityLiters} لیتر با فیلتر)",
-                subNotes = "برندهای معتبر: ${specs.recommendedOilBrands.joinToString("، ")}"
+                title = stringResource(com.sarani.carobd.R.string.s5_oil),
+                mainValue = stringResource(com.sarani.carobd.R.string.s5_oil_reference, specs.engineOilGrade, specs.engineOilCapacityLiters),
+                subNotes = stringResource(com.sarani.carobd.R.string.s5_parts_reference)
             )
         }
         item {
             SpecRowCard(
-                title = "شمع موتور و فیلر مجاز",
+                title = stringResource(com.sarani.carobd.R.string.s5_spark),
                 mainValue = specs.sparkPlugModel,
-                subNotes = "فاصله دهانه شمع (فیلر): ${specs.sparkPlugGapMm} میلی‌متر"
+                subNotes = stringResource(com.sarani.carobd.R.string.s5_gap_reference, specs.sparkPlugGapMm)
             )
         }
         item {
             SpecRowCard(
-                title = "تسمه تایم و دوره تعویض",
-                mainValue = "${specs.timingBeltIntervalKm} کیلومتر (${specs.timingBeltTeeth} دندانه)",
-                subNotes = "همراه با هرزگرد ثابت و ساعتی تعویض شود"
+                title = stringResource(com.sarani.carobd.R.string.s5_belt),
+                mainValue = stringResource(com.sarani.carobd.R.string.s5_belt_reference, specs.timingBeltIntervalKm, specs.timingBeltTeeth),
+                subNotes = stringResource(com.sarani.carobd.R.string.s5_parts_reference)
             )
         }
         item {
             SpecRowCard(
-                title = "روغن گیربکس (واسکازین)",
-                mainValue = "${specs.gearboxOilGrade} (${specs.gearboxCapacityLiters} لیتر)",
-                subNotes = "هر ۴۰ تا ۵۰ هزار کیلومتر تعویض گردد"
+                title = stringResource(com.sarani.carobd.R.string.s5_gear_oil),
+                mainValue = stringResource(com.sarani.carobd.R.string.s5_oil_reference, specs.gearboxOilGrade, specs.gearboxCapacityLiters),
+                subNotes = stringResource(com.sarani.carobd.R.string.s5_parts_reference)
             )
         }
         item {
             SpecRowCard(
-                title = "روغن ترمز و خنک‌کننده",
-                mainValue = "${specs.brakeFluidType} • مایع خنک‌کننده: ${specs.coolantCapacityLiters} لیتر",
-                subNotes = "از ضدیخ با پایه آلی (OAT) با نسبت ۵۰/۵۰ استفاده شود"
+                title = stringResource(com.sarani.carobd.R.string.s5_brake_coolant),
+                mainValue = stringResource(com.sarani.carobd.R.string.s5_coolant_reference, specs.brakeFluidType, specs.coolantCapacityLiters),
+                subNotes = stringResource(com.sarani.carobd.R.string.s5_parts_reference)
             )
         }
         item {

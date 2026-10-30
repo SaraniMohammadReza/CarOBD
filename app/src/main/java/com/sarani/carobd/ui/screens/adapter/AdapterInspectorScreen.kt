@@ -160,9 +160,9 @@ fun AdapterHealthView(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (isConnected) {
-                                "دانگل متصل: ${connectedInfo?.deviceName ?: "ELM327"}"
+                                stringResource(com.sarani.carobd.R.string.s5_adapter_connected, connectedInfo?.deviceName ?: "—")
                             } else {
-                                "هیچ دانگل دیاگی متصل نیست"
+                                stringResource(com.sarani.carobd.R.string.s5_no_adapter)
                             },
                             color = TextPrimary,
                             fontSize = 14.sp,
@@ -172,9 +172,9 @@ fun AdapterHealthView(
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = if (isConnected) {
-                            "نسخه گزارش شده فریمور دانگل: ${connectedInfo?.elmVersion ?: "—"}. جهت ارتباط مطمئن با ایسیوهای ایرانی (زیمنس، ساژم، بوش ME7.4.x و SSAT) پروتکل و هدر باید به درستی پیکربندی شوند."
+                            stringResource(com.sarani.carobd.R.string.s5_reported_firmware, connectedInfo?.elmVersion ?: "—")
                         } else {
-                            "برای مشاهده شواهد ارتباط و اطلاعات گزارش‌شده آداپتور، ابتدا یک نشست فقط خواندنی برقرار کنید. هویت سخت‌افزار با رشته ATI تأیید نمی‌شود."
+                            stringResource(com.sarani.carobd.R.string.s5_adapter_identity_limit)
                         },
                         color = TextMuted,
                         fontSize = 12.sp,
@@ -196,7 +196,7 @@ fun AdapterHealthView(
                     Text(stringResource(com.sarani.carobd.R.string.ui_adapter_fields), color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     HealthRow(
                         label = stringResource(com.sarani.carobd.R.string.ui_connection_state),
-                        value = if (isConnected) "متصل (Connected)" else "قطع (Disconnected)"
+                        value = if (isConnected) stringResource(com.sarani.carobd.R.string.s5_connected) else stringResource(com.sarani.carobd.R.string.s5_disconnected)
                     )
                     HealthRow(
                         label = stringResource(com.sarani.carobd.R.string.ui_observed_protocol),
@@ -209,12 +209,12 @@ fun AdapterHealthView(
                     HealthRow(
                         label = stringResource(com.sarani.carobd.R.string.ui_adapter_voltage),
                         value = if (isConnected && telemetry.signal("ATRV").quality == com.sarani.carobd.core.model.SignalQuality.GOOD) {
-                            String.format(java.util.Locale.US, "%.1f ولت", telemetry.batteryVoltage)
+                            String.format(java.util.Locale.US, "%.1f V", telemetry.batteryVoltage)
                         } else "—"
                     )
                     HealthRow(
                         label = stringResource(com.sarani.carobd.R.string.ui_latency),
-                        value = if (isConnected) "پایش فعال در حلقه تله‌متری" else "—"
+                        value = if (isConnected) stringResource(com.sarani.carobd.R.string.s5_latency_unknown) else "—"
                     )
                 }
             }
@@ -250,10 +250,10 @@ fun AdapterHealthView(
 @Composable
 fun TroubleshootingGuideView() {
     val issues = listOf(
-        Pair("چراغ پاور دانگل روشن نمی‌شود", "فیوز فندکی یا فیوز سوکت دیاگ سوخته است. در خودروهای پژو فیوز F4 و در پراید فیوز فندکی داخل جعبه فیوز کالسکه را بررسی کنید."),
-        Pair("خطای UNABLE TO CONNECT یا BUS INIT: ERROR", "سوییچ خودرو باز نیست (باید روی حالت ON باشد تا ایسیو برق‌دار شود)، یا پروتکل هدر خودرو به اشتباه انتخاب شده است. از تب «خودرو» پروتکل هدر مناسب ایسیو را تنظیم فرمایید."),
-        Pair("کد پین جفت‌شدن بلوتوث چیست؟", "کد پیش‌فرض دانگل‌های بلوتوث معمولاً ۱۲۳۴ یا ۰۰۰۰ است. در صورت عدم اتصال، دانگل را از تنظیمات بلوتوث اندروید Unpair کرده و مجدداً جفت کنید."),
-        Pair("قطع شدن مداوم اتصال در حین رانندگی", "سوکت دیاگ خودرو ممکن است به مرور زمان دچار لقی یا سولفاته شدن کنتاکت‌ها شده باشد. توصیه می‌شود از اسپری خشک کنتاکت‌شور برقی برای پاکسازی استفاده کنید و از وارد کردن اجسام فلزی یا انبردست به پین‌های برق‌دار (پین ۱۶ مثبت دائم ۱۲ ولت) جداً خودداری فرمایید تا از بروز اتصال کوتاه و سوختن فیوز یا آسیب به ایسیو جلوگیری شود.")
+        Pair(stringResource(com.sarani.carobd.R.string.s5_help_power), stringResource(com.sarani.carobd.R.string.s5_help_power_body)),
+        Pair(stringResource(com.sarani.carobd.R.string.s5_help_init), stringResource(com.sarani.carobd.R.string.s5_help_init_body)),
+        Pair(stringResource(com.sarani.carobd.R.string.s5_help_pair), stringResource(com.sarani.carobd.R.string.s5_help_pair_body)),
+        Pair(stringResource(com.sarani.carobd.R.string.s5_help_loss), stringResource(com.sarani.carobd.R.string.s5_help_loss_body))
     )
 
     LazyColumn(
@@ -320,8 +320,8 @@ fun MotorcyclePinoutView() {
                         Text(moto.brandName, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text("نوع سوکت: ${moto.connectorType}", color = NeonCyan, fontSize = 11.sp)
-                    Text("مدل‌های تحت پوشش: ${moto.supportedModelsFa}", color = TextMuted, fontSize = 11.sp)
+                    Text(stringResource(com.sarani.carobd.R.string.s5_connector, moto.connectorType), color = NeonCyan, fontSize = 11.sp)
+                    Text(stringResource(com.sarani.carobd.R.string.s5_models, moto.supportedModelsFa), color = TextMuted, fontSize = 11.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     moto.pinoutDescriptionFa.forEach { pin ->
                         Text("• $pin", color = TextPrimary, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.padding(vertical = 1.dp))

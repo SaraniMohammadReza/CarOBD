@@ -1,76 +1,37 @@
 package com.sarani.carobd.core.calculator
 
-import com.sarani.carobd.core.model.LiveTelemetry
+import com.sarani.carobd.core.model.*
 import com.sarani.carobd.core.telemetry.fuel.FuelEconomyCalculator
 
 data class FuelEconomyMetrics(
-    val instantLitersPer100Km: Float = 0f,
-    val instantLitersPerHour: Float = 0f,
-    val instantKmPerLiter: Float = 0f,
-    val tripAverageLitersPer100Km: Float = 0f,
-    val remainingRangeKm: Int = 0,
-    val fuelCostPerKmTomans: Float = 0f
+    val instantLitersPer100Km: Float? = null,
+    val instantLitersPerHour: Float? = null,
+    val instantKmPerLiter: Float? = null,
+    val tripAverageLitersPer100Km: Float? = null,
+    val remainingRangeKm: Int? = null,
+    val fuelCostPerKmTomans: Float? = null,
+    val source: String? = null,
 )
 
 object FuelEconomyEngine {
-
-    /**
-     * Calculates instant and average fuel metrics using physical formulas from FuelEconomyCalculator.
-     */
-    fun calculate(
-        telemetry: LiveTelemetry,
-        tankCapacityLiters: Float = 50f,
-        fuelPricePerLiterTomans: Float = 3000f,
-        averageTripLitersPer100km: Float = 7.5f
-    ): FuelEconomyMetrics {
-        val speed = telemetry.speedKmh
-        val rpm = telemetry.rpm
-        val maf = telemetry.mafGramsPerSec
-        val fuelLevel = telemetry.fuelLevelPercent
-
-        if (rpm <= 0 && speed <= 0) {
-            return FuelEconomyMetrics()
+    /** Display estimates only. Missing/stale inputs and absent supplied averages remain null. */
+    fun calculate(telemetry: LiveTelemetry, tankCapacityLiters: Float? = null,
+        fuelPricePerLiterTomans: Float? = null, averageTripLitersPer100km: Float? = null,
+        nowMs: Long = System.currentTimeMillis()): FuelEconomyMetrics {
+        fun measured(pid: String) = telemetry.signal(pid, nowMs).takeIf { it.quality == SignalQuality.GOOD }?.value
+        val speed = measured("010D")
+        val rate = measured("0110")?.takeIf { it.isFinite() && it > 0 }?.let {
+            FuelEconomyCalculator.fuelRateIfMeasurable(mafGramsPerSec = it.toDouble())?.toFloat()
         }
-
-        // §8 TRUTHFULNESS: fuel rate ONLY from measured MAF. The previous
-        // else-branch fabricated displacement (1.6L), VE (0.80) and IAT (0C,
-        // never queried) via speed-density -> fake L/100km in the dashboard banner.
-        val fuelLitersPerHour = if (maf > 0.1f) {
-            (FuelEconomyCalculator.fuelRateIfMeasurable(mafGramsPerSec = maf.toDouble())?.toFloat() ?: 0f)
-        } else {
-            0f // §8: MAF unmeasured -> no fuel economy, never fabricated.
-        }
-
-        val instantL100km = if (speed > 3) {
-            (fuelLitersPerHour / speed.toFloat()) * 100f
-        } else {
-            0f
-        }
-
-        val instantKmL = if (instantL100km > 0.1f) {
-            100f / instantL100km
-        } else {
-            0f
-        }
-
-        // Remaining range: (current fuel in liters / average consumption) * 100
-        val remainingFuelLiters = (fuelLevel / 100f) * tankCapacityLiters
-        val avgConsumption = averageTripLitersPer100km.coerceAtLeast(4.0f)
-        val estRangeKm = if (fuelLevel > 0f) {
-            ((remainingFuelLiters / avgConsumption) * 100f).toInt().coerceIn(0, 1200)
-        } else {
-            0
-        }
-
-        val costPerKm = (avgConsumption / 100f) * fuelPricePerLiterTomans
-
-        return FuelEconomyMetrics(
-            instantLitersPer100Km = instantL100km.coerceIn(0f, 35f),
-            instantLitersPerHour = fuelLitersPerHour.coerceIn(0f, 25f),
-            instantKmPerLiter = instantKmL.coerceIn(0f, 40f),
-            tripAverageLitersPer100Km = averageTripLitersPer100km,
-            remainingRangeKm = estRangeKm,
-            fuelCostPerKmTomans = costPerKm
-        )
+        val consumption = if (rate != null && speed != null && speed > 3) rate / speed * 100 else null
+        val average = averageTripLitersPer100km?.takeIf { it.isFinite() && it > 0 }
+        val capacity = tankCapacityLiters?.takeIf { it.isFinite() && it > 0 }
+        val level = measured("012F")?.takeIf { it in 0f..100f }
+        val price = fuelPricePerLiterTomans?.takeIf { it.isFinite() && it >= 0 }
+        val range = if (average != null && capacity != null && level != null)
+            (level / 100 * capacity / average * 100).takeIf { it.isFinite() && it <= Int.MAX_VALUE }?.toInt() else null
+        return FuelEconomyMetrics(consumption, rate, consumption?.takeIf { it > 0 }?.let { 100 / it },
+            average, range, if (average != null && price != null) average / 100 * price else null,
+            if (rate != null) "MAF_DERIVED_GASOLINE_AFR14.7_DENSITY745" else null)
     }
 }

@@ -30,10 +30,12 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
         Column(Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             com.sarani.carobd.ui.components.RuntimeAccessControls()
             Text(when (val connection = state.connectionState) {
-                is ConnectionState.Connected -> if (connection.isSimulator) "Connected — SIMULATOR" else "Connected — physical ECU read-only (${connection.protocolName})"
-                is ConnectionState.Failure -> com.sarani.carobd.ui.components.connectionIssueLabel(connection.issue) + "\n" + connection.technicalMessage
-                else -> connection.toString()
+                is ConnectionState.Connected -> if (connection.isSimulator) stringResource(com.sarani.carobd.R.string.s5_connected_sim) else stringResource(com.sarani.carobd.R.string.s5_connected_physical, connection.protocolName)
+                is ConnectionState.Failure -> com.sarani.carobd.ui.components.connectionIssueLabel(connection.issue)
+                ConnectionState.Idle, ConnectionState.Disconnected -> stringResource(com.sarani.carobd.R.string.s5_disconnected)
+                else -> stringResource(com.sarani.carobd.R.string.s5_connection_progress)
             })
+            (state.connectionState as? ConnectionState.Failure)?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it.technicalMessage) }
             if (state.isConnected || state.isConnecting) {
                 Button(onClick = { viewModel.onIntent(ConnectionCenterIntent.Disconnect) }) { Text(stringResource(com.sarani.carobd.R.string.ui_disconnect_cancel)) }
             }
@@ -41,7 +43,7 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
             state.testReport?.let { report ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
-                        Text(if (report.isSimulator) "SIMULATOR test evidence" else "Physical read-only test evidence")
+                        Text(if (report.isSimulator) stringResource(com.sarani.carobd.R.string.s5_sim_evidence) else stringResource(com.sarani.carobd.R.string.s5_physical_evidence))
                         report.stages.forEach { stage -> Text("${stage.stage}: ${stage.status}\n${stage.evidence}") }
                         if (report.passed) Text(stringResource(com.sarani.carobd.R.string.ui_connection_passed))
                     }
@@ -51,8 +53,8 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
             state.profiles.forEach { profile ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(profile.name + if (profile.id == state.selectedProfileId) " (selected)" else "")
-                        Text("${profile.transportType}: ${profile.target}\nProtocol: ${profile.protocol}")
+                        Text(profile.name + if (profile.id == state.selectedProfileId) stringResource(com.sarani.carobd.R.string.s5_selected) else "")
+                        Text(stringResource(com.sarani.carobd.R.string.s5_profile_line, profile.transportType, profile.target, profile.protocol))
                         Row {
                             TextButton(enabled = !state.isConnecting, onClick = { viewModel.onIntent(ConnectionCenterIntent.ConnectSpecific(profile.id)) }) { Text(stringResource(com.sarani.carobd.R.string.ui_connect)) }
                             TextButton(enabled = !state.isConnecting, onClick = { viewModel.onIntent(ConnectionCenterIntent.TestConnection(profile.id)) }) { Text(stringResource(com.sarani.carobd.R.string.ui_test)) }
@@ -116,7 +118,7 @@ private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onS
                     OutlinedTextField(baud, { baud = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_usb_baud)) }, singleLine = true)
                 }
                 TransportType.SIMULATOR -> SimulatorScenario.entries.forEach { option ->
-                    FilterChip(selected = scenario == option.id, onClick = { scenario = option.id }, label = { Text(option.labelEn) })
+                    FilterChip(selected = scenario == option.id, onClick = { scenario = option.id }, label = { Text(if (androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "fa") option.labelFa else option.labelEn) })
                 }
             }
             OutlinedTextField(connectTimeout, { connectTimeout = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_connect_timeout)) }, singleLine = true)

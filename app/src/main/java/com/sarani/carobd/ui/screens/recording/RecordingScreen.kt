@@ -48,7 +48,12 @@ fun RecordingScreen(viewModel: RecordingViewModel) {
         }
         TextButton(enabled = !state.busy, onClick = { importer.launch(arrayOf("application/json", "text/plain")) }) { Text(stringResource(R.string.record_import)) }
         if (state.busy) TextButton(onClick = viewModel::cancel) { Text(stringResource(R.string.cancel)) }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.error?.let { Text(stringResource(R.string.s5_operation_failed), color = MaterialTheme.colorScheme.error); com.sarani.carobd.ui.components.DeveloperEvidence(it) }
+        Row {
+            TextButton(enabled = !state.busy && state.offset > 0, onClick = viewModel::newer) { Text(stringResource(R.string.s5_newer)) }
+            TextButton(enabled = !state.busy && state.sessions.size == 50, onClick = viewModel::older) { Text(stringResource(R.string.s5_older)) }
+        }
+        Text(stringResource(R.string.s5_preview_limits))
         state.sessions.forEach { session -> TextButton(enabled = !state.busy, onClick = { viewModel.select(session.sessionId) }) { Text("${session.profileName} · ${session.transportType} · ${session.startedAtMs}") } }
         state.selected?.let { t ->
             Text("${t.metadata.sessionId}\n${t.metadata.adapterIdentity ?: "—"}\n${t.metadata.vehicleProtocol ?: "—"}\n${t.events.size}")
@@ -60,7 +65,7 @@ fun RecordingScreen(viewModel: RecordingViewModel) {
             }
             t.events.take(100).forEach { Text("${it.elapsedMs} · ${it.direction} · ${it.command ?: "—"} · ${it.rawHex}") }
         }
-        state.replay.forEach { result ->
+        state.replay.take(100).forEach { result ->
             Text("REPLAY · ${result.command} · ${result.detail ?: ""}")
             result.evidence.forEach { Text("${it.responderId ?: "—"} · ${it.result}\n${it.rawLines.joinToString("\n")}") }
         }

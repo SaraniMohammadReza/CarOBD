@@ -5,7 +5,7 @@ enum class MetricProvenance { OBSERVED, DERIVED, LEGACY_UNVERIFIED, UNAVAILABLE 
 enum class MetricQuality { AVAILABLE, PARTIAL, LEGACY_UNVERIFIED, UNAVAILABLE }
 enum class TripMetric(val unit: String) {
     DURATION("s"), DISTANCE("km"), MAX_SPEED("km/h"), AVERAGE_SPEED("km/h"), MAX_RPM("rpm"),
-    FUEL_USED("L"), FUEL_ECONOMY("L/100km"), MAX_COOLANT("C"), AVERAGE_LOAD("%")
+    FUEL_USED("L"), FUEL_ECONOMY("L/100km"), MAX_COOLANT("°C"), AVERAGE_LOAD("%")
 }
 
 data class TripMetricEvidence(
