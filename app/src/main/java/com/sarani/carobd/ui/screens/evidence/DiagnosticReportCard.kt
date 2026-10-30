@@ -11,7 +11,7 @@ import com.sarani.carobd.core.model.*
 import com.sarani.carobd.ui.components.*
 
 @Composable
-internal fun DiagnosticReportCard(report: DiagnosticSessionReport) {
+internal fun DiagnosticReportCard(report: DiagnosticSessionReport, exporting: Boolean, onExport: () -> Unit) {
     var expanded by remember(report.id) { mutableStateOf(false) }
     Card(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
@@ -54,6 +54,8 @@ internal fun DiagnosticReportCard(report: DiagnosticSessionReport) {
                 }
                 DeveloperEvidence("${report.connectionSessionId ?: "—"} · ${report.startedAtMs} → ${report.finishedAtMs}")
                 Text(stringResource(R.string.evidence_limitations))
+                Text(stringResource(R.string.diagnosis_export_contents), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = onExport, enabled = !exporting) { Text(stringResource(R.string.diagnosis_export_json)) }
             }
         }
     }

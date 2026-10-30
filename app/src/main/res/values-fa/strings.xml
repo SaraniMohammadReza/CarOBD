@@ -443,4 +443,7 @@
     <plurals name="diagnosis_codes"><item quantity="one">%1$d کد خطای متمایز با دسته‌بندی</item><item quantity="other">%1$d کد خطای متمایز با دسته‌بندی</item></plurals>
     <plurals name="diagnosis_responders"><item quantity="one">%1$d پاسخ‌دهندهٔ شناخته‌شده</item><item quantity="other">%1$d پاسخ‌دهندهٔ شناخته‌شده</item></plurals>
     <string name="diagnosis_unknown_count">پاسخ‌دهندگان نامعلوم در این شمارش نیستند.</string>
+    <string name="diagnosis_export_json">خروجی JSON گزارش</string>
+    <string name="diagnosis_export_contents">شامل نام خودرو/پروفایل و شواهد خام عیب‌یابی است. مقصد سند را خودتان انتخاب کنید؛ بارگذاری خودکار انجام نمی‌شود.</string>
+    <string name="diagnosis_export_saved">گزارش در سند انتخاب‌شده ذخیره شد.</string>
 </resources>

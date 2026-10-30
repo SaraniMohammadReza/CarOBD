@@ -443,4 +443,7 @@
     <plurals name="diagnosis_codes"><item quantity="one">%1$d distinct categorized DTC</item><item quantity="other">%1$d distinct categorized DTCs</item></plurals>
     <plurals name="diagnosis_responders"><item quantity="one">%1$d identified responder</item><item quantity="other">%1$d identified responders</item></plurals>
     <string name="diagnosis_unknown_count">Unknown responders are excluded from this count.</string>
+    <string name="diagnosis_export_json">Export report JSON</string>
+    <string name="diagnosis_export_contents">Includes vehicle/profile labels and raw diagnostic evidence. Choose the document destination; no automatic upload is performed.</string>
+    <string name="diagnosis_export_saved">Report saved to the selected document.</string>
 </resources>

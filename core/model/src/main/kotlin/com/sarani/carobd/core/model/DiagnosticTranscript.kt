@@ -129,15 +129,9 @@ data class DiagnosticTranscript(
         return sb.toString()
     }
 
-    private fun jsonStr(s: String): String = "\"" + stringEsc(s) + "\""
+    private fun jsonStr(s: String): String = jsonStringLiteral(s)
     private fun hexEsc(s: String): String = stringEsc(s) // rawHex contains only [0-9A-F ]
-    private fun stringEsc(s: String): String = buildString {
-        s.forEach { c -> when (c) {
-            '\\' -> append("\\\\")
-            '"' -> append("\\\"")
-            else -> if (c.code < 0x20) append("\\u%04X".format(c.code)) else append(c)
-        } }
-    }
+    private fun stringEsc(s: String): String = jsonEscaped(s)
     private fun csvField(s: String?): String {
         val v = s ?: ""
         return if (v.contains(',') || v.contains('\"') || v.contains('\n') || v.contains('\r')) {

@@ -253,6 +253,11 @@ class RuntimeNavigationInstrumentedTest {
         nav(R.string.nav_diagnostics); tap(label(R.string.open_evidence)); tap(label(R.string.dtc_history))
         await(label(R.string.diagnosis_scope)); shot("recent-diagnosis")
         tap(label(R.string.diagnosis_scope)); await(label(R.string.diagnosis_adapter_reported)); shot("diagnosis-details")
+        tap(label(R.string.diagnosis_export_json))
+        assertTrue("SAF document picker must own the foreground window", nodes(root()).any { it.packageName?.toString()?.endsWith(".documentsui") == true })
+        shot("diagnosis-export-document-picker")
+        back() // Cancellation must not create a successful export or issue diagnostics.
+        assertNull(find(label(R.string.diagnosis_export_saved)))
         readConnectedEvidence()
         val oldServiceToken = requireNotNull(repo.foregroundSessionId.value)
         nav(R.string.nav_connection_center); tap(label(R.string.ui_disconnect_cancel)); shot("disconnected-after-simulation")

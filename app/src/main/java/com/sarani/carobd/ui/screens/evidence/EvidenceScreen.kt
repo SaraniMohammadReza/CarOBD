@@ -82,6 +82,16 @@ fun FreezeFrameScreen(viewModel: FreezeFrameViewModel) {
 
 @Composable
 fun DtcHistoryScreen(viewModel: DtcHistoryViewModel) {
+    val resolver = androidx.compose.ui.platform.LocalContext.current.contentResolver
+    var pendingReportId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+    val exportStatus by viewModel.exportStatus.collectAsState()
+    val exporter = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        val id = pendingReportId
+        pendingReportId = null
+        if (uri != null && id != null) viewModel.export(id) { json ->
+            requireNotNull(resolver.openOutputStream(uri, "wt")).bufferedWriter(Charsets.UTF_8).use { it.write(json) }
+        }
+    }
     val reports by viewModel.reports.collectAsState()
     val sessions by viewModel.sessions.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -92,7 +102,17 @@ fun DtcHistoryScreen(viewModel: DtcHistoryViewModel) {
         error?.let { Text(stringResource(R.string.s5_operation_failed)); com.sarani.carobd.ui.components.DeveloperEvidence(it) }; warning?.let { com.sarani.carobd.ui.components.DeveloperEvidence(it) }
         Text(stringResource(R.string.diagnosis_recent), style = MaterialTheme.typography.titleMedium)
         if (reports.isEmpty()) Text(stringResource(R.string.diagnosis_empty))
-        reports.forEach { report -> DiagnosticReportCard(report) }
+        when (exportStatus) {
+            ReportExportStatus.BUSY -> LinearProgressIndicator(Modifier.fillMaxWidth())
+            ReportExportStatus.SAVED -> Text(stringResource(R.string.diagnosis_export_saved))
+            ReportExportStatus.FAILED -> Text(stringResource(R.string.s5_operation_failed))
+            else -> Unit
+        }
+        reports.forEach { report -> DiagnosticReportCard(report, exportStatus == ReportExportStatus.BUSY) {
+            viewModel.resetExportStatus()
+            pendingReportId = report.id
+            exporter.launch("carobd-dtc-${report.startedAtMs}.json")
+        } }
         Text(stringResource(R.string.diagnosis_legacy_history), style = MaterialTheme.typography.titleMedium)
         sessions.forEach { s ->
             Text("${s.observedAtMs} · ${s.protocol ?: "—"} · ${s.connectionSessionId ?: "—"}")
