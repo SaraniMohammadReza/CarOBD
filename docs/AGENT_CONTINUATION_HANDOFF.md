@@ -120,7 +120,7 @@ Do not discard local changes to switch/pull. Open the Git root directory in Andr
 
 ## 13. Last Updated
 
-2026-10-30 23:35 +03:30, Asia/Tehran workstation time. Requested window ends 2026-10-31 07:00 local or actual execution budget/blocker first; no artificial waiting. Final native sleep is authorized **only after** verified push, saved final report, completed build/tests, and confirmation this is the actual local workstation with suspend support. No sleep has been invoked. Never suspend a container/VM/SSH/shared host; report inability honestly. Sleep must be the last system action, with no later development scheduled.
+2026-10-30 23:39 +03:30, Asia/Tehran workstation time. Requested window ends 2026-10-31 07:00 local or actual execution budget/blocker first; no artificial waiting. Final native sleep is authorized **only after** verified push, saved final report, completed build/tests, and confirmation this is the actual local workstation with suspend support. No sleep has been invoked. Never suspend a container/VM/SSH/shared host; report inability honestly. Sleep must be the last system action, with no later development scheduled.
 
 ### Latest verified checkpoint additions
 
@@ -133,3 +133,9 @@ Host sleep preflight (no suspend performed): Linux/systemd on ext4, systemd-dete
 VERIFIED: existing template backup XMLs now exclude all nine backup domains from automatic cloud backup. Modern explicit device transfer retains owner data while excluding device-local runtime_access.xml; legacy rules exclude both modes. No local data is deleted. Packaged resource test plus actual DocumentsUI Save/readback of simulator report passed in the complete Android10/10 run, exit0,3m6s (`/tmp/carobd-overnight-backup-save-ui-retry.log`). Initial test compilation referenced hidden ApplicationInfo fields; removed those unsupported assertions, retaining public packaged-resource checks and separately reviewed manifest resource references. No cloud backup or device migration executed. See DATA_PRIVACY_AND_EXPORT.md.
 
 Current active source task: notification unit/language correction. NotificationMeasurements helper and four regressions are written; ConnectionForegroundService combines saved units/language with its existing shared stream. These changes are not in this privacy commit and are not yet claimed verified. Next run app unit tests and actual notification settings check in RuntimeNavigation; do not repeat already passed successful provider Save.
+
+### Notification settings checkpoint
+
+`98953bba6311a92469a2759675e904c065a5eb87` privacy checkpoint is pushed. Foreground notification now observes persisted units/language alongside the existing telemetry stream: unit conversion is presentation-only, freshness uses the existing clock, and vehicle labels select the saved language. Four new JVM regressions cover metric/imperial, measured zero/negative, stale/missing/clock rollback, independent PID freshness and nonfinite voltage. App143/0fail/error/skip passed, exit0,3s (`/tmp/carobd-overnight-notification-unit.log`). Android10/10 passed, exit0,3m11s (`/tmp/carobd-overnight-notification-ui.log`), including actual Settings imperial→metric updates read from NotificationManager and unchanged session token. No producer or wire-command changes.
+
+Next active task: Persian/Arabic numeric metadata input. VehicleSetupNumbers, VehicleOnboardingModal and four parser regressions are being implemented separately and are not claimed verified by the notification tests. Then run the final fresh gate, all-configuration cache check, EN/FA instrumentation and final portable documentation.

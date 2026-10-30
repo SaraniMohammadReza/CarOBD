@@ -263,7 +263,7 @@
     <string name="notify_disconnect">Disconnect</string>
     <string name="notify_channel">Diagnostic telemetry</string>
     <string name="notify_channel_description">Visible read-only session and disconnect control</string>
-    <string name="notify_measurements">Speed: %1$s km/h · RPM: %2$s · Coolant: %3$s °C</string>
+    <string name="notify_measurements">Speed: %1$s · RPM: %2$s · Coolant: %3$s</string>
     <string name="notify_voltage">Protocol: %1$s · Adapter supply ATRV: %2$s V</string>
     <string name="trip_partial">Partial measurement coverage or capture limit reached. Gaps are not integrated.</string>
     <string name="trip_fuel_unknown">Fuel use is unknown; engine load is not a measured fuel rate. Driving events are heuristics, not diagnoses.</string>

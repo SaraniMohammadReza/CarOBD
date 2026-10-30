@@ -263,7 +263,7 @@
     <string name="notify_disconnect">قطع اتصال (Disconnect)</string>
     <string name="notify_channel">پایش تله‌متری دیاگ خودرو</string>
     <string name="notify_channel_description">نمایش زنده سرعت، دور موتور و وضعیت اتصال به ایسیو در پس‌زمینه</string>
-    <string name="notify_measurements">سرعت: %1$s km/h · دور موتور: %2$s · دمای آب: %3$s °C</string>
+    <string name="notify_measurements">سرعت: %1$s · دور موتور: %2$s · دمای آب: %3$s</string>
     <string name="notify_voltage">پروتکل: %1$s · ولتاژ گزارش‌شده ATRV: %2$s V</string>
     <string name="trip_partial">پوشش اندازه‌گیری ناقص است یا سقف ضبط پر شده؛ فاصله‌های بدون داده محاسبه نمی‌شوند.</string>
     <string name="trip_fuel_unknown">مصرف سوخت نامشخص است؛ بار موتور نرخ سوخت اندازه‌گیری‌شده نیست. رویدادهای رانندگی تخمینی‌اند و تشخیص عیب نیستند.</string>

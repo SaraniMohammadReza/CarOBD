@@ -239,6 +239,25 @@ class RuntimeNavigationInstrumentedTest {
         assertTrue(repo.connectionState.value.toString(), (repo.connectionState.value as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator == true)
         nav(R.string.nav_dashboard); await(label(R.string.simulator_warning)); shot("dashboard-simulation")
         addCanonicalLiveGraph()
+        val notificationSession = repo.foregroundSessionId.value
+        nav(R.string.nav_settings); tap(label(R.string.ui_unit_imperial))
+        fun awaitNotificationUnits(speedUnit: String, temperatureUnit: String) {
+            val until = SystemClock.uptimeMillis() + 10_000
+            var content = ""
+            do {
+                content = instrumentation.targetContext.getSystemService(android.app.NotificationManager::class.java)
+                    .activeNotifications.firstOrNull { it.id == com.sarani.carobd.service.ConnectionForegroundService.NOTIFICATION_ID }
+                    ?.notification?.extras?.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString().orEmpty()
+                if (content.contains(speedUnit) && content.contains(temperatureUnit)) return
+                SystemClock.sleep(100)
+            } while (SystemClock.uptimeMillis() < until)
+            error("Notification units did not update: $content")
+        }
+        awaitNotificationUnits("mph", "°F")
+        assertEquals("Unit settings must not replace the diagnostic session", notificationSession, repo.foregroundSessionId.value)
+        shot("notification-imperial-settings")
+        tap(label(R.string.ui_unit_metric)); awaitNotificationUnits("km/h", "°C")
+        nav(R.string.nav_dashboard)
         automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
         SystemClock.sleep(1000)
         assertTrue((repo.connectionState.value as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator == true)

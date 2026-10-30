@@ -33,6 +33,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
 
     private val preferences: com.sarani.carobd.core.storage.AppPreferencesManager by inject()
     private var stringsContext: Context? = null
+    private var stringsLanguage: com.sarani.carobd.core.storage.AppLanguage? = null
     private fun text(id: Int, vararg args: Any): String = (stringsContext ?: this).getString(id, *args)
     private val repository: ObdRepository by inject()
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
@@ -66,7 +67,6 @@ class ConnectionForegroundService : Service(), KoinComponent {
 
     override fun onCreate() {
         super.onCreate()
-        serviceScope.launch { preferences.language.collect { language -> stringsContext = com.sarani.carobd.core.storage.LocaleHelper.wrapContext(this@ConnectionForegroundService, language) } }
         createNotificationChannel()
     }
 
@@ -129,21 +129,25 @@ class ConnectionForegroundService : Service(), KoinComponent {
                 repository.connectionState,
                 repository.liveTelemetry,
                 repository.activeVehicleProfile,
+                combine(preferences.language, preferences.unitSystem) { language, units -> language to units },
                 kotlinx.coroutines.flow.flow { while (true) { emit(System.currentTimeMillis()); kotlinx.coroutines.delay(1000) } }
-            ) { conn, tele, profile, _ ->
-                Triple(conn, tele, profile)
-            }.collect { (conn, tele, profile) ->
+            ) { conn, tele, profile, settings, now ->
+                val (language, units) = settings
+                if (stringsLanguage != language) {
+                    stringsContext = com.sarani.carobd.core.storage.LocaleHelper.wrapContext(this@ConnectionForegroundService, language)
+                    stringsLanguage = language
+                }
+                val vehicleName = if (language == com.sarani.carobd.core.storage.AppLanguage.ENGLISH) profile?.modelNameEn else profile?.modelNameFa
+                Triple(conn, tele, vehicleName to NotificationMeasurements.from(tele, units, now))
+            }.collect { (conn, tele, display) ->
                 when (conn) {
                     is ConnectionState.Connected -> {
-                        val title = (if (conn.isSimulator) "SIMULATOR · " else "") + "${profile?.modelNameFa ?: "—"} • ${conn.deviceName}"
-                        val speed = tele.signal("010D").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
-                        val rpm = tele.signal("010C").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
-                        val coolant = tele.signal("0105").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
-                        val voltage = tele.signal("ATRV").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
+                        val (vehicleName, measurements) = display
+                        val title = (if (conn.isSimulator) "SIMULATOR · " else "") + "${vehicleName ?: "—"} • ${conn.deviceName}"
                         val content = if (tele.isMeasured("010D") || tele.isMeasured("010C")) {
-                            text(R.string.notify_measurements, speed, rpm, coolant)
+                            text(R.string.notify_measurements, measurements.speed, measurements.rpm, measurements.coolant)
                         } else {
-                            text(R.string.notify_voltage, conn.protocolName, voltage)
+                            text(R.string.notify_voltage, conn.protocolName, measurements.voltage)
                         }
                         updateNotification(title, content)
                     }
