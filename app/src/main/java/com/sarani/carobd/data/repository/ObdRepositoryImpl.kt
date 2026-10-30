@@ -192,7 +192,7 @@ class ObdRepositoryImpl(
                     recordings?.bench(BenchPhase.PermissionSnapshot, "AdmissionPending")
                     admitTransport(profile.transport)
                     if (!testOnly) admitBackground()
-                    recordings?.bench(BenchPhase.PermissionGranted, "TransportAndSessionAdmission")
+                    recordings?.bench(BenchPhase.PermissionSnapshot, if (testOnly) "TransportAdmissionPassed;ForegroundNotRequiredForTest" else "TransportAndForegroundAdmissionPassed")
                     val rawTransport = createTransport(profile.transport)
                     val transport = if (recordings != null) com.sarani.carobd.core.adapter.transport.RecordingTransport(rawTransport, { recordings.builder }, recordings::failure) else rawTransport
                     check(transport.transportType == profile.transport.type) { "Transport identity mismatch" }
@@ -259,6 +259,8 @@ class ObdRepositoryImpl(
                     _connectionState.value = ConnectionState.Disconnected
                     throw e
                 } catch (e: Exception) {
+                    if (e is com.sarani.carobd.core.model.AccessDeniedException)
+                        recordings?.bench(BenchPhase.PermissionDenied, "${e.access}:${e.state}")
                     recordings?.bench(BenchPhase.ConnectionFailed, com.sarani.carobd.core.model.connectionIssue(e).name)
                     recordings?.disconnected()
                     _activeConnectionProfile.value = null

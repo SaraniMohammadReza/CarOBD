@@ -68,7 +68,6 @@ class RecordingController(val store: FileTranscriptStore, private val scope: Cor
     }
     @Synchronized fun disconnected() {
         bench(BenchPhase.SessionEnded)
-        runCatching { builder?.recordDisconnect() }
         val snapshot = builder?.toTranscript()
         builder = null
         metadata = null

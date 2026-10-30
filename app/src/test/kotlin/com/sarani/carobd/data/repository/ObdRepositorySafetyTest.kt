@@ -37,7 +37,7 @@ class ObdRepositorySafetyTest {
             rx.emit((raw + "\r>").toByteArray())
         }
     }
-    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null, history: ((DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null) = ObdRepositoryImpl(
+    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null, history: ((DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null, admission: (TransportConfig) -> Unit = {}) = ObdRepositoryImpl(
         context = null,
         activeVehicleRepository = ActiveVehicleRepository(MutableStateFlow(null), {}, {}),
         appPreferencesManager = null,
@@ -45,7 +45,7 @@ class ObdRepositorySafetyTest {
         scope = scope,
         ioDispatcher = scope.coroutineContext[kotlin.coroutines.ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
         pollModeFlow = MutableStateFlow(TelemetryPollMode.NORMAL),
-        createTransport = { physical }, recordings = recordings, historySink = history, startService = {}, stopService = {},
+        createTransport = { physical }, admitTransport = admission, recordings = recordings, historySink = history, startService = {}, stopService = {},
     )
     private val profile = ConnectionProfile("test", "bench", TransportConfig.Wifi("bench", 35000))
     @Test fun repository_actualScanPathPreservesAllThreeNonCanCategories() = runTest {
@@ -333,5 +333,24 @@ class ObdRepositorySafetyTest {
             assertTrue(physical.isConnected)
         }
         repo.disconnect()
+    }
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun deniedBenchAdmissionRecordsFailureWithoutOpeningTransportOrInventingDisconnect() = runTest {
+        val directory = java.nio.file.Files.createTempDirectory("bench-denial").toFile()
+        try {
+            val store = com.sarani.carobd.core.adapter.transport.FileTranscriptStore(directory)
+            val recording = com.sarani.carobd.data.recording.RecordingController(store, backgroundScope)
+            recording.enableBench(true)
+            val transport = Physical()
+            val repo = repository(backgroundScope, transport, recording, admission = { throw AccessDeniedException(RuntimeAccess.Connect, AccessState.Denied) })
+            assertTrue(repo.connect(profile).isFailure)
+            runCurrent()
+            assertFalse(transport.connectEntered.isCompleted)
+            assertEquals(emptyList<String>(), transport.writes)
+            val capture = store.read(store.list().single().sessionId)
+            assertTrue(capture.events.any { it.protocolMetadata["phase"] == "PermissionDenied" && it.protocolMetadata["state"] == "Connect:Denied" })
+            assertTrue(capture.events.any { it.protocolMetadata["phase"] == "SessionEnded" })
+            assertFalse(capture.events.any { it.direction == Direction.TX || it.protocolMetadata["event"] == "disconnect" || it.protocolMetadata["phase"] == "PermissionGranted" })
+        } finally { directory.deleteRecursively() }
     }
 }
