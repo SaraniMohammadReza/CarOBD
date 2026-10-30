@@ -288,4 +288,26 @@ class ObdRepositorySafetyTest {
         repo.disconnect()
     }
 
+    @Test fun benchCaptureIncludesInitializationWithoutAddingCommands() = runTest {
+        val directory = java.nio.file.Files.createTempDirectory("bench-production").toFile()
+        try {
+            val store = com.sarani.carobd.core.adapter.transport.FileTranscriptStore(directory)
+            val controller = com.sarani.carobd.data.recording.RecordingController(store, backgroundScope)
+            controller.enableBench(true)
+            val transport = Physical()
+            val repo = repository(backgroundScope, transport, controller)
+            val report = repo.testConnection(profile) {}
+            assertTrue(report.toString(), report.passed)
+            // Final save is asynchronous; explicit capture stop is unnecessary after test session closes.
+            runCurrent()
+            val captured = store.read(store.list().single().sessionId)
+            assertEquals(transport.writes, captured.events.filter { it.direction == Direction.TX }.map { it.command })
+            assertTrue(captured.events.any { it.command == "ATI" && it.rawHex == "ATI\r" })
+            assertTrue(captured.events.any { it.protocolMetadata["phase"] == "EcuResponding" && it.protocolMetadata["state"] == "PASS" })
+            assertTrue(captured.events.any { it.protocolMetadata["phase"] == "SessionEnded" })
+            assertFalse(captured.events.any { it.protocolMetadata.values.any { value -> value == "DEVICE_PASS" || value == "VEHICLE_PASS" } })
+            assertFalse(transport.writes.any { it == "04" || it.startsWith("08") || it.startsWith("27") || it.startsWith("2E") })
+        } finally { directory.deleteRecursively() }
+    }
+
 }

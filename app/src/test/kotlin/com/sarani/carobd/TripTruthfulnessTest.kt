@@ -25,4 +25,13 @@ class TripTruthfulnessTest {
         assertTrue(logger.tripState.value.coverageLimited)
         assertTrue(logger.exportToCsv().contains(",,36.0,"))
     }
+    @Test fun manualAndAutomaticTripUseCompatibleEvidenceModel() {
+        val logger = TripLogger(); logger.startTrip(1000)
+        val automatic = com.sarani.carobd.core.telemetry.trip.TripComputer("auto", "v", 1000)
+        for (time in listOf(1000L, 2000L)) {
+            logger.logSample(LiveTelemetry(speedKmh = 36, measuredPids = setOf("0D"), timestamp = time), time)
+            automatic.processSample(36, null, null, time)
+        }
+        assertEquals(automatic.getTripRecord(2000).evidence, logger.tripState.value.evidence)
+    }
 }

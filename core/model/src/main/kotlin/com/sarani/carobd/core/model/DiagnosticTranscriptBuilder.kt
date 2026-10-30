@@ -24,6 +24,12 @@ class DiagnosticTranscriptBuilder(private var metadata: TranscriptMetadata) {
         add(Direction.ERR, command, envelope.rawLines.joinToString("\r"), envelope.responderId, outcome, mapOf("event" to "parsed", "service" to envelope.service.name) + (timeoutMs?.let { mapOf("timeoutMs" to it.toString()) } ?: emptyMap()))
     }
     @Synchronized fun updateIdentity(adapter: String?, protocol: String?) { metadata = metadata.copy(adapterIdentity = adapter, vehicleProtocol = protocol) }
+    @Synchronized fun recordBench(phase: BenchPhase, profileId: String? = null, state: String? = null) {
+        add(Direction.ERR, null, "", outcome = DiagnosticOutcome.RAW,
+            extra = mapOf("event" to "bench", "phase" to phase.name) +
+                (profileId?.let { mapOf("profileId" to it.take(80)) } ?: emptyMap()) +
+                (state?.let { mapOf("state" to it.take(160)) } ?: emptyMap()))
+    }
     @Synchronized fun recordConnect() { connected = true }
     @Synchronized fun recordDisconnect() {
         if (connected) add(Direction.ERR, null, "", outcome = DiagnosticOutcome.ADAPTER_FAILURE, extra = mapOf("event" to "disconnect"))

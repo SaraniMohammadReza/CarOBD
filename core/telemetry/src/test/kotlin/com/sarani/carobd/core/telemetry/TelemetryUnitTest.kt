@@ -103,8 +103,8 @@ class TelemetryUnitTest {
         val record = trip.getTripRecord(nowMs = 1000000L + 10000L)
         assertEquals(60, record.maxSpeedKmh)
         assertEquals(2500, record.maxRpm)
-        assertTrue(record.distanceKm > 0.07 && record.distanceKm < 0.10)
-        assertTrue(record.estimatedFuelUsedLiters > 0.0)
+        assertTrue(requireNotNull(record.distanceKm) > 0.07 && requireNotNull(record.distanceKm) < 0.10)
+        assertTrue(requireNotNull(record.estimatedFuelUsedLiters) > 0.0)
     }
 
     @Test

@@ -12,6 +12,9 @@ import com.sarani.carobd.core.model.ConnectionTestReport
 import com.sarani.carobd.core.model.ConnectionTestEvidence
 import com.sarani.carobd.core.model.ConnectionProfile
 import com.sarani.carobd.core.model.ConnectionState
+import com.sarani.carobd.core.model.BenchPhase
+import com.sarani.carobd.core.model.ConnectionTestStage
+import com.sarani.carobd.core.model.ConnectionTestStatus
 import com.sarani.carobd.core.model.ConnectionType
 import com.sarani.carobd.core.model.DiagnosticCode
 import com.sarani.carobd.core.model.DiagnosticResult
@@ -185,15 +188,20 @@ class ObdRepositoryImpl(
                         ProtocolMode.MANUAL -> requireNotNull(profile.manualProtocolCode?.let { protocolFromManualCode(it) }) { "Unsupported manual protocol" }
                         ProtocolMode.VEHICLE_PROFILE -> error("Vehicle-profile protocol initialization is disabled pending validation; choose AUTO or MANUAL")
                     }
+                    recordings?.session(profile)
+                    recordings?.bench(BenchPhase.PermissionSnapshot, "AdmissionPending")
                     admitTransport(profile.transport)
                     if (!testOnly) admitBackground()
-                    recordings?.session(profile)
+                    recordings?.bench(BenchPhase.PermissionGranted, "TransportAndSessionAdmission")
                     val rawTransport = createTransport(profile.transport)
                     val transport = if (recordings != null) com.sarani.carobd.core.adapter.transport.RecordingTransport(rawTransport, { recordings.builder }, recordings::failure) else rawTransport
                     check(transport.transportType == profile.transport.type) { "Transport identity mismatch" }
                     lateinit var session: DiagnosticSession
                     session = DiagnosticSession(transport, scope,
-                        onState = { state -> created?.let { if (activeSession === it) _connectionState.value = state } },
+                        onState = { state -> created?.let { if (activeSession === it) {
+                            _connectionState.value = state
+                            if (state is ConnectionState.Failure) recordings?.bench(BenchPhase.TransportLost, state.issue?.name ?: "Unknown")
+                        } } },
                         onTelemetry = { sample -> created?.let { if (activeSession === it && it.isOpen) _liveTelemetry.value = sample } },
                         onLoss = {
                             val lost = created
@@ -203,7 +211,16 @@ class ObdRepositoryImpl(
                                 if (failure != null) _connectionState.value = failure
                             } } }
                         }, connectTimeoutMs = profile.connectTimeoutMs,
-                        commandTimeoutMs = profile.commandTimeoutMs, onEvidence = onEvidence, onResponse = { command, response -> recordings?.parsed(command, response) })
+                        commandTimeoutMs = profile.commandTimeoutMs, onEvidence = { event ->
+                            recordings?.bench(when (event.stage) {
+                                ConnectionTestStage.TRANSPORT -> if (event.status == ConnectionTestStatus.PASS) BenchPhase.TransportConnected else BenchPhase.TransportConnecting
+                                ConnectionTestStage.ADAPTER, ConnectionTestStage.IDENTITY -> if (event.status == ConnectionTestStatus.PASS) BenchPhase.AdapterResponding else BenchPhase.AdapterInitializing
+                                ConnectionTestStage.PROTOCOL -> if (event.status == ConnectionTestStatus.PASS) BenchPhase.ProtocolObserved else BenchPhase.ProtocolSelecting
+                                ConnectionTestStage.ECU -> if (event.status == ConnectionTestStatus.PASS) BenchPhase.EcuResponding else BenchPhase.EcuHandshake
+                                ConnectionTestStage.CAPABILITIES -> BenchPhase.CapabilitiesDiscovered
+                            }, event.status.name)
+                            onEvidence(event)
+                        }, onResponse = { command, response -> recordings?.parsed(command, response) })
                     activeCommandTimeoutMs = profile.commandTimeoutMs
                     created = session
                     activeSession = session
@@ -214,7 +231,7 @@ class ObdRepositoryImpl(
                         disconnectLocked()
                     } else {
                         _activeConnectionProfile.value = profile
-                        currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected")
+                        currentTripComputer = TripComputer(UUID.randomUUID().toString(), _activeVehicleProfile.value?.id ?: "unselected", simulator = profile.transport.type == TransportType.SIMULATOR)
                         (session.adapter.state.value as? ConnectionState.Connected)?.let { recordings?.identity(it) }
                         _connectionState.value = session.adapter.state.value
                         startTelemetryLoop()
@@ -230,6 +247,8 @@ class ObdRepositoryImpl(
                     }
                     Result.success(Unit)
                 } catch (e: CancellationException) {
+                    recordings?.bench(BenchPhase.ConnectionFailed, "Canceled")
+                    recordings?.disconnected()
                     _activeConnectionProfile.value = null
                     _foregroundSessionId.value = null
                     if (activeSession === created) activeSession = null
@@ -240,6 +259,8 @@ class ObdRepositoryImpl(
                     _connectionState.value = ConnectionState.Disconnected
                     throw e
                 } catch (e: Exception) {
+                    recordings?.bench(BenchPhase.ConnectionFailed, com.sarani.carobd.core.model.connectionIssue(e).name)
+                    recordings?.disconnected()
                     _activeConnectionProfile.value = null
                     _foregroundSessionId.value = null
                     if (activeSession === created) activeSession = null
@@ -259,6 +280,7 @@ class ObdRepositoryImpl(
     }
 
     override suspend fun disconnect() {
+        recordings?.bench(BenchPhase.DisconnectRequested)
         connecting.get()?.cancel(CancellationException("User disconnected"))
         val captured = activeSession
         captured?.invalidate() // Stop dispatch before waiting for connection serialization.
@@ -278,7 +300,7 @@ class ObdRepositoryImpl(
         old?.close()
         recordings?.disconnected()
         currentTripComputer?.getTripRecord()?.let { record ->
-            if (record.distanceKm > 0.05 || record.durationSeconds > 30) runCatching { database.insertTripRecord(record) }
+            if ((record.distanceKm ?: 0.0) > 0.05 || record.durationSeconds > 30) runCatching { database.insertTripRecord(record) }
         }
         currentTripComputer = null
         _connectionState.value = ConnectionState.Disconnected

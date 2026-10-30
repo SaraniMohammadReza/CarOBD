@@ -16,6 +16,7 @@ import com.sarani.carobd.R
 @Composable
 fun RecordingScreen(viewModel: RecordingViewModel) {
     val state by viewModel.state.collectAsState()
+    val benchEnabled by viewModel.benchEnabled.collectAsState()
     val recording by viewModel.recording.collectAsState()
     val resolver = LocalContext.current.contentResolver
     val json = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -38,6 +39,8 @@ fun RecordingScreen(viewModel: RecordingViewModel) {
         Text(stringResource(R.string.recordings_title))
         Text(com.sarani.carobd.ui.components.recordingLabel(recording))
         Text(stringResource(R.string.recording_limitations))
+        Row { Checkbox(checked = benchEnabled, onCheckedChange = viewModel::enableBench); Text(stringResource(R.string.bench_capture)) }
+        Text(stringResource(R.string.bench_limits))
         Row {
             TextButton(enabled = !state.busy && recording != "Recording", onClick = viewModel::start) { Text(stringResource(R.string.record_start)) }
             TextButton(enabled = !state.busy, onClick = viewModel::stop) { Text(stringResource(R.string.record_stop)) }

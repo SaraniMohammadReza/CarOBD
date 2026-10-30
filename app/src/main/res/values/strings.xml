@@ -284,4 +284,6 @@
     <string name="issue_transport_eof">Transport ended. The session is no longer connected.</string>
     <string name="monitor_tests">Mode06 monitor evidence</string>
     <string name="monitor_tests_limits">CAN records only. Raw fields are measured/minimum/maximum bit patterns; units, signedness, manufacturer meaning and pass/fail remain unknown. Mode05 is unavailable. No actuator tests are started.</string>
+    <string name="bench_capture">Bench capture on next connection</string>
+    <string name="bench_limits">Captures admission and initialization using the same read-only commands. No device PASS is implied. Exports contain diagnostic identifiers and adapter addresses; share deliberately.</string>
 </resources>

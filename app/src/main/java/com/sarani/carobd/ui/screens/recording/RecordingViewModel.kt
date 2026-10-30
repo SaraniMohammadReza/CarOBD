@@ -12,6 +12,8 @@ data class RecordingUiState(val sessions: List<TranscriptMetadata> = emptyList()
     val replay: List<ReplayedCommand> = emptyList(), val busy: Boolean = false, val error: String? = null)
 class RecordingViewModel(private val controller: RecordingController) : ViewModel() {
     val recording = controller.state
+    val benchEnabled = controller.benchEnabled
+    fun enableBench(enabled: Boolean) = controller.enableBench(enabled)
     private val _state = MutableStateFlow(RecordingUiState())
     val state = _state.asStateFlow()
     private var work: Job? = null

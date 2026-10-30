@@ -8,6 +8,13 @@ import kotlinx.coroutines.flow.*
 
 /** Memory-only observation on dispatch; periodic IO snapshots happen in a separate coroutine. */
 class RecordingController(val store: FileTranscriptStore, private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())) {
+    private val _benchEnabled = MutableStateFlow(false)
+    val benchEnabled = _benchEnabled.asStateFlow()
+    fun enableBench(enabled: Boolean) { _benchEnabled.value = enabled }
+    /** Observations only: no callbacks can issue or retry commands. */
+    fun bench(phase: BenchPhase, state: String? = null) {
+        try { builder?.recordBench(phase, state = state) } catch (e: Exception) { failure(e) }
+    }
     private val _state = MutableStateFlow("Stopped")
     val state = _state.asStateFlow()
     @Volatile var builder: DiagnosticTranscriptBuilder? = null
@@ -28,6 +35,10 @@ class RecordingController(val store: FileTranscriptStore, private val scope: Cor
         metadata = TranscriptMetadata(profile.name, profile.transport.type, profile.transport.connectionTarget, commandTimeoutMs = profile.commandTimeoutMs)
         builder = null
         _state.value = "Stopped"
+        if (_benchEnabled.value) {
+            start()
+            builder?.recordBench(BenchPhase.TransportConnecting, profile.id)
+        }
     }
     @Synchronized fun start() {
         check(builder == null) { "Already recording" }
@@ -56,6 +67,8 @@ class RecordingController(val store: FileTranscriptStore, private val scope: Cor
         if (snapshot != null) scope.launch { runCatching { store.save(snapshot) } }
     }
     @Synchronized fun disconnected() {
+        bench(BenchPhase.SessionEnded)
+        builder?.recordDisconnect()
         val snapshot = builder?.toTranscript()
         builder = null
         metadata = null

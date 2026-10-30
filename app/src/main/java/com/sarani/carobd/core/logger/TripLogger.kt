@@ -10,6 +10,7 @@ data class TripSummary(
     val estimatedFuelUsedLiters: Double? = null, val samplesCount: Int = 0,
     val speedSamples: Int = 0, val rpmSamples: Int = 0, val coverageLimited: Boolean = false,
     val limitReached: Boolean = false,
+    val evidence: List<TripMetricEvidence> = emptyList(),
 )
 data class TelemetrySample(val timestampMs: Long, val rpm: Float?, val speedKmh: Float?, val coolantTemp: Float?,
     val throttlePercent: Float?, val voltage: Float?, val engineLoad: Float?)
@@ -21,8 +22,10 @@ class TripLogger {
     private val samples = mutableListOf<TelemetrySample>()
     private var lastSpeed: Pair<Long, Float>? = null
     private var coveredMs = 0L
+    private var computer: com.sarani.carobd.core.telemetry.trip.TripComputer? = null
     @Synchronized fun startTrip(nowMs: Long = System.currentTimeMillis()) {
         samples.clear(); lastSpeed = null; coveredMs = 0
+        computer = com.sarani.carobd.core.telemetry.trip.TripComputer("manual", "unselected", nowMs)
         _tripState.value = TripSummary(isRecording = true, startTimeMs = nowMs)
     }
     @Synchronized fun stopTrip() { _tripState.value = _tripState.value.copy(isRecording = false) }
@@ -32,9 +35,10 @@ class TripLogger {
         fun measured(pid: String) = telemetry.signal(pid, nowMs).takeIf { it.quality == SignalQuality.GOOD }?.value
         val rpm = measured("010C"); val speed = measured("010D"); val coolant = measured("0105")
         val throttle = measured("0111"); val voltage = measured("ATRV"); val load = measured("0104")
+        computer?.processSample(speed?.toInt(), rpm?.toInt(), null, telemetry.timestamp, coolant?.toDouble(), load?.toDouble())
         if (listOf(rpm, speed, coolant, throttle, voltage, load).all { it == null }) {
             lastSpeed = null
-            _tripState.value = current.copy(coverageLimited = true)
+            _tripState.value = current.copy(coverageLimited = true, evidence = computer?.getTripRecord(nowMs)?.evidence.orEmpty())
             return
         }
         if (samples.size >= 20_000) { _tripState.value = current.copy(isRecording = false, limitReached = true); return }
@@ -62,7 +66,8 @@ class TripLogger {
             averageSpeedKmh = if (coveredMs > 0) distance * 3_600_000 / coveredMs else 0.0,
             hardAccelerationsCount = accel, hardBrakingCount = braking, samplesCount = samples.size,
             speedSamples = current.speedSamples + if (speed != null) 1 else 0,
-            rpmSamples = current.rpmSamples + if (rpm != null) 1 else 0, coverageLimited = limited)
+            rpmSamples = current.rpmSamples + if (rpm != null) 1 else 0, coverageLimited = limited,
+            evidence = computer?.getTripRecord(nowMs)?.evidence.orEmpty())
     }
     @Synchronized fun exportToCsv(): String = buildString {
         append("Timestamp,RPM,Speed_kmh,Coolant_C,Throttle_pct,Adapter_ATRV_V,EngineLoad_pct\n")

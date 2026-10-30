@@ -136,11 +136,13 @@ class TelemetryProducer(
                 )
 
                 if (!coroutineContext.isActive || !isConnected()) return
-                if ("0D" in measured && "0C" in measured) tripComputer?.processSample(
-                    speedKmh = current.speedKmh,
-                    rpm = current.rpm,
-                    fuelRateLitersPerHour = fuelRateLph ?: 0.0,
-                    timestampMs = System.currentTimeMillis()
+                tripComputer?.processSample(
+                    speedKmh = current.speedKmh.takeIf { "0D" in measured },
+                    rpm = current.rpm.takeIf { "0C" in measured },
+                    fuelRateLitersPerHour = fuelRateLph,
+                    timestampMs = System.currentTimeMillis(),
+                    coolantCelsius = current.coolantTempCelsius.toDouble().takeIf { "05" in measured },
+                    engineLoadPercent = current.engineLoadPercent.toDouble().takeIf { "04" in measured }
                 )
 
                 current = current.copy(measuredPids = measured, measurementTimesMs = measurementTimes.toMap(), timestamp = System.currentTimeMillis())

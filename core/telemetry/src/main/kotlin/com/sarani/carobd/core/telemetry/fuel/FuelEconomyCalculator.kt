@@ -1,7 +1,7 @@
 package com.sarani.carobd.core.telemetry.fuel
 
 /**
- * Physically validated fuel economy calculation engine.
+ * Formula-based estimates using stated fuel/air assumptions; not vehicle validated.
  * Computes instantaneous consumption using either direct MAF sensor readings
  * or the Speed-Density ideal gas law for MAP-based engines (TU5, XU7, M15, Pride).
  */
@@ -85,7 +85,7 @@ object FuelEconomyCalculator {
     /**
      * §8 TRUTHFULNESS GATE: fuel rate ONLY from genuinely-measured inputs.
      *
-     * Returns null (no fuel rate -> render "—", accumulate 0 in TripComputer)
+     * Returns null (no fuel rate -> render "—", retain unavailable provenance in TripComputer)
      * when ANY required input is missing, rather than fabricating a result from
      * defaults. The previous production code defaulted displacement to 1.587L
      * (TU5), VE to 0.80 and IAT to 0C (never queried) — fabricating L/100km.

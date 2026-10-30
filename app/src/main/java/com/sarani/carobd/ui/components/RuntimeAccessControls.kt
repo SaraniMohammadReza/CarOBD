@@ -31,12 +31,15 @@ private tailrec fun Context.activity(): Activity? = when (this) {
 /** Requests are user initiated. Granting access never retries a connection or command. */
 @Composable
 fun RuntimeAccessControls() {
+    val recorder = org.koin.compose.koinInject<com.sarani.carobd.data.recording.RecordingController>()
     val context = LocalContext.current
     val activity = context.activity()
     var revision by remember { mutableIntStateOf(0) }
     var requesting by rememberSaveable { mutableStateOf(RuntimeAccess.Connect.name) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         AndroidAccess.markRequested(context, RuntimeAccess.valueOf(requesting))
+        val result = AndroidAccess.state(context, RuntimeAccess.valueOf(requesting), activity)
+        recorder.bench(if (result == AccessState.Granted) BenchPhase.PermissionGranted else BenchPhase.PermissionDenied, requesting + ":" + result.name)
         revision++
     }
     val owner = LocalLifecycleOwner.current
@@ -67,7 +70,7 @@ fun RuntimeAccessControls() {
                 when (state) {
                     AccessState.PermanentlyDenied -> context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
                     AccessState.BluetoothDisabled -> context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
-                    AccessState.NotRequested, AccessState.Denied -> { requesting = access.name; launcher.launch(AndroidAccess.permissions(access)) }
+                    AccessState.NotRequested, AccessState.Denied -> { requesting = access.name; recorder.bench(BenchPhase.PermissionRequested, access.name); launcher.launch(AndroidAccess.permissions(access)) }
                     else -> Unit
                 }
             }) { Text("$label: $status") }

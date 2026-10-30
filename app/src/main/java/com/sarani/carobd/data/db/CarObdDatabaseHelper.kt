@@ -14,17 +14,17 @@ import com.sarani.carobd.core.model.DtcSystem
 import com.sarani.carobd.core.model.GarageVehicle
 import com.sarani.carobd.core.model.ServiceRecord
 import com.sarani.carobd.core.model.ServiceType
-import com.sarani.carobd.core.model.TripRecord
+import com.sarani.carobd.core.model.*
 
 /**
  * Production SQLite database helper for automotive persistence.
- * Zero annotation processor dependencies; guaranteed runtime compatibility across all Android versions.
+ * Additive evidence migrations; Android runtime behavior requires device validation.
  */
-class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
+class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAME) : SQLiteOpenHelper(context, databaseName, null, DATABASE_VERSION) {
 
     companion object {
         const val DATABASE_NAME = "car_obd_automotive.db"
-        const val DATABASE_VERSION = 2
+        const val DATABASE_VERSION = 3
 
         // Tables
         const val TABLE_GARAGE = "garage_vehicles"
@@ -132,10 +132,12 @@ class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
             """.trimIndent()
         )
             DtcHistoryMigration.version2.forEach(db::execSQL)
+        TripEvidenceMigration.version3.forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion < 2) DtcHistoryMigration.version2.forEach(db::execSQL)
+        if (oldVersion < 2 && newVersion >= 2) DtcHistoryMigration.version2.forEach(db::execSQL)
+        if (oldVersion < 3 && newVersion >= 3) TripEvidenceMigration.version3.forEach(db::execSQL)
     }
 
     // -------------------------------------------------------------
@@ -205,17 +207,19 @@ class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
     // -------------------------------------------------------------
 
     fun insertTripRecord(trip: TripRecord) {
+        require(!trip.legacyUnverified && trip.evidence.map { it.metric }.toSet() == TripMetric.entries.toSet()) { "New trips require complete metric provenance" }
+        require(trip.evidence.size == TripMetric.entries.size)
         val cv = ContentValues().apply {
             put("id", trip.id)
             put("vehicle_id", trip.vehicleId)
             put("start_time", trip.startTimeMs)
             put("end_time", trip.endTimeMs)
             put("duration_sec", trip.durationSeconds)
-            put("distance_km", trip.distanceKm)
-            put("max_speed", trip.maxSpeedKmh)
-            put("max_rpm", trip.maxRpm)
-            put("avg_speed", trip.averageSpeedKmh)
-            put("fuel_liters", trip.estimatedFuelUsedLiters)
+            put("distance_km", trip.distanceKm ?: 0.0) // Legacy compatibility column; evidence is authoritative.
+            put("max_speed", trip.maxSpeedKmh ?: 0) // Legacy compatibility column; evidence is authoritative.
+            put("max_rpm", trip.maxRpm ?: 0) // Legacy compatibility column; evidence is authoritative.
+            put("avg_speed", trip.averageSpeedKmh ?: 0.0) // Legacy compatibility column; evidence is authoritative.
+            put("fuel_liters", trip.estimatedFuelUsedLiters ?: 0.0) // Legacy compatibility column; evidence is authoritative.
             put("hard_accel", trip.drivingStyle.hardAccelerationsCount)
             put("hard_brake", trip.drivingStyle.hardBrakingCount)
             put("high_rpm_sec", trip.drivingStyle.highRpmDurationSeconds)
@@ -224,14 +228,42 @@ class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
             put("eco_score", trip.drivingStyle.ecoScore)
             put("sample_count", trip.sampleCount)
         }
-        writableDatabase.insertWithOnConflict(TABLE_TRIP_RECORDS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        cv.put("provenance", "CAPTURED_WITH_EVIDENCE")
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.insertWithOnConflict(TABLE_TRIP_RECORDS, null, cv, SQLiteDatabase.CONFLICT_REPLACE).also { check(it != -1L) { "Trip persistence failed" } }
+            db.delete("trip_metric_evidence", "trip_id=?", arrayOf(trip.id))
+            trip.evidence.forEach { evidence ->
+                val values = ContentValues().apply {
+                    put("trip_id", trip.id); put("metric", evidence.metric.name); put("value", evidence.value)
+                    put("provenance", evidence.provenance.name); put("quality", evidence.quality.name); put("source", evidence.source)
+                    put("first_sample_ms", evidence.firstSampleMs); put("last_sample_ms", evidence.lastSampleMs)
+                    put("sample_count", evidence.sampleCount); put("covered_ms", evidence.coveredMs); put("method", evidence.method)
+                }
+                db.insertOrThrow("trip_metric_evidence", null, values)
+            }
+            db.setTransactionSuccessful()
+        } finally { db.endTransaction() }
     }
 
     fun getTripsForVehicle(vehicleId: String): List<TripRecord> {
         val list = mutableListOf<TripRecord>()
-        val cursor = readableDatabase.query(TABLE_TRIP_RECORDS, null, "vehicle_id = ?", arrayOf(vehicleId), null, null, "start_time DESC")
+        val cursor = readableDatabase.query(TABLE_TRIP_RECORDS, null, "vehicle_id = ?", arrayOf(vehicleId), null, null, "start_time DESC", "100")
         cursor.use { c ->
             while (c.moveToNext()) {
+                val id = c.getString(c.getColumnIndexOrThrow("id"))
+                val legacy = c.getString(c.getColumnIndexOrThrow("provenance")) != "CAPTURED_WITH_EVIDENCE"
+                val evidence = if (legacy) listOf(
+                    TripMetricEvidence.legacy(TripMetric.DURATION, c.getDouble(c.getColumnIndexOrThrow("duration_sec"))),
+                    TripMetricEvidence.legacy(TripMetric.DISTANCE, c.getDouble(c.getColumnIndexOrThrow("distance_km"))),
+                    TripMetricEvidence.legacy(TripMetric.MAX_SPEED, c.getDouble(c.getColumnIndexOrThrow("max_speed"))),
+                    TripMetricEvidence.legacy(TripMetric.MAX_RPM, c.getDouble(c.getColumnIndexOrThrow("max_rpm"))),
+                    TripMetricEvidence.legacy(TripMetric.AVERAGE_SPEED, c.getDouble(c.getColumnIndexOrThrow("avg_speed"))),
+                    TripMetricEvidence.legacy(TripMetric.FUEL_USED, c.getDouble(c.getColumnIndexOrThrow("fuel_liters")))
+                ) + listOf(TripMetric.FUEL_ECONOMY, TripMetric.MAX_COOLANT, TripMetric.AVERAGE_LOAD).map { TripMetricEvidence.legacy(it, null) }
+                else readTripEvidence(id)
+                fun value(metric: TripMetric) = evidence.firstOrNull { it.metric == metric }?.value
                 list.add(
                     TripRecord(
                         id = c.getString(c.getColumnIndexOrThrow("id")),
@@ -239,11 +271,11 @@ class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
                         startTimeMs = c.getLong(c.getColumnIndexOrThrow("start_time")),
                         endTimeMs = c.getLong(c.getColumnIndexOrThrow("end_time")),
                         durationSeconds = c.getLong(c.getColumnIndexOrThrow("duration_sec")),
-                        distanceKm = c.getDouble(c.getColumnIndexOrThrow("distance_km")),
-                        maxSpeedKmh = c.getInt(c.getColumnIndexOrThrow("max_speed")),
-                        maxRpm = c.getInt(c.getColumnIndexOrThrow("max_rpm")),
-                        averageSpeedKmh = c.getDouble(c.getColumnIndexOrThrow("avg_speed")),
-                        estimatedFuelUsedLiters = c.getDouble(c.getColumnIndexOrThrow("fuel_liters")),
+                        distanceKm = value(TripMetric.DISTANCE),
+                        maxSpeedKmh = value(TripMetric.MAX_SPEED)?.toInt(),
+                        maxRpm = value(TripMetric.MAX_RPM)?.toInt(),
+                        averageSpeedKmh = value(TripMetric.AVERAGE_SPEED),
+                        estimatedFuelUsedLiters = value(TripMetric.FUEL_USED),
                         drivingStyle = DrivingStyleMetrics(
                             hardAccelerationsCount = c.getInt(c.getColumnIndexOrThrow("hard_accel")),
                             hardBrakingCount = c.getInt(c.getColumnIndexOrThrow("hard_brake")),
@@ -252,12 +284,29 @@ class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
                             smoothnessScore = c.getInt(c.getColumnIndexOrThrow("smoothness")),
                             ecoScore = c.getInt(c.getColumnIndexOrThrow("eco_score"))
                         ),
-                        sampleCount = c.getInt(c.getColumnIndexOrThrow("sample_count"))
+                        sampleCount = c.getInt(c.getColumnIndexOrThrow("sample_count")), evidence = evidence, legacyUnverified = legacy
                     )
                 )
             }
         }
         return list
+    }
+
+    private fun readTripEvidence(id: String): List<TripMetricEvidence> {
+        val result = mutableListOf<TripMetricEvidence>()
+        readableDatabase.query("trip_metric_evidence", null, "trip_id=?", arrayOf(id), null, null, "metric", "20").use { c ->
+            fun text(name: String) = c.getColumnIndexOrThrow(name).let { if (c.isNull(it)) null else c.getString(it) }
+            fun number(name: String) = c.getColumnIndexOrThrow(name).let { if (c.isNull(it)) null else c.getLong(it) }
+            while (c.moveToNext()) {
+                result += TripMetricEvidence(TripMetric.valueOf(requireNotNull(text("metric"))),
+                    c.getColumnIndexOrThrow("value").let { if (c.isNull(it)) null else c.getDouble(it) },
+                    MetricProvenance.valueOf(requireNotNull(text("provenance"))), MetricQuality.valueOf(requireNotNull(text("quality"))),
+                    text("source"), number("first_sample_ms"), number("last_sample_ms"),
+                    requireNotNull(number("sample_count")).toInt(), requireNotNull(number("covered_ms")), text("method"))
+            }
+        }
+        check(result.map { it.metric }.toSet() == TripMetric.entries.toSet()) { "Incomplete trip evidence" }
+        return result
     }
 
     // -------------------------------------------------------------

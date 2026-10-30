@@ -17,3 +17,38 @@ assert db.execute('SELECT code, category, observed_mil, observed_protocol, respo
 assert db.execute('SELECT vehicle_id, observed_mil, observed_protocol, connection_session_id, provenance FROM diagnostic_sessions').fetchone() == ('vehicle', None, None, None, 'LEGACY_UNVERIFIED')
 assert db.execute('SELECT COUNT(*) FROM dtc_records').fetchone()[0] == 1
 print('PASS: production migration preserves legacy rows and marks unobserved fields unknown')
+
+# v3 uses the exact production migration, persists unknown values and is transactional.
+trip_values = ('old-trip', 'vehicle', 10, 20, 10, 2.5, 80, 3000, 45, 0, 0, 0, 0, 0, 85, 80, 1)
+db.execute('INSERT INTO trip_records VALUES (' + ','.join('?' for _ in trip_values) + ')', trip_values)
+trip_source = (root / 'app/src/main/java/com/sarani/carobd/data/db/TripEvidenceMigration.kt').read_text()
+trip_sql = re.findall(r'"((?:ALTER TABLE|CREATE TABLE|CREATE INDEX) [^"]+)"', trip_source)
+for sql in trip_sql: db.execute(sql)
+assert db.execute('SELECT distance_km, fuel_liters, provenance FROM trip_records').fetchone() == (2.5, 0.0, 'LEGACY_UNVERIFIED')
+assert db.execute('SELECT COUNT(*) FROM trip_metric_evidence').fetchone()[0] == 0
+# Actual file close/reopen, not an in-memory object recreation.
+import tempfile
+with tempfile.TemporaryDirectory() as directory:
+    path = pathlib.Path(directory) / 'evidence.db'
+    db.commit()
+    disk = sqlite3.connect(path)
+    db.backup(disk)
+    disk.execute("INSERT INTO trip_metric_evidence VALUES ('old-trip','FUEL_USED',NULL,'UNAVAILABLE','UNAVAILABLE',NULL,NULL,NULL,0,0,NULL)")
+    disk.commit(); disk.close()
+    disk = sqlite3.connect(path)
+    assert disk.execute('SELECT value, provenance, source, covered_ms FROM trip_metric_evidence').fetchone() == (None, 'UNAVAILABLE', None, 0)
+    assert disk.execute('SELECT provenance FROM trip_records').fetchone()[0] == 'LEGACY_UNVERIFIED'
+    disk.close()
+# Interrupted upgrade must rollback rather than present a partially upgraded schema.
+probe = sqlite3.connect(':memory:')
+probe.execute('CREATE TABLE trip_records (id TEXT, vehicle_id TEXT, start_time INTEGER)')
+probe.execute('BEGIN')
+try:
+    for sql in trip_sql: probe.execute(sql)
+except sqlite3.OperationalError: # missing dtc table deliberately causes index creation to fail
+    probe.rollback()
+else:
+    raise AssertionError('Expected migration failure')
+assert 'provenance' not in [r[1] for r in probe.execute('PRAGMA table_info(trip_records)')]
+assert not probe.execute("SELECT name FROM sqlite_master WHERE name='trip_metric_evidence'").fetchall()
+print('PASS: v3 preserves legacy trip values without inventing evidence, file recreation and migration rollback')
