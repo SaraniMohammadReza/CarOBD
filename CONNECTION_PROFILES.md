@@ -21,3 +21,8 @@ Connect timeout bounds initial link acquisition through session ownership; comma
 The visible Disconnect/cancel action invalidates generation, cancels connection/request jobs, stops polling, closes hardware, and clears telemetry. Explicit producer stop is terminal for a session; reconnect creates its replacement.
 
 Test Connection takes ownership of the current session, executes controlled read-only initialization and retains all six stage outcomes/evidence. Physical Pass requires positive 41 00 and valid observed protocol. The initial PID 00 bitmap supplies capability evidence; later capability pages are discovered conservatively by normal telemetry. The test session closes before returning. Simulator reports are labeled SIMULATOR. A passed software test is not device or vehicle certification.
+
+
+## Sprint4 runtime configuration
+
+Profile connect/command timeouts are bounded100–30000ms and consumed by the lifecycle watchdog and command deadline upper bound. Telemetry can choose a shorter individual deadline. Unknown transport/protocol encodings and overflowed ports are rejected rather than silently selecting simulator/AUTO. Auto-reconnect stays hidden and unimplemented. Recording/replay are managed from the evidence/session screens, not by a physical profile replay delegate. Theme, units and language are persisted global preferences; both EN and FA resources are bundled for offline switching.

@@ -1,6 +1,6 @@
 # CarOBD Architecture
 
-Current source baseline: Safety Sprint 3, 2026-10-30. Exact Gradle 9.8.1 Android build, app/core unit tests, lint and duplicate-class gate passed (332 tests, no failures). See `docs/SAFETY_SPRINT_3.md` for environment, artifact and limitations. Status: SOFTWARE_BUILD_GO_READ_ONLY__DEVICE_VALIDATION_REQUIRED. No physical adapter or vehicle validation is claimed.
+Current source baseline: Sprint4 continuation, 2026-10-30. See [SAFETY_SPRINT_4.md](docs/SAFETY_SPRINT_4.md) for current gate evidence and limits; Sprint3 counts are historical. Software build readiness requires device/vehicle validation; physical Mode04 stays disabled.
 
 ## Modules and runtime ownership
 
@@ -42,3 +42,14 @@ Envelopes omit positive SID; DiagnosticScanRunner reconstructs it once in produc
 Preferences and connection profiles use separate Preferences DataStores. Poll mode is eagerly collected into repository state and read by the producer per cycle. ECO/NORMAL/FAST add 2000/1000/500 ms after each cycle; they are not display refresh rates or guarantees of a fixed samples-per-second rate. Capability traversal has at most eight pages and stops unless extension bits authorize another page.
 
 Record/replay models and exports are infrastructure only. A recording/session-list product workflow is NOT IMPLEMENTED; replay profiles are rejected rather than silently converted into a healthy simulator.
+
+
+## Sprint4 evidence workflows
+
+The foreground token, active profile and selected profile are distinct. Permission admission is checked at UI and transport boundaries. The foreground service acknowledges startup and reports token-bound failure; notification visibility is a conservative product requirement, not a claim that Android itself requires POST_NOTIFICATIONS to start every FGS.
+
+Readiness, VehicleInformation, FreezeFrame and MonitorTests use the repository readEvidence boundary and typed per-responder outcomes. Multi-request reads bind to the captured session token. Unsupported capability is never assumed. Mode06 retains raw values without OEM scaling or pass/fail inference.
+
+Every selected session transport is passively wrapped by RecordingTransport. RecordingController owns explicit capture, bounded canonical transcripts and atomic FileTranscriptStore snapshots. UI manages captures and SAF import/export. TranscriptReplayRunner creates an isolated ReplayTransport with no physical delegate and command-correlated responses. Replay retains recorded deadlines and bounded quarantine rather than replaying TX to hardware.
+
+DTC database version2 adds nullable observed fields and legacy provenance without deleting old rows. DTC history shows unverified legacy data conservatively. LiveTelemetry retains per-PID measurement times and separates ATRV from0142. Units apply at display boundaries; evidence remains canonical. Manual TripLogger uses measured cadence; legacy automatic TripComputer remains unsuitable for health-report evidence until fuel/coverage provenance is migrated.
