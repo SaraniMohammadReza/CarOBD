@@ -1,6 +1,6 @@
 # CarOBD Architecture
 
-Current source baseline: Sprint4 continuation, 2026-10-30. See [SAFETY_SPRINT_4.md](docs/SAFETY_SPRINT_4.md) for current gate evidence and limits; Sprint3 counts are historical. Software build readiness requires device/vehicle validation; physical Mode04 stays disabled.
+Current source baseline: Sprint5, 2026-10-30. See [SAFETY_SPRINT_5.md](docs/SAFETY_SPRINT_5.md) for current gate evidence and limits; Sprint3 counts are historical. Software build readiness requires device/vehicle validation; physical Mode04 stays disabled.
 
 ## Modules and runtime ownership
 
@@ -52,4 +52,6 @@ Readiness, VehicleInformation, FreezeFrame and MonitorTests use the repository r
 
 Every selected session transport is passively wrapped by RecordingTransport. RecordingController owns explicit capture, bounded canonical transcripts and atomic FileTranscriptStore snapshots. UI manages captures and SAF import/export. TranscriptReplayRunner creates an isolated ReplayTransport with no physical delegate and command-correlated responses. Replay retains recorded deadlines and bounded quarantine rather than replaying TX to hardware.
 
-DTC database version2 adds nullable observed fields and legacy provenance without deleting old rows. DTC history shows unverified legacy data conservatively. LiveTelemetry retains per-PID measurement times and separates ATRV from0142. Units apply at display boundaries; evidence remains canonical. Manual TripLogger uses measured cadence; legacy automatic TripComputer remains unsuitable for health-report evidence until fuel/coverage provenance is migrated.
+DTC database version2 adds nullable observed fields and legacy provenance without deleting old rows. DTC history shows unverified legacy data conservatively. LiveTelemetry retains per-PID measurement times and separates ATRV from0142. Units apply at display boundaries; evidence remains canonical. Manual and automatic trip capture share TripMetricEvidence. Database v3 stores nullable per-metric values, provenance, source, quality, time range, count, coverage and method; legacy rows remain unverified. Fuel estimates retain gasoline assumptions. Bench capture starts before admission using the same transcript and command pipeline.
+
+Current Android Studio/cache, emulator QA and runtime UX evidence: [runtime continuation](docs/RUNTIME_QA_CONTINUATION.md). Physical vehicle validation remains separate.

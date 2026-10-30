@@ -1,6 +1,6 @@
 # Protocol support and boundaries
 
-Current product truth is [the Sprint4 matrix](../OBD_SUPPORT_MATRIX.md). A helper engine or catalog entry is not verified vehicle compatibility.
+Current product truth is [the current product matrix](../OBD_SUPPORT_MATRIX.md). A helper engine or catalog entry is not verified vehicle compatibility.
 
 | Protocol/family | Current runtime / limitation |
 |---|---|

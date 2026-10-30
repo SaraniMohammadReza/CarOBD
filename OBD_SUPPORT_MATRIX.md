@@ -1,6 +1,6 @@
-# CarOBD Sprint 4 support matrix
+# CarOBD Sprint 5 support matrix
 
-Current software scope, 2026-10-30. See [Sprint 4 evidence and limitations](docs/SAFETY_SPRINT_4.md). Software tests do not establish physical adapter or vehicle compatibility. Every physical feature requires DEVICE_REQUIRED and VEHICLE_REQUIRED validation. Physical Mode04 remains disabled.
+Current software scope, 2026-10-30. See [Sprint 5 evidence and limitations](docs/SAFETY_SPRINT_5.md). Software tests do not establish physical adapter or vehicle compatibility. Every physical feature requires DEVICE_REQUIRED and VEHICLE_REQUIRED validation. Physical Mode04 remains disabled.
 
 | Feature | Status | Evidence / limits |
 |---|---|---|
@@ -42,8 +42,10 @@ Current software scope, 2026-10-30. See [Sprint 4 evidence and limitations](docs
 | Timeouts | SOFTWARE_TESTED | Profile100–30000ms bounds; connection watchdog/command upper bound; telemetry may use shorter deadline |
 | Auto reconnect | NOT_IMPLEMENTED | Control hidden; legacy field is not a runtime promise |
 | Adapter inspector | PARTIAL | Reported/observed identity and heuristic metadata; ATI is not proof of authenticity |
-| Manual trip capture | PARTIAL | Measured cadence and coverage limits; unavailable fuel shown unknown; no load-based fabricated fuel |
-| Automatic legacy trip storage | FOUNDATION_ONLY | Existing zero-fuel sentinel/heuristic scores lack complete provenance; not health/report evidence; not exposed as verified fuel |
+| Manual trip capture | PARTIAL | Shared metric evidence and measured cadence; session-token boundary; unknown fuel; bounded in-memory CSV capture, no new durable manual-trip claim |
+| Automatic trip evidence | SOFTWARE_TESTED / DEVICE_REQUIRED | Canonical per-metric nullable values, origin/source/method/range/count/coverage; additive v3 persistence; legacy rows remain unverified; Android migration execution required |
 | Custom PID/header routing | SAFETY_DISABLED / NOT_IMPLEMENTED | Static sensor catalog is not arbitrary custom command support |
 | Maintenance / vehicle catalog | PARTIAL / SOURCE_EVIDENCE_REQUIRED | Reference metadata, not observed vehicle identification or OEM compatibility certification |
 | Health engine / post-drive report | NOT_IMPLEMENTED | No health inference from absent DTCs; needs validated provenance-aware trip/evidence model |
+
+Sprint5 adds explicit setup bench capture using the canonical transcript, paged recording lists, import bound regressions and source-backed legacy VIN sequence assembly. Mode06 admission requires observed ISO15765-4; scaling/pass-fail remain unknown. Dashboard fuel/range/cost no longer use stale inputs or a fabricated default average. See [device/vehicle execution checklist](docs/SPRINT5_BENCH_CHECKLIST.md).

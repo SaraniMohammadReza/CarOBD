@@ -1,6 +1,6 @@
 # CarOBD Hardware Validation Checklist
 
-Current status: SOFTWARE_BUILD_GO_READ_ONLY__DEVICE_VALIDATION_REQUIRED. The exact Gradle Android gate passed; see `docs/SAFETY_SPRINT_4.md`. No device or vehicle validation is claimed. Physical Mode04 remains disabled.
+Current status: SOFTWARE_BUILD_GO_READ_ONLY__DEVICE_VALIDATION_REQUIRED. The exact Gradle Android gate passed; see `docs/SAFETY_SPRINT_5.md`. No device or vehicle validation is claimed. Physical Mode04 remains disabled.
 
 ## Build gate — required first
 
@@ -56,3 +56,5 @@ Do not test physical Mode 04 re-enablement, Mode 08, programming/security, arbit
 - [ ] CAN Mode06 capability pages/raw records against authorized vendor evidence; do not assign pass/fail without unit/signedness/scaling mapping.
 - [ ] DTC03/07/0A exact categories/responders and unknown MIL; zero stored DTC wording must not imply vehicle health.
 - [ ] Live disconnect, timeout quarantine and replacement ownership under controlled read-only bench capture.
+
+The current precise execution plan is [Sprint5 bench checklist](docs/SPRINT5_BENCH_CHECKLIST.md). Include actual Android v1/v2→v3 trip/history migrations and shared provenance recreation; no checkbox in a software build establishes device or vehicle PASS.
