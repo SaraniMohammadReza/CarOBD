@@ -270,14 +270,11 @@ fun CarConnectionVisualizer(
 
             // Subtitle text indicating visual state
             val (descText, descColor) = when (val cs = connectionState) {
-                is ConnectionState.Connected -> "چراغ‌های خودرو روشن شد • ایسیو آنلاین و متصل است" to NeonGreen
-                is ConnectionState.Failure -> "عدم پاسخگویی ایسیو یا قطعی سوییچ خودرو" to Color(0xFFFF2A4B)
-                is ConnectionState.Disconnected, is ConnectionState.Idle -> "آماده اتصال • دانگل دیاگ را متصل نمایید" to TextMuted
-                is ConnectionState.Disconnecting -> "در حال قطع ارتباص..." to TextMuted
-                is ConnectionState.AdapterIdentifying -> "هماهنم‌سازی بایت‌های فریم و ارتباط با ایسیو (${cs.probeStage})..." to NeonAmber
-                is ConnectionState.AdapterConfiguring -> "تنظیمات آداپتور (${cs.setting})..." to NeonAmber
-                is ConnectionState.ProtocolDetecting -> "جستجوی پروتکل ${cs.candidateName} (${cs.attemptIndex}/${cs.totalCandidates})..." to NeonAmber
-                else -> "در حال ارسال سیگنال و یافتن پورت OBD-II..." to NeonAmber
+                is ConnectionState.Connected -> androidx.compose.ui.res.stringResource(if (cs.isSimulator) com.sarani.carobd.R.string.s5_connected_sim else com.sarani.carobd.R.string.s5_session_connected) to NeonGreen
+                is ConnectionState.Failure -> connectionIssueLabel(cs.issue) to Color(0xFFFF2A4B)
+                is ConnectionState.Disconnected, is ConnectionState.Idle -> androidx.compose.ui.res.stringResource(com.sarani.carobd.R.string.s5_disconnected) to TextMuted
+                is ConnectionState.Disconnecting -> androidx.compose.ui.res.stringResource(com.sarani.carobd.R.string.s5_disconnecting) to TextMuted
+                else -> androidx.compose.ui.res.stringResource(com.sarani.carobd.R.string.s5_connection_progress) to NeonAmber
             }
 
             Text(

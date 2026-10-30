@@ -57,18 +57,19 @@ fun VehicleOnboardingModal(
     onSetupSaved: (UserVehicleSetup) -> Unit
 ) {
     var isMotorcycle by remember { mutableStateOf(false) }
-    var selectedMake by remember { mutableStateOf("ایران خودرو") }
-    var modelName by remember { mutableStateOf("پژو ۲۰۶ تیپ ۵ (TU5)") }
-    var fuelType by remember { mutableStateOf("بنزینی") }
+    val carMakes = androidx.compose.ui.res.stringArrayResource(com.sarani.carobd.R.array.s5_car_makes)
+    val bikeMakes = androidx.compose.ui.res.stringArrayResource(com.sarani.carobd.R.array.s5_bike_makes)
+    val fuelOptions = androidx.compose.ui.res.stringArrayResource(com.sarani.carobd.R.array.s5_fuel_options)
+    val defaultCar = stringResource(com.sarani.carobd.R.string.s5_default_car)
+    val defaultBike = stringResource(com.sarani.carobd.R.string.s5_default_bike)
+    var selectedMake by remember { mutableStateOf(carMakes.first()) }
+    var modelName by remember { mutableStateOf(defaultCar) }
+    var fuelType by remember { mutableStateOf(fuelOptions.first()) }
     var displacementText by remember { mutableStateOf("1.6") }
     var tankCapacityText by remember { mutableStateOf("50") }
     var odometerText by remember { mutableStateOf("115000") }
 
-    val makesList = if (isMotorcycle) {
-        listOf("بنلی (Benelli)", "باجاج (Bajaj Pulsar)", "تی‌وی‌اس (TVS Apache)", "کی‌تی‌ام (KTM)", "هوندا (Honda)", "کویر موتور")
-    } else {
-        listOf("ایران خودرو", "سایپا", "مدیران خودرو (MVM/Chery)", "کرمان موتور (KMC/JAC)", "بهمن موتور", "تویوتا / هیوندای", "پارس خودرو")
-    }
+    val makesList = if (isMotorcycle) bikeMakes.toList() else carMakes.toList()
 
     AlertDialog(
         onDismissRequest = {},
@@ -103,8 +104,8 @@ fun VehicleOnboardingModal(
                             .border(1.dp, if (!isMotorcycle) NeonCyan else DarkCardBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 isMotorcycle = false
-                                selectedMake = "ایران خودرو"
-                                modelName = "پژو ۲۰۶ تیپ ۵ (TU5)"
+                                selectedMake = carMakes.first()
+                                modelName = defaultCar
                                 tankCapacityText = "50"
                                 displacementText = "1.6"
                             }
@@ -125,8 +126,8 @@ fun VehicleOnboardingModal(
                             .border(1.dp, if (isMotorcycle) NeonCyan else DarkCardBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 isMotorcycle = true
-                                selectedMake = "باجاج (Bajaj Pulsar)"
-                                modelName = "پالس NS200 انژکتوری"
+                                selectedMake = bikeMakes[1]
+                                modelName = defaultBike
                                 tankCapacityText = "12"
                                 displacementText = "0.2"
                             }
@@ -187,7 +188,7 @@ fun VehicleOnboardingModal(
                 Text(stringResource(com.sarani.carobd.R.string.ui_fuel), color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("بنزینی", "دوگانه‌سوز CNG", "توربوشارژ", "هیبریدی").forEach { f ->
+                    fuelOptions.forEach { f ->
                         FilterChip(
                             selected = fuelType == f,
                             onClick = { fuelType = f },

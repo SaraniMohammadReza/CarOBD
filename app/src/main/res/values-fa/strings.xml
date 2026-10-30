@@ -378,4 +378,12 @@
     <string name="s5_older">ثبت‌های قدیمی‌تر</string>
     <string name="s5_preview_limits">۵۰ ثبت در هر صفحه بر اساس زمان به‌روزرسانی فایل. پیش‌نمایش رخداد و بازپخش ۱۰۰ مورد اول را نشان می‌دهد؛ خروجی همه رخدادهای ذخیره‌شده را نگه می‌دارد.</string>
     <string name="s5_connection_progress">راه‌اندازی اتصال در جریان است؛ شواهد مراحل را بررسی کنید.</string>
+    <string name="s5_session_connected">نشست عیب‌یابی فقط‌خواندنی متصل است</string>
+    <string name="s5_disconnecting">در حال قطع اتصال…</string>
+    <string name="s5_chart_bounds">بیشینه: %1$d · کمینه: %2$d %3$s</string>
+    <string name="s5_default_car">پژو ۲۰۶ تیپ۵ (TU5)</string>
+    <string name="s5_default_bike">پالس NS200 انژکتوری</string>
+    <string-array name="s5_car_makes"><item>ایران خودرو</item><item>سایپا</item><item>مدیران خودرو (MVM/Chery)</item><item>کرمان موتور (KMC/JAC)</item><item>بهمن موتور</item><item>تویوتا / هیوندای</item><item>پارس خودرو</item></string-array>
+    <string-array name="s5_bike_makes"><item>بنلی (Benelli)</item><item>باجاج (Bajaj Pulsar)</item><item>تی‌وی‌اس (TVS Apache)</item><item>کی‌تی‌ام (KTM)</item><item>هوندا (Honda)</item><item>کویر موتور</item></string-array>
+    <string-array name="s5_fuel_options"><item>بنزینی</item><item>دوگانه‌سوز CNG</item><item>توربوشارژ</item><item>هیبریدی</item></string-array>
 </resources>

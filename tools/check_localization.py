@@ -17,6 +17,12 @@ def load(folder):
                 key = node.attrib['name'] + '[' + item.attrib['quantity'] + ']'
                 assert key not in result
                 result[key] = ''.join(item.itertext())
+    for path in (ROOT / 'app/src/main/res' / folder).glob('*.xml'):
+        for node in ET.parse(path).getroot().findall('string-array'):
+            for i, item in enumerate(node.findall('item')):
+                key = node.attrib['name'] + '[' + str(i) + ']'
+                assert key not in result
+                result[key] = ''.join(item.itertext())
     return result
 def placeholders(text):
     tokens = re.findall(r'%(?:(\d+)\$)?[-#+ 0,(]*\d*(?:\.\d+)?([a-zA-Z%])', text)

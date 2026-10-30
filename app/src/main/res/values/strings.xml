@@ -378,4 +378,12 @@
     <string name="s5_older">Older captures</string>
     <string name="s5_preview_limits">50 captures per page, ordered by file update time. Event and replay previews show the first100 entries; transcript exports retain all stored events.</string>
     <string name="s5_connection_progress">Connection setup in progress; review stage evidence below.</string>
+    <string name="s5_session_connected">Read-only diagnostic session connected</string>
+    <string name="s5_disconnecting">Disconnecting…</string>
+    <string name="s5_chart_bounds">Maximum: %1$d · minimum: %2$d %3$s</string>
+    <string name="s5_default_car">Peugeot206 Type5 (TU5)</string>
+    <string name="s5_default_bike">Pulsar NS200 injection</string>
+    <string-array name="s5_car_makes"><item>IKCO</item><item>SAIPA</item><item>MVM/Chery</item><item>KMC/JAC</item><item>Bahman Motor</item><item>Toyota / Hyundai</item><item>Pars Khodro</item></string-array>
+    <string-array name="s5_bike_makes"><item>Benelli</item><item>Bajaj Pulsar</item><item>TVS Apache</item><item>KTM</item><item>Honda</item><item>Kavir Motor</item></string-array>
+    <string-array name="s5_fuel_options"><item>Gasoline</item><item>Dual-fuel CNG</item><item>Turbocharged</item><item>Hybrid</item></string-array>
 </resources>

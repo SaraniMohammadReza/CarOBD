@@ -63,7 +63,7 @@ fun LiveSensorChart(
                 Column {
                     Text(text = title, color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     Text(
-                        text = "بیشینه: ${maxVal.toInt()} | کمینه: ${minVal.toInt()} $unit",
+                        text = androidx.compose.ui.res.stringResource(com.sarani.carobd.R.string.s5_chart_bounds, maxVal.toInt(), minVal.toInt(), unit),
                         color = TextMuted,
                         fontSize = 10.sp
                     )
