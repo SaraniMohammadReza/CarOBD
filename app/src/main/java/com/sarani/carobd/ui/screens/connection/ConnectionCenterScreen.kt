@@ -88,6 +88,8 @@ private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onS
     var baud by remember(profile.id) { mutableStateOf(usb?.baudRate?.toString().orEmpty()) }
     var scenario by remember(profile.id) { mutableStateOf((profile.transport as? TransportConfig.Simulator)?.scenarioId ?: "healthy") }
     var manual by remember(profile.id) { mutableStateOf(if (profile.protocolMode == ProtocolMode.MANUAL) profile.manualProtocolCode.orEmpty() else "") }
+    var connectTimeout by remember(profile.id) { mutableStateOf(profile.connectTimeoutMs.toString()) }
+    var commandTimeout by remember(profile.id) { mutableStateOf(profile.commandTimeoutMs.toString()) }
     var error by remember { mutableStateOf<String?>(null) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Connection profile") }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -116,6 +118,9 @@ private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onS
                     FilterChip(selected = scenario == option.id, onClick = { scenario = option.id }, label = { Text(option.labelEn) })
                 }
             }
+            OutlinedTextField(connectTimeout, { connectTimeout = it }, label = { Text("Connect timeout (ms)") }, singleLine = true)
+            OutlinedTextField(commandTimeout, { commandTimeout = it }, label = { Text("Command timeout (ms)") }, singleLine = true)
+            Text("Automatic reconnect is unavailable. A new connection never repeats a prior action.")
             OutlinedTextField(manual, { manual = it }, label = { Text("Manual protocol 0–9/A; blank = AUTO") }, singleLine = true)
             Text("BLE uses supported NUS/FFF0 services. Custom UUID/MTU and vehicle-profile protocol selection are unavailable.")
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -135,7 +140,7 @@ private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onS
                 }
                 profile.copy(name = name.trim(), transport = transport, protocolMode = if (manual.isBlank()) ProtocolMode.AUTO else ProtocolMode.MANUAL,
                     manualProtocolCode = manual.trim().uppercase().takeIf { it.isNotEmpty() }, vehicleProfileId = null,
-                    autoReconnect = false, simulatorScenarioId = null, lastSuccessfulAt = null).also { require(it.validate().isEmpty()) { it.validate().joinToString("\n") } }
+                    autoReconnect = false, connectTimeoutMs = connectTimeout.toLong(), commandTimeoutMs = commandTimeout.toLong(), simulatorScenarioId = null, lastSuccessfulAt = null).also { require(it.validate().isEmpty()) { it.validate().joinToString("\n") } }
             }
             result.onSuccess(onSave).onFailure { error = it.message ?: "Invalid profile" }
         }) { Text("Save") }

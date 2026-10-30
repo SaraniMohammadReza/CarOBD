@@ -173,6 +173,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
     }
 
     private fun updateNotification(title: String, content: String) {
+        com.sarani.carobd.core.permissions.AndroidAccess.require(this, com.sarani.carobd.core.model.RuntimeAccess.Notifications)
         val manager = getSystemService(NotificationManager::class.java)
         manager?.notify(NOTIFICATION_ID, buildNotification(title, content))
     }

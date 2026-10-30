@@ -68,7 +68,10 @@ fun FreezeFrameScreen(viewModel: FreezeFrameViewModel) {
         if (state.loading) CircularProgressIndicator()
         state.readings.forEach { r ->
             Text("${r.state} · ${r.evidence.firstOrNull()?.responderId ?: "—"}")
-            r.value?.let { v -> Text("PID %02X · frame %02X · %s %s · %s".format(v.pid, v.frameIndex, v.value ?: "—", v.unit.orEmpty(), v.rawHex)) }
+            r.value?.let { v ->
+                val converted = v.value?.let { com.sarani.carobd.ui.theme.displayMeasurement(it, v.unit.orEmpty(), com.sarani.carobd.ui.theme.LocalUnitSystem.current) }
+                Text("PID %02X · frame %02X · %s %s · %s".format(v.pid, v.frameIndex, converted?.value ?: "—", converted?.unit.orEmpty(), v.rawHex))
+            }
             r.detail?.let { Text(it) }
             Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
         }

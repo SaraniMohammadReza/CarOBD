@@ -399,24 +399,31 @@ fun RenderCustomWidget(
 
     val now by telemetryClock()
     val signal = telemetry.signal(sensor.pid, now)
-    val sensorValue = signal.value
+    val rawValue = signal.value
+    val units = com.sarani.carobd.ui.theme.LocalUnitSystem.current
+    val display = rawValue?.let { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), sensor.unitMetric, units) }
+    val sensorValue = display?.value?.toFloat()
+    val displayUnit = display?.unit ?: sensor.unitMetric
+    val title = if (androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "fa") sensor.nameFa else sensor.nameEn
     if (sensorValue == null) {
-        DigitalMetricCard(title = sensor.nameEn, value = "—", unit = sensor.unitMetric, accentColor = TextMuted)
+        DigitalMetricCard(title = title, value = "—", unit = displayUnit, accentColor = TextMuted)
         return
     }
     if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) {
-        DigitalMetricCard(title = sensor.nameEn, value = "$sensorValue · " + stringResource(R.string.signal_stale), unit = sensor.unitMetric, accentColor = NeonAmber)
+        DigitalMetricCard(title = title, value = "$sensorValue · " + stringResource(R.string.signal_stale), unit = displayUnit, accentColor = NeonAmber)
         return
     }
+    val minimum = com.sarani.carobd.ui.theme.displayMeasurement(sensor.minValue.toDouble(), sensor.unitMetric, units).value.toFloat()
+    val maximum = com.sarani.carobd.ui.theme.displayMeasurement(sensor.maxValue.toDouble(), sensor.unitMetric, units).value.toFloat()
 
     when (config.widgetType) {
         WidgetType.CIRCULAR_GAUGE -> {
             CircularGauge(
                 value = sensorValue,
-                minValue = sensor.minValue,
-                maxValue = sensor.maxValue,
-                title = sensor.nameFa,
-                unit = sensor.unitMetric,
+                minValue = minimum,
+                maxValue = maximum,
+                title = title,
+                unit = displayUnit,
                 primaryColor = NeonCyan,
                 warningColor = NeonRed
             )
@@ -431,19 +438,19 @@ fun RenderCustomWidget(
                 String.format(java.util.Locale.US, "%.2f", sensorValue)
             }
             DigitalMetricCard(
-                title = sensor.nameFa,
+                title = title,
                 value = displayValue,
-                unit = sensor.unitMetric,
+                unit = displayUnit,
                 accentColor = NeonCyan
             )
         }
         WidgetType.BAR_GAUGE -> {
             HorizontalBarGauge(
-                title = sensor.nameFa,
+                title = title,
                 value = sensorValue,
-                minValue = sensor.minValue,
-                maxValue = sensor.maxValue,
-                unit = sensor.unitMetric,
+                minValue = minimum,
+                maxValue = maximum,
+                unit = displayUnit,
                 accentColor = NeonAmber
             )
         }
@@ -454,9 +461,9 @@ fun RenderCustomWidget(
                 else -> o2History
             }
             LiveSensorChart(
-                title = "${sensor.nameFa} (${sensor.nameEn})",
-                history = history,
-                unit = sensor.unitMetric,
+                title = "${title} (${sensor.nameEn})",
+                history = history.map { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), sensor.unitMetric, units).value.toFloat() },
+                unit = displayUnit,
                 accentColor = NeonCyan
             )
         }
@@ -487,7 +494,8 @@ fun PrimaryMetricsRow(
         items.forEach { item ->
             val signal = telemetry.signal(item.pid, now)
             val measured = signal.quality == com.sarani.carobd.core.model.SignalQuality.GOOD
-            val display = signal.value?.toString()?.let { if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) it + " · " + stringResource(R.string.signal_stale) else it } ?: "—"
+            val converted = signal.value?.let { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), item.unit, com.sarani.carobd.ui.theme.LocalUnitSystem.current) }
+            val display = converted?.value?.let { String.format(java.util.Locale.US, "%.1f", it) }?.let { if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) it + " · " + stringResource(R.string.signal_stale) else it } ?: "—"
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(item.label, color = TextMuted, fontSize = 10.sp)
                 Text(
@@ -497,7 +505,7 @@ fun PrimaryMetricsRow(
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
-                Text(item.unit, color = TextMuted, fontSize = 9.sp)
+                Text(converted?.unit ?: item.unit, color = TextMuted, fontSize = 9.sp)
             }
         }
     }

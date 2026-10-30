@@ -25,7 +25,13 @@ object AndroidAccess {
             requested = missing.isNotEmpty() && missing.all { history.getBoolean(it, false) },
             showRationale = missing.any { activity?.shouldShowRequestPermissionRationale(it) == true },
         ))
-        if (permission != AccessState.Granted || access == RuntimeAccess.Notifications) return permission
+        if (permission != AccessState.Granted) return permission
+        if (access == RuntimeAccess.Notifications) {
+            if (!androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) return AccessState.PermanentlyDenied
+            if (Build.VERSION.SDK_INT >= 26 && context.getSystemService(android.app.NotificationManager::class.java)?.getNotificationChannel("carobd_telemetry_channel")?.importance == android.app.NotificationManager.IMPORTANCE_NONE)
+                return AccessState.PermanentlyDenied
+            return AccessState.Granted
+        }
         val ble = context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)
         if (access == RuntimeAccess.Scan && !ble && !context.packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH)) return AccessState.UnsupportedDevice
         return try {

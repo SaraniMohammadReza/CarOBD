@@ -54,8 +54,14 @@ fun CarObdTheme(
     // Theme choice is persisted (AppThemeMode) and observed app-wide (§Phase C).
     val themeMode by appPreferencesManager.themeMode.collectAsState(AppThemeMode.AMOLED_BLACK)
 
+    val units by appPreferencesManager.unitSystem.collectAsState(com.sarani.carobd.core.storage.UnitSystem.METRIC)
+    val palette = paletteFor(themeMode)
+    SideEffect { AppAppearance.mode = themeMode }
     val isDarkTheme = themeMode != AppThemeMode.LIGHT_THEME
-    val colorScheme = if (isDarkTheme) DarkColorScheme else LightColorScheme
+    val colorScheme = (if (isDarkTheme) DarkColorScheme else LightColorScheme).copy(
+        primary = palette.primary, background = palette.background, surface = palette.surface,
+        surfaceVariant = palette.card, onBackground = palette.text, onSurface = palette.text,
+        onSurfaceVariant = palette.secondaryText, outline = palette.border)
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -71,8 +77,7 @@ fun CarObdTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
+    androidx.compose.runtime.CompositionLocalProvider(LocalUnitSystem provides units) {
+        MaterialTheme(colorScheme = colorScheme, content = content)
+    }
 }
