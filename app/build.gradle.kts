@@ -32,6 +32,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    // Both supported languages remain available for offline in-app switching.
+    bundle { language { enableSplit = false } }
     buildFeatures {
         compose = true
     }

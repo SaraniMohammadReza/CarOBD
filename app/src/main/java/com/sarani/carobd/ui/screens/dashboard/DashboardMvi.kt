@@ -82,6 +82,9 @@ class DashboardViewModel(
     DashboardState(widgets = appPreferencesManager.getDefaultWidgets())
 ) {
 
+    private var scanJob: kotlinx.coroutines.Job? = null
+    fun stopDiscovery() { scanJob?.cancel(); setState { copy(isScanningBt = false) } }
+
     val recordingState = recordings?.state ?: kotlinx.coroutines.flow.MutableStateFlow("Stopped")
 
     init {
@@ -182,23 +185,29 @@ class DashboardViewModel(
                 }
             }
             is DashboardIntent.CloseBluetoothDialog -> {
+                stopDiscovery()
                 setState { copy(showBluetoothDialog = false) }
             }
             is DashboardIntent.ConnectToDevice -> {
+                stopDiscovery()
                 viewModelScope.launch {
                     setState { copy(showBluetoothDialog = false) }
                     connectUseCase(uiState.value.selectedConnectionType, intent.device.address)
                 }
             }
             is DashboardIntent.TriggerBtScan -> {
-                setState { copy(isScanningBt = true) }
-                viewModelScope.launch {
+                val previousScan = scanJob
+                previousScan?.cancel()
+                scanJob = viewModelScope.launch {
+                    previousScan?.join()
+                    setState { copy(isScanningBt = true) }
                     try {
                         kotlinx.coroutines.withTimeoutOrNull(10_000) { bluetoothScanner.scanNearbyDevices().collect { devices ->
                             setState { copy(discoveredDevices = devices) }
                         } }
-                    } catch (e: Exception) {
-                        setEffect { DashboardEffect.ShowMessage("خطا در اسکن بلوتوث: ${e.message}") }
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) {
+                        setEffect { DashboardEffect.ShowMessage("Bluetooth discovery: ${e.message}") }
                     } finally {
                         setState { copy(isScanningBt = false) }
                     }

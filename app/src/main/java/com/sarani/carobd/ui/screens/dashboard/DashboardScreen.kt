@@ -76,6 +76,12 @@ fun DashboardScreen(
     onNavigateToVehicleCatalog: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(owner, viewModel) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event -> if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) viewModel.stopDiscovery() }
+        owner.lifecycle.addObserver(observer)
+        onDispose { viewModel.stopDiscovery(); owner.lifecycle.removeObserver(observer) }
+    }
     val currentTime by telemetryClock()
     val recording by viewModel.recordingState.collectAsState()
 

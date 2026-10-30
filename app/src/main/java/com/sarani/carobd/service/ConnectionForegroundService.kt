@@ -136,7 +136,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
             }.collect { (conn, tele, profile) ->
                 when (conn) {
                     is ConnectionState.Connected -> {
-                        val title = "${profile?.modelNameFa ?: "خودرو"} • ${conn.deviceName}"
+                        val title = (if (conn.isSimulator) "SIMULATOR · " else "") + "${profile?.modelNameFa ?: "—"} • ${conn.deviceName}"
                         val speed = tele.signal("010D").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
                         val rpm = tele.signal("010C").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
                         val coolant = tele.signal("0105").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"

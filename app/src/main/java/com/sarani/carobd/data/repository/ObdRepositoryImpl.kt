@@ -197,7 +197,11 @@ class ObdRepositoryImpl(
                         onTelemetry = { sample -> created?.let { if (activeSession === it && it.isOpen) _liveTelemetry.value = sample } },
                         onLoss = {
                             val lost = created
-                            scope.launch { sessionMutex.withLock { if (lost != null && activeSession === lost) disconnectLocked() } }
+                            scope.launch { sessionMutex.withLock { if (lost != null && activeSession === lost) {
+                                val failure = _connectionState.value as? ConnectionState.Failure
+                                disconnectLocked()
+                                if (failure != null) _connectionState.value = failure
+                            } } }
                         }, connectTimeoutMs = profile.connectTimeoutMs,
                         commandTimeoutMs = profile.commandTimeoutMs, onEvidence = onEvidence, onResponse = { command, response -> recordings?.parsed(command, response) })
                     activeCommandTimeoutMs = profile.commandTimeoutMs

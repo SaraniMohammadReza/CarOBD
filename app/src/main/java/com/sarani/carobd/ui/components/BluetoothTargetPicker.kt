@@ -28,10 +28,12 @@ fun BluetoothTargetPicker(ble: Boolean, onSelected: (String) -> Unit) {
     Column {
         RuntimeAccessControls()
         TextButton(onClick = {
-            job?.cancel()
+            val previousScan = job
+            previousScan?.cancel()
             devices = emptyList()
             error = null
             job = scope.launch {
+                previousScan?.join()
                 try {
                     withTimeoutOrNull(10_000) {
                         val results = if (ble) BleDeviceDiscovery(context).scan() else BluetoothDeviceScanner(context).scanNearbyDevices()
