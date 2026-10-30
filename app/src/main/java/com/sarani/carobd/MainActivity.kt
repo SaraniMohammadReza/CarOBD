@@ -196,11 +196,12 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
                 val vm: DiagnosticsViewModel = koinViewModel()
                 DiagnosticsScreen(viewModel = vm, onEvidence = { navController.navigate("evidence") })
             }
+            composable("dtc_history") { com.sarani.carobd.ui.screens.evidence.DtcHistoryScreen(koinViewModel()) }
             composable("recordings") { com.sarani.carobd.ui.screens.recording.RecordingScreen(koinViewModel()) }
             composable("freeze_frame") { com.sarani.carobd.ui.screens.evidence.FreezeFrameScreen(koinViewModel()) }
             composable("vehicle_info") { com.sarani.carobd.ui.screens.evidence.VehicleInformationScreen(koinViewModel()) }
             composable("evidence") {
-                com.sarani.carobd.ui.screens.evidence.EvidenceScreen(koinViewModel(), onVehicleInfo = { navController.navigate("vehicle_info") }, onFreezeFrame = { navController.navigate("freeze_frame") }, onRecordings = { navController.navigate("recordings") })
+                com.sarani.carobd.ui.screens.evidence.EvidenceScreen(koinViewModel(), onVehicleInfo = { navController.navigate("vehicle_info") }, onFreezeFrame = { navController.navigate("freeze_frame") }, onRecordings = { navController.navigate("recordings") }, onHistory = { navController.navigate("dtc_history") })
             }
             composable(AppDestination.Maintenance.route) {
                 val vm: MaintenanceViewModel = koinViewModel()

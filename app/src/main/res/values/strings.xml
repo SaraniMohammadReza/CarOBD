@@ -139,4 +139,9 @@
     <string name="record_replay">Isolated replay</string>
     <string name="record_delete">Delete</string>
     <string name="recording_limitations">Connect first, then start capture. Captures begin now, not at session initialization. Snapshots are saved every second and on stop. Replay is offline and never opens hardware. Detail preview is limited to 100 events; exports contain all events.</string>
+    <string name="dtc_history">DTC scan history</string>
+    <string name="mil_on">On (observed)</string>
+    <string name="mil_off">Off (observed)</string>
+    <string name="mil_unknown">Unknown / not measured</string>
+    <string name="history_legacy">Legacy record: category, MIL and protocol were not verified.</string>
 </resources>

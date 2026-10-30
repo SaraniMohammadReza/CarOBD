@@ -64,6 +64,7 @@ class ObdRepositoryImpl(
     private val createTransport: (TransportConfig) -> com.sarani.carobd.core.adapter.transport.ObdTransport = {
         TransportFactory.createTransport(it, requireNotNull(context))
     },
+    private val historySink: ((com.sarani.carobd.core.model.DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null,
     private val recordings: com.sarani.carobd.data.recording.RecordingController? = null,
     private val admitTransport: (TransportConfig) -> Unit = { if (it is TransportConfig.BluetoothClassic || it is TransportConfig.Ble) com.sarani.carobd.core.permissions.AndroidAccess.requireTransport(requireNotNull(context), it) },
     private val admitBackground: () -> Unit = { context?.let { com.sarani.carobd.core.permissions.AndroidAccess.require(it, com.sarani.carobd.core.model.RuntimeAccess.Notifications) } },
@@ -73,6 +74,8 @@ class ObdRepositoryImpl(
 
     val database by lazy { CarObdDatabaseHelper(requireNotNull(context)) }
 
+    private val _historyWarning = MutableStateFlow<String?>(null)
+    override val historyWarning = _historyWarning.asStateFlow()
     private val _foregroundSessionId = MutableStateFlow<String?>(null)
     override val foregroundSessionId: StateFlow<String?> = _foregroundSessionId.asStateFlow()
     @Volatile private var serviceAcknowledged: String? = null
@@ -275,6 +278,10 @@ class ObdRepositoryImpl(
         // connection is required for any protocol configuration.
     }
 
+    override suspend fun diagnosticHistory(): Result<List<com.sarani.carobd.core.model.DtcHistorySession>> = withContext(ioDispatcher) {
+        runCatching { database.diagnosticHistory() }
+    }
+
     override suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>> = withContext(ioDispatcher) {
         val session = activeSession?.takeIf { it.isOpen } ?: return@withContext Result.failure(NotConnectedException("Adapter not connected"))
         val report = sessionResult(session) { adapter ->
@@ -286,8 +293,16 @@ class ObdRepositoryImpl(
         if (report.completeness != com.sarani.carobd.core.model.ScanCompleteness.COMPLETE) {
             return@withContext Result.failure(com.sarani.carobd.core.model.DiagnosticScanException(report))
         }
-        // Persistence must not invent MIL/category/protocol facts. Durable scan storage
-        // remains off until the existing database schema can retain those facts.
+        val observedAt = System.currentTimeMillis()
+        val protocol = (_connectionState.value as? ConnectionState.Connected)?.protocolName
+        val history = com.sarani.carobd.core.model.DtcHistorySession(UUID.randomUUID().toString(), _foregroundSessionId.value,
+            _activeVehicleProfile.value?.id, observedAt, protocol, null,
+            report.codes.map { com.sarani.carobd.core.model.DtcHistoryCode.capture(it, protocol, null, observedAt) })
+        _historyWarning.value = null
+        runCatching {
+            if (historySink != null) historySink.invoke(history, report.codes)
+            else if (context != null) database.saveDtcScan(history, report.codes)
+        }.onFailure { _historyWarning.value = "Scan completed, but history could not be saved: ${it.message}" }
         Result.success(report.codes)
     }
 

@@ -24,7 +24,7 @@ class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
 
     companion object {
         const val DATABASE_NAME = "car_obd_automotive.db"
-        const val DATABASE_VERSION = 1
+        const val DATABASE_VERSION = 2
 
         // Tables
         const val TABLE_GARAGE = "garage_vehicles"
@@ -131,10 +131,11 @@ class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
             )
             """.trimIndent()
         )
+            DtcHistoryMigration.version2.forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Migration strategy
+        if (oldVersion < 2) DtcHistoryMigration.version2.forEach(db::execSQL)
     }
 
     // -------------------------------------------------------------
@@ -305,43 +306,68 @@ class CarObdDatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABAS
     // DTC OPERATIONS
     // -------------------------------------------------------------
 
-    fun saveDtcScan(sessionId: String, vehicleId: String, codes: List<DiagnosticCode>) {
+    fun saveDtcScan(scan: com.sarani.carobd.core.model.DtcHistorySession, codes: List<DiagnosticCode>) {
         val db = writableDatabase
         db.beginTransaction()
         try {
             val sessionCv = ContentValues().apply {
-                put("id", sessionId)
-                put("vehicle_id", vehicleId)
-                put("start_time", System.currentTimeMillis())
-                put("end_time", System.currentTimeMillis())
-                put("dtc_count", codes.size)
-                put("mil_active", if (codes.isNotEmpty()) 1 else 0)
-                put("ecu_name", if (codes.isNotEmpty()) codes.first().ecuSource else "Engine ECU")
-                put("protocol", "Standard OBD-II")
+                put("id", scan.id)
+                put("vehicle_id", scan.vehicleId ?: "unselected")
+                put("start_time", scan.observedAtMs); put("end_time", scan.observedAtMs)
+                put("dtc_count", scan.codes.size)
+                put("mil_active", scan.mil?.let { if (it) 1 else 0 } ?: -1)
+                put("observed_mil", scan.mil?.let { if (it) 1 else 0 })
+                put("ecu_name", "Unknown")
+                put("protocol", scan.protocol ?: "Unknown")
+                put("observed_protocol", scan.protocol)
+                put("connection_session_id", scan.connectionSessionId)
+                put("provenance", "OBSERVED_SCAN")
             }
-            db.insertWithOnConflict(TABLE_DIAGNOSTIC_SESSIONS, null, sessionCv, SQLiteDatabase.CONFLICT_REPLACE)
-
+            db.insertOrThrow(TABLE_DIAGNOSTIC_SESSIONS, null, sessionCv)
             for ((index, dtc) in codes.withIndex()) {
-                val dtcCv = ContentValues().apply {
-                    put("id", "${sessionId}_${index}_${dtc.code}")
-                    put("session_id", sessionId)
-                    put("code", dtc.code)
-                    put("title_en", dtc.titleEn)
-                    put("title_fa", dtc.titleFa)
-                    put("description_en", dtc.descriptionEn)
-                    put("description_fa", dtc.descriptionFa)
-                    put("severity", dtc.severity.name)
-                    put("system", dtc.system.name)
-                    put("category", "STORED")
-                    put("is_mil", 1)
-                    put("ecu_source", dtc.ecuSource)
-                    put("timestamp", System.currentTimeMillis())
+                val observed = scan.codes[index]
+                val cv = ContentValues().apply {
+                    put("id", "${scan.id}_${index}_${dtc.code}"); put("session_id", scan.id)
+                    put("code", dtc.code); put("title_en", dtc.titleEn); put("title_fa", dtc.titleFa)
+                    put("description_en", dtc.descriptionEn); put("description_fa", dtc.descriptionFa)
+                    put("severity", dtc.severity.name); put("system", dtc.system.name)
+                    put("category", observed.category?.name ?: "UNKNOWN")
+                    put("is_mil", observed.mil?.let { if (it) 1 else 0 } ?: -1)
+                    put("observed_mil", observed.mil?.let { if (it) 1 else 0 })
+                    put("observed_protocol", observed.protocol); put("responder", observed.responder)
+                    put("provenance", "OBSERVED_SCAN"); put("ecu_source", dtc.ecuSource)
+                    put("timestamp", observed.observedAtMs)
                 }
-                db.insertWithOnConflict(TABLE_DTC_RECORDS, null, dtcCv, SQLiteDatabase.CONFLICT_REPLACE)
+                db.insertOrThrow(TABLE_DTC_RECORDS, null, cv)
             }
             db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
+        } finally { db.endTransaction() }
+    }
+
+    fun diagnosticHistory(): List<com.sarani.carobd.core.model.DtcHistorySession> {
+        val out = mutableListOf<com.sarani.carobd.core.model.DtcHistorySession>()
+        val db = readableDatabase
+        fun Cursor.nullText(name: String): String? = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getString(it) }
+        fun Cursor.mil(): Boolean? = getColumnIndexOrThrow("observed_mil").let { if (isNull(it)) null else getInt(it) == 1 }
+        db.query(TABLE_DIAGNOSTIC_SESSIONS, null, null, null, null, null, "start_time DESC", "100").use { sessions ->
+            while (sessions.moveToNext()) {
+                val id = sessions.getString(sessions.getColumnIndexOrThrow("id"))
+                val legacy = sessions.nullText("provenance") != "OBSERVED_SCAN"
+                val records = mutableListOf<com.sarani.carobd.core.model.DtcHistoryCode>()
+                db.query(TABLE_DTC_RECORDS, null, "session_id=?", arrayOf(id), null, null, "timestamp ASC").use { rows ->
+                    while (rows.moveToNext()) {
+                        val old = rows.nullText("provenance") != "OBSERVED_SCAN"
+                        records += com.sarani.carobd.core.model.DtcHistoryCode(rows.nullText("code").orEmpty(),
+                            if (old) null else runCatching { DtcCategory.valueOf(rows.nullText("category").orEmpty()) }.getOrNull(),
+                            rows.nullText("responder"), rows.mil(), rows.nullText("observed_protocol"),
+                            rows.getLong(rows.getColumnIndexOrThrow("timestamp")), old)
+                    }
+                }
+                out += com.sarani.carobd.core.model.DtcHistorySession(id, sessions.nullText("connection_session_id"),
+                    sessions.nullText("vehicle_id")?.takeUnless { it == "unselected" }, sessions.getLong(sessions.getColumnIndexOrThrow("start_time")),
+                    sessions.nullText("observed_protocol"), sessions.mil(), records, legacy)
+            }
         }
+        return out
     }
 }

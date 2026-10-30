@@ -11,9 +11,10 @@ import androidx.compose.ui.unit.dp
 import com.sarani.carobd.R
 
 @Composable
-fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onFreezeFrame: () -> Unit, onRecordings: () -> Unit) {
+fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onFreezeFrame: () -> Unit, onRecordings: () -> Unit, onHistory: () -> Unit) {
     val state by viewModel.state.collectAsState()
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = onHistory) { Text(stringResource(R.string.dtc_history)) }
         TextButton(onClick = onRecordings) { Text(stringResource(R.string.recordings_title)) }
         TextButton(onClick = onFreezeFrame) { Text(stringResource(R.string.freeze_frame)) }
         TextButton(onClick = onVehicleInfo) { Text(stringResource(R.string.vehicle_information)) }
@@ -72,5 +73,24 @@ fun FreezeFrameScreen(viewModel: FreezeFrameViewModel) {
             Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
         }
         Text(stringResource(R.string.frame_limitations))
+    }
+}
+
+@Composable
+fun DtcHistoryScreen(viewModel: DtcHistoryViewModel) {
+    val sessions by viewModel.sessions.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val warning by viewModel.warning.collectAsState()
+    Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.dtc_history))
+        TextButton(onClick = viewModel::refresh) { Text(stringResource(R.string.record_refresh)) }
+        error?.let { Text(it) }; warning?.let { Text(it) }
+        sessions.forEach { s ->
+            Text("${s.observedAtMs} · ${s.protocol ?: "—"} · ${s.connectionSessionId ?: "—"}")
+            Text("MIL: " + stringResource(when (s.mil) { true -> R.string.mil_on; false -> R.string.mil_off; null -> R.string.mil_unknown }))
+            if (s.legacy) Text(stringResource(R.string.history_legacy))
+            if (s.codes.isEmpty()) Text(stringResource(R.string.dtc_no_codes))
+            s.codes.forEach { c -> Text("${c.code} · ${c.category ?: "—"} · ${c.responder ?: "—"}") }
+        }
     }
 }

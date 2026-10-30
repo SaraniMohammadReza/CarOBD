@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 
 interface ObdRepository {
+    val historyWarning: StateFlow<String?> get() = kotlinx.coroutines.flow.MutableStateFlow(null)
     val foregroundSessionId: StateFlow<String?> get() = kotlinx.coroutines.flow.MutableStateFlow(null)
     fun foregroundServiceReady(sessionId: String) {}
     fun foregroundServiceFailed(sessionId: String, reason: String) {}
@@ -36,6 +37,7 @@ interface ObdRepository {
     suspend fun disconnect()
     suspend fun setVehicleProfile(profile: VehicleProfile)
     suspend fun readEvidence(command: String, expectedSessionId: String? = null): Result<List<com.sarani.carobd.core.model.DiagnosticWireResponse>> = Result.failure(UnsupportedOperationException("Evidence reads unavailable"))
+    suspend fun diagnosticHistory(): Result<List<com.sarani.carobd.core.model.DtcHistorySession>> = Result.success(emptyList())
     suspend fun scanDiagnosticTroubleCodes(): Result<List<DiagnosticCode>>
     suspend fun clearDiagnosticTroubleCodes(): Result<Unit>
     suspend fun sendRawCommand(command: String): Result<String>

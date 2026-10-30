@@ -139,4 +139,9 @@
     <string name="record_replay">بازپخش ایزوله</string>
     <string name="record_delete">حذف</string>
     <string name="recording_limitations">ابتدا متصل شوید، سپس ضبط را شروع کنید. ضبط از همین لحظه آغاز می‌شود. ذخیره هر ثانیه و هنگام توقف انجام می‌شود. بازپخش آفلاین است و به سخت‌افزار دسترسی ندارد. پیش‌نمایش ۱۰۰ رویداد است؛ خروجی همه رویدادها را دارد.</string>
+    <string name="dtc_history">تاریخچه اسکن خطا</string>
+    <string name="mil_on">روشن (مشاهده‌شده)</string>
+    <string name="mil_off">خاموش (مشاهده‌شده)</string>
+    <string name="mil_unknown">نامشخص / اندازه‌گیری نشده</string>
+    <string name="history_legacy">رکورد قدیمی: دسته خطا، چراغ MIL و پروتکل تأیید نشده‌اند.</string>
 </resources>

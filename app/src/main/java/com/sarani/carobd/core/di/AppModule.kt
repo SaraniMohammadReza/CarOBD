@@ -59,6 +59,8 @@ val appModule = module {
 
     viewModel { com.sarani.carobd.ui.screens.recording.RecordingViewModel(get()) }
 
+    viewModel { com.sarani.carobd.ui.screens.evidence.DtcHistoryViewModel(get()) }
+
     // ViewModels
     viewModel { ConnectionCenterViewModel(get(), get()) }
     viewModel { DashboardViewModel(get(), get(), get(), get(), get(), get()) }

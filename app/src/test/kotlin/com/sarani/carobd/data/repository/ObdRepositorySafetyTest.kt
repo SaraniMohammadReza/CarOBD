@@ -37,7 +37,7 @@ class ObdRepositorySafetyTest {
             rx.emit((raw + "\r>").toByteArray())
         }
     }
-    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null) = ObdRepositoryImpl(
+    private fun repository(scope: kotlinx.coroutines.CoroutineScope, physical: Physical, recordings: com.sarani.carobd.data.recording.RecordingController? = null, history: ((DtcHistorySession, List<DiagnosticCode>) -> Unit)? = null) = ObdRepositoryImpl(
         context = null,
         activeVehicleRepository = ActiveVehicleRepository(MutableStateFlow(null), {}, {}),
         appPreferencesManager = null,
@@ -45,7 +45,7 @@ class ObdRepositorySafetyTest {
         scope = scope,
         ioDispatcher = scope.coroutineContext[kotlin.coroutines.ContinuationInterceptor] as kotlinx.coroutines.CoroutineDispatcher,
         pollModeFlow = MutableStateFlow(TelemetryPollMode.NORMAL),
-        createTransport = { physical }, recordings = recordings, startService = {}, stopService = {},
+        createTransport = { physical }, recordings = recordings, historySink = history, startService = {}, stopService = {},
     )
     private val profile = ConnectionProfile("test", "bench", TransportConfig.Wifi("bench", 35000))
     @Test fun repository_actualScanPathPreservesAllThreeNonCanCategories() = runTest {
@@ -252,6 +252,20 @@ class ObdRepositorySafetyTest {
             assertFalse(capture.metadata.vehicleProtocol.isNullOrBlank())
             repo.disconnect()
         } finally { directory.deleteRecursively() }
+    }
+
+    @Test fun completedScanHistoryPreservesEvidenceAndDoesNotInventMil() = runTest {
+        var saved: DtcHistorySession? = null
+        val repo = repository(backgroundScope, Physical(), history = { scan, _ -> saved = scan })
+        assertTrue(repo.connect(profile).isSuccess)
+        assertTrue(repo.scanDiagnosticTroubleCodes().isSuccess)
+        val h = requireNotNull(saved)
+        assertEquals(setOf(DtcCategory.STORED, DtcCategory.PENDING, DtcCategory.PERMANENT), h.codes.map { it.category }.toSet())
+        assertNull(h.mil)
+        assertTrue(h.codes.all { it.mil == null && it.responder == null && it.protocol == h.protocol })
+        assertEquals((repo.connectionState.value as ConnectionState.Connected).protocolName, h.protocol)
+        assertEquals(repo.foregroundSessionId.value, h.connectionSessionId)
+        repo.disconnect()
     }
 
 }
