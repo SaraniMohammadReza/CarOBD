@@ -125,4 +125,16 @@ class RecordingReplayTransportTest {
         assertArrayEquals("43 02 01 33 03 00".toByteArray(Charsets.US_ASCII), frames[1])
         replay.disconnect()
     }
+    @Test fun recorderAndFailureHandlerExceptionsDoNotChangeWireBehavior() = runTest {
+        val bytes = "41 0D 00\r\n>".toByteArray()
+        val delegate = FakeTransport(listOf(bytes), TransportType.WIFI_TCP)
+        val recorder = RecordingTransport(delegate, { error("Capture unavailable") }, { error("Observer failed") })
+        recorder.connect()
+        val command = "010D\r".toByteArray()
+        recorder.write(command)
+        assertArrayEquals(command, delegate.writes.single())
+        assertArrayEquals(bytes, recorder.incomingBytes.toList().single())
+        recorder.disconnect()
+        assertTrue(!delegate.isConnected)
+    }
 }

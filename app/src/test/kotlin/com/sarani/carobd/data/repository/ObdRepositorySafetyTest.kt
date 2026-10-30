@@ -310,4 +310,28 @@ class ObdRepositorySafetyTest {
         } finally { directory.deleteRecursively() }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @Test fun importedPhysicalMetadataReplayNeverUsesActivePhysicalSession() = runTest {
+        val physical = Physical()
+        val repo = repository(backgroundScope, physical)
+        assertTrue(repo.connect(profile).isSuccess)
+        runCurrent()
+        val before = physical.writes.toList()
+        for (type in listOf(TransportType.BLUETOOTH_CLASSIC, TransportType.BLUETOOTH_LE, TransportType.WIFI_TCP, TransportType.USB_SERIAL)) {
+            val transcript = DiagnosticTranscript(TranscriptMetadata("imported", type), listOf(
+                DiagnosticEvent(Direction.TX, 0, 0, "010D", "010D\r"),
+                DiagnosticEvent(Direction.RX, 0, 0, rawHex = "410D24\r>")
+            ))
+            val imported = DiagnosticTranscript.fromJson(transcript.toJson())
+            val result = com.sarani.carobd.core.adapter.transport.TranscriptReplayRunner().run(imported).single()
+            val evidence = result.evidence.single()
+            assertTrue(evidence.result is DiagnosticResult.Positive)
+            assertEquals(DiagnosticService.MODE_01, evidence.service)
+            assertArrayEquals(byteArrayOf(0x0D, 0x24), evidence.payload)
+            assertNull(evidence.responderId)
+            assertEquals(before, physical.writes)
+            assertTrue(physical.isConnected)
+        }
+        repo.disconnect()
+    }
 }
