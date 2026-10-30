@@ -28,18 +28,19 @@ class TripAndSpecsUnitTest {
     @Test
     fun testTripLoggerRecordsSamplesAndCalculatesDistance() {
         val logger = TripLogger()
-        logger.startTrip()
+        logger.startTrip(1000)
 
         assertTrue(logger.tripState.value.isRecording)
 
         // Log sample driving at 90 km/h
-        logger.logSample(LiveTelemetry(speedKmh = 90, rpm = 2500, coolantTempCelsius = 89))
-        logger.logSample(LiveTelemetry(speedKmh = 120, rpm = 3400, throttlePositionPercent = 85f))
+        logger.logSample(LiveTelemetry(speedKmh = 90, rpm = 2500, coolantTempCelsius = 89, measuredPids = setOf("0C", "0D", "05"), timestamp = 1000), nowMs = 1000)
+        logger.logSample(LiveTelemetry(speedKmh = 120, rpm = 3400, throttlePositionPercent = 85f, measuredPids = setOf("0C", "0D", "11"), timestamp = 2000), nowMs = 2000)
 
         val summary = logger.tripState.value
         assertEquals(120, summary.maxSpeedKmh)
         assertEquals(3400, summary.maxRpm)
-        assertTrue("Distance should accumulate", summary.distanceKm > 0.0)
+        assertEquals(105.0 / 3600.0, summary.distanceKm, 0.000001)
+        org.junit.Assert.assertNull(summary.estimatedFuelUsedLiters)
 
         val csv = logger.exportToCsv()
         assertTrue("CSV should contain header", csv.contains("Timestamp,RPM,Speed_kmh"))

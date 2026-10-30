@@ -1,119 +1,71 @@
 package com.sarani.carobd.core.logger
 
-import com.sarani.carobd.core.model.LiveTelemetry
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.sarani.carobd.core.model.*
+import kotlinx.coroutines.flow.*
 
 data class TripSummary(
-    val isRecording: Boolean = false,
-    val startTimeMs: Long = 0L,
-    val durationSeconds: Long = 0L,
-    val distanceKm: Double = 0.0,
-    val maxSpeedKmh: Int = 0,
-    val maxRpm: Int = 0,
-    val averageSpeedKmh: Double = 0.0,
-    val hardAccelerationsCount: Int = 0,
-    val hardBrakingCount: Int = 0,
-    val estimatedFuelUsedLiters: Double = 0.0,
-    val samplesCount: Int = 0
+    val isRecording: Boolean = false, val startTimeMs: Long = 0, val durationSeconds: Long = 0,
+    val distanceKm: Double = 0.0, val maxSpeedKmh: Int = 0, val maxRpm: Int = 0, val averageSpeedKmh: Double = 0.0,
+    val hardAccelerationsCount: Int = 0, val hardBrakingCount: Int = 0,
+    val estimatedFuelUsedLiters: Double? = null, val samplesCount: Int = 0,
+    val speedSamples: Int = 0, val rpmSamples: Int = 0, val coverageLimited: Boolean = false,
+    val limitReached: Boolean = false,
 )
+data class TelemetrySample(val timestampMs: Long, val rpm: Float?, val speedKmh: Float?, val coolantTemp: Float?,
+    val throttlePercent: Float?, val voltage: Float?, val engineLoad: Float?)
 
-data class TelemetrySample(
-    val timestampMs: Long,
-    val rpm: Int,
-    val speedKmh: Int,
-    val coolantTemp: Int,
-    val throttlePercent: Float,
-    val voltage: Float,
-    val engineLoad: Float
-)
-
+/** Captures measured samples. Distance integrates observed time, never an assumed polling interval. */
 class TripLogger {
-
     private val _tripState = MutableStateFlow(TripSummary())
-    val tripState: StateFlow<TripSummary> = _tripState.asStateFlow()
-
-    private val recordedSamples = mutableListOf<TelemetrySample>()
-    private var lastSpeed = 0
-    private var speedSum = 0L
-
-    fun startTrip() {
-        recordedSamples.clear()
-        speedSum = 0L
-        lastSpeed = 0
-        _tripState.value = TripSummary(
-            isRecording = true,
-            startTimeMs = System.currentTimeMillis()
-        )
+    val tripState = _tripState.asStateFlow()
+    private val samples = mutableListOf<TelemetrySample>()
+    private var lastSpeed: Pair<Long, Float>? = null
+    private var coveredMs = 0L
+    @Synchronized fun startTrip(nowMs: Long = System.currentTimeMillis()) {
+        samples.clear(); lastSpeed = null; coveredMs = 0
+        _tripState.value = TripSummary(isRecording = true, startTimeMs = nowMs)
     }
-
-    fun stopTrip() {
-        _tripState.value = _tripState.value.copy(isRecording = false)
-    }
-
-    fun logSample(telemetry: LiveTelemetry) {
+    @Synchronized fun stopTrip() { _tripState.value = _tripState.value.copy(isRecording = false) }
+    @Synchronized fun logSample(telemetry: LiveTelemetry, nowMs: Long = System.currentTimeMillis()) {
         val current = _tripState.value
-        if (!current.isRecording) return
-
-        val now = System.currentTimeMillis()
-        val durationSec = (now - current.startTimeMs) / 1000
-
-        val speed = telemetry.speedKmh
-        val rpm = telemetry.rpm
-        speedSum += speed
-        val sampleCount = current.samplesCount + 1
-
-        // Speed delta for aggressive driving detection
-        var hardAcc = current.hardAccelerationsCount
-        var hardBrake = current.hardBrakingCount
-        val speedDelta = speed - lastSpeed
-
-        if (speedDelta > 15 && telemetry.throttlePositionPercent > 70f) {
-            hardAcc++
-        } else if (speedDelta < -20) {
-            hardBrake++
+        if (!current.isRecording || telemetry.timestamp <= (samples.lastOrNull()?.timestampMs ?: Long.MIN_VALUE)) return
+        fun measured(pid: String) = telemetry.signal(pid, nowMs).takeIf { it.quality == SignalQuality.GOOD }?.value
+        val rpm = measured("010C"); val speed = measured("010D"); val coolant = measured("0105")
+        val throttle = measured("0111"); val voltage = measured("ATRV"); val load = measured("0104")
+        if (listOf(rpm, speed, coolant, throttle, voltage, load).all { it == null }) {
+            lastSpeed = null
+            _tripState.value = current.copy(coverageLimited = true)
+            return
         }
-        lastSpeed = speed
-
-        // Integrate distance: speed (km/h) * (time in hours)
-        // Polling interval ~0.1s = 0.1 / 3600 hours
-        val deltaDistanceKm = (speed.toDouble() * 0.1) / 3600.0
-        val totalDistance = current.distanceKm + deltaDistanceKm
-
-        // Rough fuel consumption estimation (grams/sec from load and RPM or MAF)
-        val deltaFuelLiters = (telemetry.engineLoadPercent * 0.0001)
-
-        val sample = TelemetrySample(
-            timestampMs = now,
-            rpm = rpm,
-            speedKmh = speed,
-            coolantTemp = telemetry.coolantTempCelsius,
-            throttlePercent = telemetry.throttlePositionPercent,
-            voltage = telemetry.batteryVoltage,
-            engineLoad = telemetry.engineLoadPercent
-        )
-        recordedSamples.add(sample)
-
-        _tripState.value = current.copy(
-            durationSeconds = durationSec,
-            distanceKm = totalDistance,
-            maxSpeedKmh = maxOf(current.maxSpeedKmh, speed),
-            maxRpm = maxOf(current.maxRpm, rpm),
-            averageSpeedKmh = if (sampleCount > 0) speedSum.toDouble() / sampleCount else 0.0,
-            hardAccelerationsCount = hardAcc,
-            hardBrakingCount = hardBrake,
-            estimatedFuelUsedLiters = current.estimatedFuelUsedLiters + deltaFuelLiters,
-            samplesCount = sampleCount
-        )
+        if (samples.size >= 20_000) { _tripState.value = current.copy(isRecording = false, limitReached = true); return }
+        var distance = current.distanceKm
+        var accel = current.hardAccelerationsCount; var braking = current.hardBrakingCount
+        var limited = current.coverageLimited
+        if (speed != null) {
+            val time = telemetry.measurementTimesMs["0D"] ?: telemetry.timestamp
+            lastSpeed?.let { (before, previousSpeed) ->
+                val dt = time - before
+                if (dt in 1..10_000) {
+                    distance += (previousSpeed + speed) / 2.0 * dt / 3_600_000
+                    coveredMs += dt
+                    val changePerSecond = (speed - previousSpeed) * 1000 / dt
+                    if (changePerSecond > 15 && throttle != null && throttle > 70) accel++
+                    if (changePerSecond < -20) braking++
+                } else if (dt > 10_000 || dt < 0) limited = true
+            }
+            lastSpeed = time to speed
+        } else { lastSpeed = null; limited = true }
+        samples += TelemetrySample(telemetry.timestamp, rpm, speed, coolant, throttle, voltage, load)
+        _tripState.value = current.copy(durationSeconds = ((telemetry.timestamp - current.startTimeMs) / 1000).coerceAtLeast(0),
+            distanceKm = distance, maxSpeedKmh = speed?.toInt()?.let { maxOf(current.maxSpeedKmh, it) } ?: current.maxSpeedKmh,
+            maxRpm = rpm?.toInt()?.let { maxOf(current.maxRpm, it) } ?: current.maxRpm,
+            averageSpeedKmh = if (coveredMs > 0) distance * 3_600_000 / coveredMs else 0.0,
+            hardAccelerationsCount = accel, hardBrakingCount = braking, samplesCount = samples.size,
+            speedSamples = current.speedSamples + if (speed != null) 1 else 0,
+            rpmSamples = current.rpmSamples + if (rpm != null) 1 else 0, coverageLimited = limited)
     }
-
-    fun exportToCsv(): String {
-        val sb = StringBuilder()
-        sb.append("Timestamp,RPM,Speed_kmh,Coolant_C,Throttle_pct,Voltage_V,EngineLoad_pct\n")
-        for (s in recordedSamples) {
-            sb.append("${s.timestampMs},${s.rpm},${s.speedKmh},${s.coolantTemp},${s.throttlePercent},${s.voltage},${s.engineLoad}\n")
-        }
-        return sb.toString()
+    @Synchronized fun exportToCsv(): String = buildString {
+        append("Timestamp,RPM,Speed_kmh,Coolant_C,Throttle_pct,Adapter_ATRV_V,EngineLoad_pct\n")
+        samples.forEach { s -> append(listOf(s.timestampMs, s.rpm, s.speedKmh, s.coolantTemp, s.throttlePercent, s.voltage, s.engineLoad).joinToString(",") { it?.toString() ?: "" }); append('\n') }
     }
 }

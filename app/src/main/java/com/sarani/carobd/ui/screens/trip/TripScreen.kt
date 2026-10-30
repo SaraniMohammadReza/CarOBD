@@ -1,6 +1,7 @@
 package com.sarani.carobd.ui.screens.trip
 
 import androidx.compose.ui.res.stringResource
+import com.sarani.carobd.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -129,7 +130,7 @@ fun TripScreen(
                 )
                 DigitalMetricCard(
                     title = "مسافت طی شده",
-                    value = distanceValue,
+                    value = if (state.summary.speedSamples >= 2) distanceValue else "—",
                     unit = distanceUnit,
                     accentColor = NeonCyan,
                     modifier = Modifier.weight(1f)
@@ -157,7 +158,7 @@ fun TripScreen(
                 )
                 DigitalMetricCard(
                     title = "حداکثر سرعت",
-                    value = maxSpeedValue,
+                    value = if (state.summary.speedSamples > 0) maxSpeedValue else "—",
                     unit = maxSpeedUnit,
                     icon = Icons.Default.Speed,
                     accentColor = NeonRed,
@@ -170,7 +171,7 @@ fun TripScreen(
                 )
                 DigitalMetricCard(
                     title = "سرعت میانگین",
-                    value = avgSpeedValue,
+                    value = if (state.summary.speedSamples >= 2) avgSpeedValue else "—",
                     unit = avgSpeedUnit,
                     accentColor = NeonGreen,
                     modifier = Modifier.weight(1f)
@@ -185,7 +186,7 @@ fun TripScreen(
             ) {
                 DigitalMetricCard(
                     title = "بیشینه دور موتور",
-                    value = "${state.summary.maxRpm}",
+                    value = if (state.summary.rpmSamples > 0) "${state.summary.maxRpm}" else "—",
                     unit = "RPM",
                     accentColor = NeonCyan,
                     modifier = Modifier.weight(1f)
@@ -193,13 +194,15 @@ fun TripScreen(
 
                 DigitalMetricCard(
                     title = "مصرف تخمینی سوخت",
-                    value = String.format(java.util.Locale.US, "%.2f", state.summary.estimatedFuelUsedLiters),
+                    value = state.summary.estimatedFuelUsedLiters?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "—",
                     unit = "لیتر",
                     accentColor = NeonAmber,
                     modifier = Modifier.weight(1f)
                 )
             }
 
+            if (state.summary.coverageLimited || state.summary.limitReached) Text(stringResource(R.string.trip_partial), color = NeonAmber)
+            Text(stringResource(R.string.trip_fuel_unknown), color = TextMuted)
             Spacer(modifier = Modifier.height(14.dp))
 
             // Driving Quality & Events Card
