@@ -98,7 +98,7 @@ fun DtcHistoryScreen(viewModel: DtcHistoryViewModel) {
             Text("${s.observedAtMs} · ${s.protocol ?: "—"} · ${s.connectionSessionId ?: "—"}")
             Text("MIL: " + stringResource(when (s.mil) { true -> R.string.mil_on; false -> R.string.mil_off; null -> R.string.mil_unknown }))
             if (s.legacy) Text(stringResource(R.string.history_legacy))
-            if (s.codes.isEmpty()) Text(stringResource(R.string.dtc_no_codes))
+            if (s.codes.isEmpty() && !s.legacy) Text(stringResource(R.string.dtc_no_codes))
             s.codes.forEach { c -> Text("${c.code} · ${com.sarani.carobd.ui.components.categoryLabel(c.category)} · ${c.responder ?: "—"}") }
         }
     }

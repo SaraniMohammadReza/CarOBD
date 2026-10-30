@@ -70,6 +70,29 @@ class RuntimeNavigationInstrumentedTest {
         }
         SystemClock.sleep(800)
     }
+    private fun tapDescription(text: String) {
+        val end = SystemClock.uptimeMillis() + 15_000
+        while (SystemClock.uptimeMillis() < end) {
+            nodes(root()).lastOrNull { it.contentDescription?.toString() == text && it.isVisibleToUser }?.let { tapNode(it); return }
+            swipe(true); SystemClock.sleep(200)
+        }
+        error("Visible action not found: $text")
+    }
+    private fun addCanonicalLiveGraph() {
+        tapDescription(label(R.string.cd_add_widget))
+        await(label(R.string.ui_sensor_picker))
+        val search = nodes(root()).first { it.isEditable }
+        assertTrue(search.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, android.os.Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "Mass Air Flow")
+        }))
+        SystemClock.sleep(500)
+        val sensor = com.sarani.carobd.core.database.SensorCatalog.findById("maf")!!
+        tap(if (locale == "fa") sensor.nameFa else sensor.nameEn)
+        tap(label(R.string.widget_graph)); tap(label(R.string.ui_widget_full)); tap(label(R.string.ui_widget_add))
+        await(label(R.string.graph_gap_help)); shot("canonical-maf-graph")
+        val widgets = kotlinx.coroutines.runBlocking { com.sarani.carobd.core.storage.AppPreferencesManager(instrumentation.targetContext).dashboardWidgets.first() }
+        assertTrue(widgets.any { it.sensorId == "maf" && it.widgetType == com.sarani.carobd.core.model.WidgetType.OSCILLOSCOPE_GRAPH && it.widgetSize == com.sarani.carobd.core.model.WidgetSize.LARGE })
+    }
     private fun permissionButton(id: String): AccessibilityNodeInfo {
         val end = SystemClock.uptimeMillis() + 10_000
         while (SystemClock.uptimeMillis() < end) {
@@ -175,6 +198,7 @@ class RuntimeNavigationInstrumentedTest {
         while (repo.connectionState.value !is com.sarani.carobd.core.model.ConnectionState.Connected && SystemClock.uptimeMillis() < deadline) SystemClock.sleep(200)
         assertTrue(repo.connectionState.value.toString(), (repo.connectionState.value as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator == true)
         nav(R.string.nav_dashboard); await(label(R.string.simulator_warning)); shot("dashboard-simulation")
+        addCanonicalLiveGraph()
         automation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
         SystemClock.sleep(1000)
         assertTrue((repo.connectionState.value as? com.sarani.carobd.core.model.ConnectionState.Connected)?.isSimulator == true)

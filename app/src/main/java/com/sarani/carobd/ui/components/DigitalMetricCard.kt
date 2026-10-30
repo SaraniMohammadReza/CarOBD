@@ -36,7 +36,8 @@ fun DigitalMetricCard(
     unit: String,
     icon: ImageVector? = null,
     accentColor: Color = NeonCyan,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    status: String? = null
 ) {
     Box(
         modifier = modifier
@@ -52,6 +53,7 @@ fun DigitalMetricCard(
             ) {
                 Text(
                     text = title,
+                    modifier = Modifier.weight(1f),
                     color = TextMuted,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
@@ -66,24 +68,24 @@ fun DigitalMetricCard(
                 }
             }
             Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.Start
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = value,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     color = TextPrimary,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    text = " $unit",
+                    text = unit,
                     color = accentColor,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
+                status?.let { Text(it, color = accentColor, fontSize = 11.sp) }
             }
         }
     }

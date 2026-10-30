@@ -145,7 +145,7 @@ class TelemetryProducer(
                     engineLoadPercent = current.engineLoadPercent.toDouble().takeIf { "04" in measured }
                 )
 
-                current = current.copy(measuredPids = measured, measurementTimesMs = measurementTimes.toMap(), timestamp = System.currentTimeMillis())
+                current = current.copy(pidSupport = supportState, measuredPids = measured, measurementTimesMs = measurementTimes.toMap(), timestamp = System.currentTimeMillis())
                 _liveTelemetry.value = current
                 onTelemetry(current)
 

@@ -48,6 +48,7 @@ data class LiveTelemetry(
     val fanHighSpeedActive: Boolean = false,
     val cngPressureBar: Float = 0f,
 
+    val pidSupport: PidSupportState = PidSupportState.NotDiscovered,
     val measuredPids: Set<String> = emptySet(),
     val measurementTimesMs: Map<String, Long> = emptyMap(),
     val timestamp: Long = System.currentTimeMillis()

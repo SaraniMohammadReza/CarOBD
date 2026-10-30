@@ -76,7 +76,7 @@ object SensorCatalog {
         SensorDefinition("chinese_cvt_temp", "CH_CVT_T", "CVT Transmission Fluid Temp", "دمای روغن گیربکس CVT چینی", "CVT-T", "°C", "°F", 0f, 140f, SensorCategory.MOTORCYCLE, "دمای حیاتی روغن گیربکس ضریب متغیر CVT مدیران خودرو و چری")
     )
 
-    fun findById(id: String): SensorDefinition {
-        return ALL_SENSORS.firstOrNull { it.id == id } ?: ALL_SENSORS.first()
+    fun findById(id: String): SensorDefinition? {
+        return ALL_SENSORS.firstOrNull { it.id == id }
     }
 }

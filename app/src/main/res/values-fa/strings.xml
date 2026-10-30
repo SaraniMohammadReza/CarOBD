@@ -424,4 +424,21 @@
     <string name="diagnosis_physical">آداپتور فیزیکی · فقط خواندنی</string>
     <string name="diagnosis_category_no_codes">این درخواست/پاسخ‌دهنده هیچ کد خطایی گزارش نکرد.</string>
     <string name="diagnosis_save_warning">تاریخچه به‌طور کامل ذخیره نشد. نتیجهٔ زنده همچنان نمایش داده می‌شود.</string>
+    <string name="graph_gap_help">۱۲۰ مشاهدهٔ اخیر · فاصلهٔ داده خط را قطع می‌کند · دادهٔ ناموجود — است</string>
+    <string name="sensor_supported">پشتیبانی‌شده · رمزگشای زندهٔ استاندارد</string>
+    <string name="sensor_unknown_support">پشتیبانی در این نشست مشخص نشده</string>
+    <string name="sensor_unsupported">توسط ECU اعلام نشده</string>
+    <string name="sensor_not_polled">مسیر خواندن زنده پیاده‌سازی نشده</string>
+    <string name="widget_move_up">انتقال ویجت به بالا</string>
+    <string name="widget_move_down">انتقال ویجت به پایین</string>
+    <string name="widget_resize">تغییر اندازهٔ فشرده / تمام‌عرض</string>
+    <string name="widget_gauge">عقربه‌ای</string>
+    <string name="widget_numeric">عددی</string>
+    <string name="widget_bar">نواری</string>
+    <string name="widget_graph">نمودار زنده</string>
+    <string name="graph_current">اندازه‌گیری فعلی</string>
+    <string name="graph_unavailable">اندازه‌گیری فعلی موجود نیست</string>
+    <string name="sensor_ecu_source">منبع: بیت‌مپ Mode01 از ECU و رمزگشای استاندارد PID. یک خواندن در هر چرخهٔ producer؛ زمان متغیر است.</string>
+    <string name="sensor_adapter_source">منبع: ATRV اعلام‌شده توسط آداپتور، نه ولتاژ ECU. خواندن در هر ۱۵ چرخهٔ producer.</string>
+    <string name="widget_save_failed">چیدمان داشبورد ذخیره نشد. ممکن است این تغییرات پس از راه‌اندازی دوباره باقی نمانند.</string>
 </resources>

@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -79,6 +82,9 @@ fun DashboardScreen(
     modifier: Modifier = Modifier,
     onNavigateToVehicleCatalog: () -> Unit = {}
 ) {
+    val moveUpLabel = stringResource(R.string.widget_move_up)
+    val moveDownLabel = stringResource(R.string.widget_move_down)
+    val resizeLabel = stringResource(R.string.widget_resize)
     val state by viewModel.uiState.collectAsState()
     val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(owner, viewModel) {
@@ -287,26 +293,26 @@ fun DashboardScreen(
                 }
             }
 
+            if (state.layoutSaveFailed) item { Text(stringResource(R.string.widget_save_failed), color = NeonAmber) }
             // 5. Dynamically Rendered Customized Widgets
             items(state.widgets, key = { it.id }) { widgetConfig ->
-                Box(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     RenderCustomWidget(
                         config = widgetConfig,
                         telemetry = state.telemetry,
-                        rpmHistory = state.rpmHistory,
-                        speedHistory = state.speedHistory,
-                        o2History = state.o2History
+                        graphHistory = state.graphHistory,
+                        modifier = Modifier.fillMaxWidth(if (widgetConfig.widgetSize == WidgetSize.LARGE) 1f else 0.5f)
                     )
 
-                    // Small remove widget button in top corner
-                    IconButton(
-                        onClick = { viewModel.onIntent(DashboardIntent.RemoveWidget(widgetConfig.id)) },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .size(26.dp)
-                            .padding(4.dp)
-                    ) {
-                        Icon(Icons.Default.Close,                        contentDescription = stringResource(R.string.cd_remove_widget), tint = TextMuted.copy(alpha = 0.6f))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { viewModel.onIntent(DashboardIntent.MoveWidget(widgetConfig.id, -1)) }) { Text("↑", modifier = Modifier.semantics { contentDescription = moveUpLabel }) }
+                        TextButton(onClick = { viewModel.onIntent(DashboardIntent.MoveWidget(widgetConfig.id, 1)) }) { Text("↓", modifier = Modifier.semantics { contentDescription = moveDownLabel }) }
+                        IconButton(onClick = { viewModel.onIntent(DashboardIntent.ResizeWidget(widgetConfig.id)) }) {
+                            Icon(Icons.Default.OpenInFull, contentDescription = resizeLabel)
+                        }
+                        IconButton(onClick = { viewModel.onIntent(DashboardIntent.RemoveWidget(widgetConfig.id)) }) {
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove_widget))
+                        }
                     }
                 }
             }
@@ -321,6 +327,7 @@ fun DashboardScreen(
 
         if (state.showSensorPicker) {
             SensorPickerModal(
+                telemetry = state.telemetry,
                 onWidgetAdded = { viewModel.onIntent(DashboardIntent.AddWidget(it)) },
                 onDismiss = { viewModel.onIntent(DashboardIntent.CloseSensorPicker) }
             )
@@ -414,81 +421,82 @@ fun FuelEconomyBanner(
 fun RenderCustomWidget(
     config: DashboardWidgetConfig,
     telemetry: LiveTelemetry,
-    rpmHistory: List<Float>,
-    speedHistory: List<Float>,
-    o2History: List<Float>
+    graphHistory: Map<String, List<com.sarani.carobd.core.model.TelemetryGraphPoint>>,
+    modifier: Modifier = Modifier
 ) {
     val sensor = SensorCatalog.findById(config.sensorId)
-
-    val now by telemetryClock()
-    val signal = telemetry.signal(sensor.pid, now)
-    val rawValue = signal.value
-    val units = com.sarani.carobd.ui.theme.LocalUnitSystem.current
-    val display = rawValue?.let { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), sensor.unitMetric, units) }
-    val sensorValue = display?.value?.toFloat()
-    val displayUnit = display?.unit ?: sensor.unitMetric
-    val title = if (androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "fa") sensor.nameFa else sensor.nameEn
-    if (sensorValue == null) {
-        DigitalMetricCard(title = title, value = "—", unit = displayUnit, accentColor = TextMuted)
+    if (sensor == null) {
+        Text(stringResource(R.string.sensor_not_polled), modifier = modifier)
         return
     }
-    if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) {
-        DigitalMetricCard(title = title, value = "$sensorValue · " + stringResource(R.string.signal_stale), unit = displayUnit, accentColor = NeonAmber)
-        return
-    }
-    val minimum = com.sarani.carobd.ui.theme.displayMeasurement(sensor.minValue.toDouble(), sensor.unitMetric, units).value.toFloat()
-    val maximum = com.sarani.carobd.ui.theme.displayMeasurement(sensor.maxValue.toDouble(), sensor.unitMetric, units).value.toFloat()
 
-    when (config.widgetType) {
-        WidgetType.CIRCULAR_GAUGE -> {
-            CircularGauge(
-                value = sensorValue,
-                minValue = minimum,
-                maxValue = maximum,
-                title = title,
-                unit = displayUnit,
-                primaryColor = NeonCyan,
-                warningColor = NeonRed
-            )
+    Box(modifier) {
+        val now by telemetryClock()
+        val signal = telemetry.signal(sensor.pid, now)
+        val rawValue = signal.value
+        val units = com.sarani.carobd.ui.theme.LocalUnitSystem.current
+        val display = rawValue?.let { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), sensor.unitMetric, units) }
+        val sensorValue = display?.value?.toFloat()
+        val displayUnit = display?.unit ?: sensor.unitMetric
+        val title = if (androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "fa") sensor.nameFa else sensor.nameEn
+        if (config.widgetType == WidgetType.OSCILLOSCOPE_GRAPH) {
+            LiveSensorChart(title = title,
+                history = graphHistory[sensor.pid].orEmpty().map { it.copy(value = it.value?.let { value -> com.sarani.carobd.ui.theme.displayMeasurement(value.toDouble(), sensor.unitMetric, units).value.toFloat() }) },
+                currentValue = sensorValue.takeIf { signal.quality == com.sarani.carobd.core.model.SignalQuality.GOOD },
+                quality = signal.quality,
+                unit = displayUnit)
+            return
         }
-        WidgetType.DIGITAL_CARD -> {
-            // measured == true (guarded at the top of this function), so a 0f
-            // reading is a REAL zero, e.g. throttle at idle — render "0.00",
-            // never fabricate "—". (§4 / §8: zero only when the ECU measured 0.)
-            val displayValue = if (sensorValue >= 10f) {
-                "${sensorValue.toInt()}"
-            } else {
-                String.format(java.util.Locale.US, "%.2f", sensorValue)
+        if (sensorValue == null) {
+            DigitalMetricCard(title = title, value = "—", unit = displayUnit, accentColor = TextMuted)
+            return
+        }
+        if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) {
+            DigitalMetricCard(title = title, value = String.format(java.util.Locale.US, "%.2f", sensorValue), unit = displayUnit, accentColor = NeonAmber, status = stringResource(R.string.signal_stale))
+            return
+        }
+        val minimum = com.sarani.carobd.ui.theme.displayMeasurement(sensor.minValue.toDouble(), sensor.unitMetric, units).value.toFloat()
+        val maximum = com.sarani.carobd.ui.theme.displayMeasurement(sensor.maxValue.toDouble(), sensor.unitMetric, units).value.toFloat()
+
+        when (config.widgetType) {
+            WidgetType.CIRCULAR_GAUGE -> {
+                CircularGauge(
+                    value = sensorValue,
+                    minValue = minimum,
+                    maxValue = maximum,
+                    title = title,
+                    unit = displayUnit,
+                    primaryColor = NeonCyan,
+                    warningColor = NeonRed
+                )
             }
-            DigitalMetricCard(
-                title = title,
-                value = displayValue,
-                unit = displayUnit,
-                accentColor = NeonCyan
-            )
-        }
-        WidgetType.BAR_GAUGE -> {
-            HorizontalBarGauge(
-                title = title,
-                value = sensorValue,
-                minValue = minimum,
-                maxValue = maximum,
-                unit = displayUnit,
-                accentColor = NeonAmber
-            )
-        }
-        WidgetType.OSCILLOSCOPE_GRAPH -> {
-            val history = when (sensor.id) {
-                "rpm" -> rpmHistory
-                "speed" -> speedHistory
-                else -> o2History
+            WidgetType.DIGITAL_CARD -> {
+                // measured == true (guarded at the top of this function), so a 0f
+                // reading is a REAL zero, e.g. throttle at idle — render "0.00",
+                // never fabricate "—". (§4 / §8: zero only when the ECU measured 0.)
+                val displayValue = if (sensorValue >= 10f) {
+                    "${sensorValue.toInt()}"
+                } else {
+                    String.format(java.util.Locale.US, "%.2f", sensorValue)
+                }
+                DigitalMetricCard(
+                    title = title,
+                    value = displayValue,
+                    unit = displayUnit,
+                    accentColor = NeonCyan
+                )
             }
-            LiveSensorChart(
-                title = "${title} (${sensor.nameEn})",
-                history = history.map { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), sensor.unitMetric, units).value.toFloat() },
-                unit = displayUnit,
-                accentColor = NeonCyan
-            )
+            WidgetType.BAR_GAUGE -> {
+                HorizontalBarGauge(
+                    title = title,
+                    value = sensorValue,
+                    minValue = minimum,
+                    maxValue = maximum,
+                    unit = displayUnit,
+                    accentColor = NeonAmber
+                )
+            }
+            WidgetType.OSCILLOSCOPE_GRAPH -> Unit
         }
     }
 }

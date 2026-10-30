@@ -62,6 +62,7 @@ import java.util.UUID
 
 @Composable
 fun SensorPickerModal(
+    telemetry: com.sarani.carobd.core.model.LiveTelemetry,
     onWidgetAdded: (DashboardWidgetConfig) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -71,12 +72,13 @@ fun SensorPickerModal(
     var selectedWidgetType by remember { mutableStateOf(WidgetType.CIRCULAR_GAUGE) }
     var selectedWidgetSize by remember { mutableStateOf(WidgetSize.MEDIUM) }
 
+    val isPersian = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "fa"
     val filteredSensors = SensorCatalog.ALL_SENSORS.filter { s ->
         val matchesCategory = selectedCategory == null || s.category == selectedCategory
         val matchesSearch = searchQuery.isBlank() ||
                 s.nameFa.contains(searchQuery, ignoreCase = true) ||
                 s.nameEn.contains(searchQuery, ignoreCase = true) ||
-                s.shortName.contains(searchQuery, ignoreCase = true)
+                s.shortName.contains(searchQuery, ignoreCase = true) || s.pid.contains(searchQuery, ignoreCase = true)
         matchesCategory && matchesSearch
     }
 
@@ -132,7 +134,7 @@ fun SensorPickerModal(
                         FilterChip(
                             selected = selectedCategory == cat,
                             onClick = { selectedCategory = cat },
-                            label = { Text(cat.titleFa, fontSize = 10.sp) },
+                            label = { Text(if (isPersian) cat.titleFa else cat.titleEn, fontSize = 10.sp) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = NeonCyan.copy(alpha = 0.2f),
                                 selectedLabelColor = NeonCyan
@@ -152,12 +154,14 @@ fun SensorPickerModal(
                 ) {
                     items(filteredSensors, key = { it.id }) { sensor ->
                         val isChosen = selectedSensor?.id == sensor.id
+                        val availability = com.sarani.carobd.core.database.dashboardSensorAvailability(sensor, telemetry)
+                        val selectable = availability == com.sarani.carobd.core.database.DashboardSensorAvailability.AVAILABLE
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(if (isChosen) DarkBg else DarkBg.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                                 .border(1.dp, if (isChosen) NeonCyan else DarkCardBorder, RoundedCornerShape(8.dp))
-                                .clickable { selectedSensor = sensor }
+                                .clickable(enabled = selectable) { selectedSensor = sensor }
                                 .padding(8.dp)
                         ) {
                             Row(
@@ -166,8 +170,13 @@ fun SensorPickerModal(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(sensor.nameFa, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("${sensor.nameEn} • ${sensor.category.titleFa}", color = TextMuted, fontSize = 10.sp)
+                                    Text(if (isPersian) sensor.nameFa else sensor.nameEn, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(sensor.pid + " · " + stringResource(when (availability) {
+                                        com.sarani.carobd.core.database.DashboardSensorAvailability.AVAILABLE -> R.string.sensor_supported
+                                        com.sarani.carobd.core.database.DashboardSensorAvailability.UNKNOWN -> R.string.sensor_unknown_support
+                                        com.sarani.carobd.core.database.DashboardSensorAvailability.UNSUPPORTED -> R.string.sensor_unsupported
+                                        com.sarani.carobd.core.database.DashboardSensorAvailability.NOT_POLLED -> R.string.sensor_not_polled
+                                    }), color = TextMuted, fontSize = 10.sp)
                                 }
                                 Box(
                                     modifier = Modifier
@@ -183,6 +192,10 @@ fun SensorPickerModal(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                selectedSensor?.let { sensor ->
+                    Text("${sensor.pid} · ${sensor.unitMetric}", fontSize = 11.sp)
+                    Text(stringResource(if (sensor.pid == "ATRV") R.string.sensor_adapter_source else R.string.sensor_ecu_source), fontSize = 11.sp)
+                }
                 // Widget Display Style (عقربه‌ای، کارت، نواری، گراف)
                 Text(stringResource(com.sarani.carobd.R.string.ui_widget_type), color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
@@ -194,7 +207,7 @@ fun SensorPickerModal(
                         FilterChip(
                             selected = selectedWidgetType == type,
                             onClick = { selectedWidgetType = type },
-                            label = { Text(type.titleFa, fontSize = 10.sp) }
+                            label = { Text(widgetTypeLabel(type), fontSize = 10.sp) }
                         )
                     }
                 }
@@ -230,7 +243,7 @@ fun SensorPickerModal(
                     )
                     onWidgetAdded(config)
                 },
-                enabled = selectedSensor != null,
+                enabled = selectedSensor?.let { com.sarani.carobd.core.database.dashboardSensorAvailability(it, telemetry) == com.sarani.carobd.core.database.DashboardSensorAvailability.AVAILABLE } == true,
                 colors = ButtonDefaults.buttonColors(containerColor = NeonCyan)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = DarkBg, modifier = Modifier.size(16.dp))
@@ -245,3 +258,11 @@ fun SensorPickerModal(
         }
     )
 }
+
+@Composable
+private fun widgetTypeLabel(type: WidgetType): String = stringResource(when (type) {
+    WidgetType.CIRCULAR_GAUGE -> R.string.widget_gauge
+    WidgetType.DIGITAL_CARD -> R.string.widget_numeric
+    WidgetType.BAR_GAUGE -> R.string.widget_bar
+    WidgetType.OSCILLOSCOPE_GRAPH -> R.string.widget_graph
+})

@@ -13,7 +13,8 @@ import com.sarani.carobd.ui.components.*
 @Composable
 internal fun DiagnosticReportCard(report: DiagnosticSessionReport) {
     var expanded by remember(report.id) { mutableStateOf(false) }
-    Card(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth()) {
+    Card(onClick = { expanded = !expanded }, modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(java.text.DateFormat.getDateTimeInstance().format(java.util.Date(report.startedAtMs)))
             Text(stringResource(if (report.simulator) R.string.connection_simulator else R.string.diagnosis_physical))

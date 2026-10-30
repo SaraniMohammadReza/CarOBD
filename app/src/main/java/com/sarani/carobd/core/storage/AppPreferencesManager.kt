@@ -55,6 +55,7 @@ class AppPreferencesManager(private val dataStore: androidx.datastore.core.DataS
 
 
     companion object {
+        private val KEY_DASHBOARD_LAYOUT = stringPreferencesKey("dashboard_layout_v1")
         private val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         private val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         private val KEY_UNIT_SYSTEM = stringPreferencesKey("unit_system")
@@ -185,18 +186,18 @@ class AppPreferencesManager(private val dataStore: androidx.datastore.core.DataS
         dataStore.edit { it[KEY_ODOMETER] = km }
     }
 
-    // Default widget layout (§4 Checkpoint E).
-    // Speed/RPM/Coolant/Battery are rendered compactly by PrimaryMetricsRow on
-    // the dashboard, so they are NOT duplicated here as 132dp CircularGauge
-    // widgets (§4: "two 132dp circular RPM/speed gauges duplicate the compact
-    // primary metrics"). Defaults are compact secondary metrics only; the O2
-    // oscilloscope chart is opt-in (sensor picker) rather than on the first
-    // screen, keeping the Samsung J7 dashboard lightweight.
+    val dashboardWidgets: Flow<List<DashboardWidgetConfig>> = dataStore.data.map { prefs ->
+        prefs[KEY_DASHBOARD_LAYOUT]?.let(DashboardLayoutCodec::decode) ?: getDefaultWidgets()
+    }
+
+    suspend fun saveDashboardWidgets(widgets: List<DashboardWidgetConfig>) {
+        val encoded = DashboardLayoutCodec.encode(widgets)
+        dataStore.edit { it[KEY_DASHBOARD_LAYOUT] = encoded }
+    }
+
+    // A layout preference never establishes ECU support; unknown cards still display —.
     fun getDefaultWidgets(): List<DashboardWidgetConfig> = listOf(
-        DashboardWidgetConfig("w_throttle", "throttle_pos", WidgetType.DIGITAL_CARD, WidgetSize.SMALL),
-        DashboardWidgetConfig("w_fuel", "fuel_level", WidgetType.BAR_GAUGE, WidgetSize.SMALL),
-        DashboardWidgetConfig("w_intake_temp", "intake_temp", WidgetType.DIGITAL_CARD, WidgetSize.SMALL),
-        DashboardWidgetConfig("w_maf", "maf", WidgetType.DIGITAL_CARD, WidgetSize.SMALL),
-        DashboardWidgetConfig("w_stepper", "stepper_steps", WidgetType.DIGITAL_CARD, WidgetSize.SMALL)
+        DashboardWidgetConfig("w_throttle", "throttle_pos", WidgetType.DIGITAL_CARD, WidgetSize.MEDIUM),
+        DashboardWidgetConfig("w_maf", "maf", WidgetType.DIGITAL_CARD, WidgetSize.MEDIUM)
     )
 }

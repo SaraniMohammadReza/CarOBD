@@ -40,10 +40,9 @@ data class DashboardState(
     val widgets: List<DashboardWidgetConfig> = emptyList(),
     val fuelEconomy: FuelEconomyMetrics = FuelEconomyMetrics(),
     val userVehicleSetup: UserVehicleSetup = UserVehicleSetup(),
-    // Real-time historical buffers for live graphs
-    val rpmHistory: List<Float> = emptyList(),
-    val speedHistory: List<Float> = emptyList(),
-    val o2History: List<Float> = emptyList()
+    val layoutSaveFailed: Boolean = false,
+    val graphHistory: Map<String, List<com.sarani.carobd.core.model.TelemetryGraphPoint>> = emptyMap()
+
 ) : UiState {
     /** Truthful vehicle label — never fabricate an identity from onboarding free-text (§5.5 / §4). */
     fun vehicleDisplayLabel(): String = activeProfile?.modelNameFa ?: "خودروی تشخیصی انتخاب نشده"
@@ -59,6 +58,8 @@ sealed interface DashboardIntent : UiIntent {
     data object OpenSensorPicker : DashboardIntent
     data object CloseSensorPicker : DashboardIntent
     data class AddWidget(val widget: DashboardWidgetConfig) : DashboardIntent
+    data class MoveWidget(val widgetId: String, val direction: Int) : DashboardIntent
+    data class ResizeWidget(val widgetId: String) : DashboardIntent
     data class RemoveWidget(val widgetId: String) : DashboardIntent
     data class ConnectToDevice(val device: DiscoveredBluetoothDevice) : DashboardIntent
     data object TriggerBtScan : DashboardIntent
@@ -90,6 +91,7 @@ class DashboardViewModel(
     init {
         viewModelScope.launch { observeTelemetryUseCase.activeConnectionProfile.collect { p -> setState { copy(activeConnectionName = p?.name) } } }
         viewModelScope.launch { observeTelemetryUseCase.connectingProfile.collect { p -> setState { copy(connectingName = p?.name) } } }
+        viewModelScope.launch { appPreferencesManager.dashboardWidgets.collect { widgets -> setState { copy(widgets = widgets) } } }
         // Observe preferences & onboarding state
         viewModelScope.launch {
             appPreferencesManager.isOnboardingDone.collect { done ->
@@ -103,10 +105,14 @@ class DashboardViewModel(
         }
         viewModelScope.launch {
             observeTelemetryUseCase.telemetry.collect { tele ->
-                val maxBuffer = 35
-                val newRpmHistory = (uiState.value.rpmHistory + listOfNotNull(tele.signal("010C").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value)).takeLast(maxBuffer)
-                val newSpeedHistory = (uiState.value.speedHistory + listOfNotNull(tele.signal("010D").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value)).takeLast(maxBuffer)
-                val newO2History = (uiState.value.o2History + listOfNotNull(tele.signal("0114").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value)).takeLast(maxBuffer)
+                val previous = if (tele.measurementTimesMs.isEmpty()) emptyMap() else uiState.value.graphHistory
+                val graphHistory = (com.sarani.carobd.core.protocol.obd2.PidPollingPlan.BASELINE.map { it.command } + "ATRV").associateWith { pid ->
+                    val signal = tele.signal(pid)
+                    val timestamp = if (signal.quality == com.sarani.carobd.core.model.SignalQuality.GOOD)
+                        tele.measurementTimesMs[pid.removePrefix("01")] ?: tele.timestamp else tele.timestamp
+                    com.sarani.carobd.core.model.TelemetryGraphHistory.append(previous[pid].orEmpty(),
+                        com.sarani.carobd.core.model.TelemetryGraphPoint(timestamp, signal.value.takeIf { signal.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }))
+                }
 
                 val fuelEco = FuelEconomyEngine.calculate(
                     telemetry = tele,
@@ -118,9 +124,7 @@ class DashboardViewModel(
                     copy(
                         telemetry = tele,
                         fuelEconomy = fuelEco,
-                        rpmHistory = newRpmHistory,
-                        speedHistory = newSpeedHistory,
-                        o2History = newO2History
+                        graphHistory = graphHistory
                     )
                 }
             }
@@ -134,6 +138,15 @@ class DashboardViewModel(
             observeTelemetryUseCase.activeProfile.collect { prof ->
                 setState { copy(activeProfile = prof) }
             }
+        }
+    }
+
+    private fun updateWidgets(widgets: List<DashboardWidgetConfig>) {
+        setState { copy(widgets = widgets) }
+        viewModelScope.launch {
+            try { appPreferencesManager.saveDashboardWidgets(widgets); setState { copy(layoutSaveFailed = false) } }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { setState { copy(layoutSaveFailed = true) } }
         }
     }
 
@@ -167,10 +180,26 @@ class DashboardViewModel(
                 setState { copy(showSensorPicker = false) }
             }
             is DashboardIntent.AddWidget -> {
-                setState { copy(widgets = widgets + intent.widget, showSensorPicker = false) }
+                val sensor = com.sarani.carobd.core.database.SensorCatalog.findById(intent.widget.sensorId)
+                if (sensor != null && com.sarani.carobd.core.database.dashboardSensorAvailability(sensor, uiState.value.telemetry) == com.sarani.carobd.core.database.DashboardSensorAvailability.AVAILABLE && uiState.value.widgets.size < 24) {
+                    updateWidgets(uiState.value.widgets + intent.widget)
+                    setState { copy(showSensorPicker = false) }
+                }
             }
+            is DashboardIntent.MoveWidget -> {
+                val widgets = uiState.value.widgets.toMutableList()
+                val index = widgets.indexOfFirst { it.id == intent.widgetId }
+                val target = index + intent.direction.coerceIn(-1, 1)
+                if (index >= 0 && target in widgets.indices) {
+                    java.util.Collections.swap(widgets, index, target)
+                    updateWidgets(widgets)
+                }
+            }
+            is DashboardIntent.ResizeWidget -> updateWidgets(uiState.value.widgets.map {
+                if (it.id == intent.widgetId) it.copy(widgetSize = if (it.widgetSize == com.sarani.carobd.core.model.WidgetSize.LARGE) com.sarani.carobd.core.model.WidgetSize.MEDIUM else com.sarani.carobd.core.model.WidgetSize.LARGE) else it
+            })
             is DashboardIntent.RemoveWidget -> {
-                setState { copy(widgets = widgets.filter { it.id != intent.widgetId }) }
+                updateWidgets(uiState.value.widgets.filter { it.id != intent.widgetId })
             }
             is DashboardIntent.OpenBluetoothDialog -> {
                 setState { copy(showBluetoothDialog = true, discoveredDevices = emptyList()) }

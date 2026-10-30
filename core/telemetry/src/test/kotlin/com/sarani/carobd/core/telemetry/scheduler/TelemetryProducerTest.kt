@@ -65,6 +65,8 @@ class TelemetryProducerTest {
         // One cycle = 1 capability probe (0100) + 7 capability-gated polls = 8.
         // Two observers must NOT double the command stream.
         assertEquals(8, calls.size)
+        val support = prod.liveTelemetry.value.pidSupport as com.sarani.carobd.core.model.PidSupportState.Known
+        assertTrue(support.map.isSupported("0C"))
         assertTrue("observer 1 received the sample", obs1.size >= 2) // initial + produced
         assertTrue("observer 2 received the same sample", obs2.size >= 2)
     }

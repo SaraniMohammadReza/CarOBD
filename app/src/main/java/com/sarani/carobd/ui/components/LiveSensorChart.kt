@@ -2,176 +2,61 @@ package com.sarani.carobd.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.sarani.carobd.ui.theme.DarkBg
-import com.sarani.carobd.ui.theme.DarkCardBg
-import com.sarani.carobd.ui.theme.DarkCardBorder
-import com.sarani.carobd.ui.theme.NeonAmber
-import com.sarani.carobd.ui.theme.NeonCyan
-import com.sarani.carobd.ui.theme.TextMuted
-import com.sarani.carobd.ui.theme.TextPrimary
+import com.sarani.carobd.R
+import com.sarani.carobd.core.model.TelemetryGraphHistory
+import com.sarani.carobd.core.model.TelemetryGraphPoint
 
+/** Timestamp axis and separate paths: no line or fill can cross missing/stale data. */
 @Composable
-fun LiveSensorChart(
-    title: String,
-    history: List<Float>,
-    unit: String,
-    accentColor: Color = NeonCyan,
-    modifier: Modifier = Modifier
-) {
-    val currentVal = history.lastOrNull() ?: 0f
-    val maxVal = (history.maxOrNull() ?: 100f).coerceAtLeast(10f)
-    val minVal = (history.minOrNull() ?: 0f).coerceAtLeast(0f)
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(DarkCardBg, RoundedCornerShape(14.dp))
-            .border(1.dp, DarkCardBorder, RoundedCornerShape(14.dp))
-            .padding(14.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Header: Title and Current Value
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(text = title, color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                    Text(
-                        text = androidx.compose.ui.res.stringResource(com.sarani.carobd.R.string.s5_chart_bounds, maxVal.toInt(), minVal.toInt(), unit),
-                        color = TextMuted,
-                        fontSize = 10.sp
-                    )
+fun LiveSensorChart(title: String, history: List<TelemetryGraphPoint>, currentValue: Float?, quality: com.sarani.carobd.core.model.SignalQuality, unit: String,
+    accentColor: Color = MaterialTheme.colorScheme.primary, modifier: Modifier = Modifier) {
+    val bounded = history.takeLast(TelemetryGraphHistory.MAX_POINTS)
+    val segments = TelemetryGraphHistory.segments(bounded)
+    val values = segments.flatten().mapNotNull { it.value }
+    val minimum = values.minOrNull() ?: 0f
+    val maximum = values.maxOrNull() ?: 1f
+    val range = (maximum - minimum).takeIf { it > 0f } ?: 1f
+    val firstTime = bounded.firstOrNull()?.timeMs ?: 0L
+    val duration = ((bounded.lastOrNull()?.timeMs ?: firstTime) - firstTime).coerceAtLeast(1L)
+    val grid = MaterialTheme.colorScheme.outlineVariant
+    Card(modifier.fillMaxWidth(), colors = CardDefaults.cardColors(contentColor = MaterialTheme.colorScheme.onSurface)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text((currentValue?.takeIf { it.isFinite() }?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—") + " $unit",
+                style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(when (quality) {
+                com.sarani.carobd.core.model.SignalQuality.GOOD -> R.string.graph_current
+                com.sarani.carobd.core.model.SignalQuality.STALE -> R.string.signal_stale
+                else -> R.string.graph_unavailable
+            }), style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(R.string.graph_gap_help), style = MaterialTheme.typography.bodySmall)
+            Canvas(Modifier.fillMaxWidth().height(100.dp).background(MaterialTheme.colorScheme.surfaceContainer)) {
+                repeat(3) { index ->
+                    val y = size.height * (index + 1) / 4f
+                    drawLine(grid, Offset(0f, y), Offset(size.width, y))
                 }
-
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = String.format(java.util.Locale.US, "%.1f", currentVal),
-                        color = TextPrimary,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Text(
-                        text = " $unit",
-                        color = accentColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 2.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Chart Canvas
-            Canvas(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(90.dp)
-                    .background(DarkBg.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 4.dp, vertical = 6.dp)
-            ) {
-                val w = size.width
-                val h = size.height
-
-                // Draw 3 horizontal grid lines
-                for (i in 1..3) {
-                    val y = h * (i / 4f)
-                    drawLine(
-                        color = DarkCardBorder.copy(alpha = 0.4f),
-                        start = Offset(0f, y),
-                        end = Offset(w, y),
-                        strokeWidth = 1f
-                    )
-                }
-
-                if (history.size < 2) return@Canvas
-
-                val range = if (maxVal > minVal) (maxVal - minVal) else 1f
-                val stepX = w / (history.size - 1)
-
-                val linePath = Path()
-                val fillPath = Path()
-
-                fillPath.moveTo(0f, h)
-
-                history.forEachIndexed { index, value ->
-                    val x = index * stepX
-                    val normalizedY = ((value - minVal) / range).coerceIn(0f, 1f)
-                    val y = h - (normalizedY * h)
-
-                    if (index == 0) {
-                        linePath.moveTo(x, y)
-                        fillPath.lineTo(x, y)
-                    } else {
-                        linePath.lineTo(x, y)
-                        fillPath.lineTo(x, y)
+                fun offset(point: TelemetryGraphPoint): Offset = Offset(
+                    ((point.timeMs - firstTime).toDouble() / duration * size.width).toFloat(),
+                    size.height * (1f - ((point.value!! - minimum) / range).coerceIn(0f, 1f)))
+                for (segment in segments) {
+                    val path = Path()
+                    segment.forEachIndexed { index, point ->
+                        val position = offset(point)
+                        if (index == 0) path.moveTo(position.x, position.y) else path.lineTo(position.x, position.y)
                     }
+                    drawPath(path, accentColor, style = Stroke(width = 2.dp.toPx()))
+                    if (segment.size == 1) drawCircle(accentColor, 2.dp.toPx(), offset(segment.single()))
                 }
-
-                fillPath.lineTo((history.size - 1) * stepX, h)
-                fillPath.close()
-
-                // Draw gradient under-fill
-                drawPath(
-                    path = fillPath,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            accentColor.copy(alpha = 0.35f),
-                            accentColor.copy(alpha = 0.05f)
-                        )
-                    )
-                )
-
-                // Draw stroke line
-                drawPath(
-                    path = linePath,
-                    color = accentColor,
-                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
-                )
-
-                // Draw dot at latest point
-                val lastX = (history.size - 1) * stepX
-                val lastNormalizedY = ((currentVal - minVal) / range).coerceIn(0f, 1f)
-                val lastY = h - (lastNormalizedY * h)
-
-                drawCircle(
-                    color = Color.White,
-                    radius = 3.5.dp.toPx(),
-                    center = Offset(lastX, lastY)
-                )
-                drawCircle(
-                    color = accentColor,
-                    radius = 6.dp.toPx(),
-                    center = Offset(lastX, lastY),
-                    style = Stroke(width = 1.5.dp.toPx())
-                )
             }
         }
     }
