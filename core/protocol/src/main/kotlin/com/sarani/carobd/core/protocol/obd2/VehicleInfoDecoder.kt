@@ -21,9 +21,12 @@ object VehicleInfoDecoder {
         legacy.forEach { (source, frames) ->
             val indices = frames.map { it.payload[1].toInt() and 0xFF }
             val count = legacyMessageCounts[source]
-            val bytes = frames.flatMap { it.payload.drop(2) }.toByteArray()
+            // ELM327L datasheet, Multiline Responses p43: sequence byte defines assembly order.
+            // Reordering unique numbered chunks is permitted; duplicates/missing indices still fail.
+            val ordered = frames.sortedBy { it.payload[1].toInt() and 0xFF }
+            val bytes = ordered.flatMap { it.payload.drop(2) }.toByteArray()
             val data = bytes.dropWhile { it == 0.toByte() }.toByteArray()
-            val valid = count == 5 && indices == (1..5).toList() && bytes.size == 20 && bytes.take(3).all { it == 0.toByte() }
+            val valid = count == 5 && indices.sorted() == (1..5).toList() && bytes.size == 20 && bytes.take(3).all { it == 0.toByte() }
             val vin = if (valid) PidCodec.decodeVin(data) else null
             out += if (vin != null) DiagnosticReading(ReadingState.Success, VehicleInfoField(pid, listOf(vin), 1), frames)
                 else DiagnosticReading(ReadingState.Malformed, evidence = frames, detail = "Invalid/ambiguous non-CAN VIN sequence or count")
@@ -50,7 +53,7 @@ object VehicleInfoDecoder {
                 }
             }
             // Short positive data remains explicitly incomplete, with raw bytes.
-            if (r.state == ReadingState.Malformed && e.result is DiagnosticResult.Positive && e.payload.size >= 2) {
+            if (r.state == ReadingState.Malformed && e.service == DiagnosticService.MODE_09 && e.result is DiagnosticResult.Positive && e.payload.size >= 2 && (e.payload[0].toInt() and 0xFF) == pid) {
                 val count = e.payload[1].toInt() and 0xFF
                 val expected = when (pid) { 2 -> if (count == 1) 17 else -1; 4 -> count * 16; 6 -> count * 4; 10 -> count * 20; else -> -1 }
                 if (count in 1..64 && e.payload.size - 2 < expected) r = r.copy(state = ReadingState.Partial)

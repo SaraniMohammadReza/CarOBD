@@ -15,6 +15,7 @@ class VehicleInformationUseCase(private val repository: ObdRepository) {
         }
         try {
             val discovery = read(0)
+            if (discovery.isEmpty()) return listOf(VehicleInfoReading(0, DiagnosticReading(ReadingState.Malformed, detail = "Empty vehicle information capability evidence")))
             val support = discovery.associate { it.responderId to VehicleInfoDecoder.supported(it) }
             discovery.forEach { env ->
                 val known = VehicleInfoDecoder.supported(env)

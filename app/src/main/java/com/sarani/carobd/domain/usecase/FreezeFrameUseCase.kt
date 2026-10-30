@@ -13,6 +13,7 @@ class FreezeFrameUseCase(private val repository: ObdRepository) {
         suspend fun read(pid: Int) = repository.readEvidence(FreezeFrameDecoder.command(pid, frame), token).getOrElse { throw NotConnectedException(it.message ?: "Session changed") }
         try {
             val discovery = read(0)
+            if (discovery.isEmpty()) return listOf(DiagnosticReading(ReadingState.Malformed, detail = "Empty freeze-frame capability evidence"))
             val support = discovery.mapNotNull { FreezeFrameDecoder.supported(frame, it) }.flatten().toSet()
             discovery.forEach { e ->
                 val supported = FreezeFrameDecoder.supported(frame, e)
