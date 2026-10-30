@@ -6,6 +6,8 @@ import com.sarani.carobd.core.adapter.command.AdapterInitializationResult
 import com.sarani.carobd.core.adapter.command.AdapterResponse
 import com.sarani.carobd.core.adapter.transport.ObdTransport
 import com.sarani.carobd.core.model.*
+import com.sarani.carobd.core.model.ConnectionIssue
+import com.sarani.carobd.core.model.ConnectionIssueException
 import com.sarani.carobd.core.model.ConnectionState
 import com.sarani.carobd.core.model.ProtocolStandard
 import com.sarani.carobd.core.protocol.obd2.PidCodec
@@ -232,9 +234,9 @@ open class Elm327Adapter(
                 val readback = (dpnResp as? AdapterResponse.Success)?.cleanedLines?.singleOrNull()?.trim()?.uppercase()
                 val code = readback?.let { if (it.length == 2 && it.startsWith("A")) it.drop(1) else it }
                 _currentProtocol = code?.let { mapElmProtocolNumber(it) }
-                check(_currentProtocol != null && _currentProtocol != ProtocolStandard.AUTO) { "Unknown protocol readback: $readback" }
+                if (_currentProtocol == null || _currentProtocol == ProtocolStandard.AUTO) throw ConnectionIssueException(ConnectionIssue.ProtocolMismatch, "Unknown protocol readback: $readback")
                 if (forcedProtocol != null && forcedProtocol != ProtocolStandard.AUTO) {
-                    check(_currentProtocol == forcedProtocol) { "Manual protocol mismatch: requested $forcedProtocol, observed $_currentProtocol" }
+                    if (_currentProtocol != forcedProtocol) throw ConnectionIssueException(ConnectionIssue.ProtocolMismatch, "Manual protocol mismatch: requested $forcedProtocol, observed $_currentProtocol")
                 }
 
                 check(!retired && transport.isConnected) { "Transport lost during initialization" }
@@ -277,7 +279,8 @@ open class Elm327Adapter(
                     batteryVoltage = 0.0f,
                     capabilities = com.sarani.carobd.core.model.AdapterCapabilities(),
                     quality = com.sarani.carobd.core.model.AdapterQuality.COMPATIBLE,
-                    errorMessage = e.message
+                    errorMessage = e.message,
+                    failureIssue = com.sarani.carobd.core.model.connectionIssue(e)
                 )
             }
         }
@@ -327,7 +330,9 @@ open class Elm327Adapter(
 
     private suspend fun executeInternal(command: String, timeoutMs: Long): AdapterResponse {
         val authorized = AuthorizedDiagnosticCommand.initialization(command) ?: return deniedCommand()
-        return dispatch(authorized, timeoutMs)
+        val response = dispatch(authorized, timeoutMs)
+        if (response is AdapterResponse.Error && response.error is AdapterError.Timeout) throw ConnectionIssueException(ConnectionIssue.AdapterTimeout, "Adapter initialization command timed out")
+        return response
     }
 
     private suspend fun dispatch(authorized: AuthorizedDiagnosticCommand, timeoutMs: Long): AdapterResponse {

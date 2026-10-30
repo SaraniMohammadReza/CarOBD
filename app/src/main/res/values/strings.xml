@@ -267,4 +267,19 @@
     <string name="notify_voltage">Protocol: %1$s · Adapter supply ATRV: %2$s V</string>
     <string name="trip_partial">Partial measurement coverage or capture limit reached. Gaps are not integrated.</string>
     <string name="trip_fuel_unknown">Fuel use is unknown; engine load is not a measured fuel rate. Driving events are heuristics, not diagnoses.</string>
+    <string name="issue_permission">Permission denied. Use the permission controls to grant access.</string>
+    <string name="issue_permanent">Permission blocked. Open this app in Android settings.</string>
+    <string name="issue_bluetooth_off">Bluetooth is off. Enable it, then connect explicitly.</string>
+    <string name="issue_unsupported">Required Bluetooth capability is unavailable on this device.</string>
+    <string name="issue_ble_scan">BLE scan failed. Check Bluetooth and permissions, then scan again.</string>
+    <string name="issue_ble_subscription">BLE subscription failed. Check the supported service/characteristics and reconnect.</string>
+    <string name="issue_usb_permission">USB access was denied or timed out. Grant access to the exact selected device.</string>
+    <string name="issue_usb_target">Selected USB device/interface is absent or ambiguous. Review the exact target.</string>
+    <string name="issue_wifi_timeout">Wi-Fi connection timed out. Check adapter network, host and port.</string>
+    <string name="issue_no_data">The ECU reported no data for this read.</string>
+    <string name="issue_protocol">Protocol rejected or mismatched. Review the profile; no fallback was selected.</string>
+    <string name="issue_service">Foreground diagnostics stopped. Check notification settings and reconnect explicitly.</string>
+    <string name="issue_unknown">Connection unavailable. Review the diagnostic evidence below.</string>
+    <string name="issue_timeout">Connection or adapter response timed out. Check the link and bounded timeout settings.</string>
+    <string name="issue_transport_eof">Transport ended. The session is no longer connected.</string>
 </resources>

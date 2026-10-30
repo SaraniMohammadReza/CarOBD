@@ -149,7 +149,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
                         updateNotification(title, content)
                     }
                     is ConnectionState.Failure -> {
-                        updateNotification(text(R.string.notify_failure), conn.humanMessageFa)
+                        updateNotification(text(R.string.notify_failure), conn.technicalMessage)
                     }
                     is ConnectionState.Disconnecting -> {
                         updateNotification(text(R.string.notify_disconnecting), text(R.string.notify_disconnecting_body))

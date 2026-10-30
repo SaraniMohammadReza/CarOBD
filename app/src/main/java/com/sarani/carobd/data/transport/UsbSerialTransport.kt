@@ -93,7 +93,7 @@ class UsbSerialTransport(
 
         val deviceList = usbManager.deviceList
         if (deviceList.isEmpty()) {
-            throw ConnectionFailedException("هیچ کابل یا دانگل USB دیاگ به درگاه گوشی متصل نشده است. اتصال کابل OTG را بررسی فرمایید.")
+            throw com.sarani.carobd.core.model.ConnectionIssueException(com.sarani.carobd.core.model.ConnectionIssue.UsbTargetMissing, "Selected USB target is absent; check OTG and exact profile target")
         }
 
         val identity = com.sarani.carobd.core.model.UsbTargetSelection.select(selection,
@@ -237,10 +237,10 @@ class UsbSerialTransport(
             val granted = try {
                 withTimeout(PERMISSION_TIMEOUT_MS) { deferred.await() }
             } catch (e: TimeoutCancellationException) {
-                throw ConnectionFailedException("درخواست مجوز دسترسی USB منقضی شده است. مجدداً تلاش کنید.")
+                throw com.sarani.carobd.core.model.ConnectionIssueException(com.sarani.carobd.core.model.ConnectionIssue.UsbPermissionDenied, "USB permission request timed out")
             }
             if (!granted) {
-                throw ConnectionFailedException("دسترسی به درگاه USB توسط کاربر رد شده است.")
+                throw com.sarani.carobd.core.model.ConnectionIssueException(com.sarani.carobd.core.model.ConnectionIssue.UsbPermissionDenied, "USB permission denied")
             }
         } finally {
             pendingPermissionResult = null

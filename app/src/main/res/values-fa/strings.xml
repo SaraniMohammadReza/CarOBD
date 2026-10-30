@@ -80,7 +80,7 @@
     <string name="settings_units">سیستم یکاها و واحدها (Units)</string>
     <string name="state_selected">انتخاب شده</string>
     <string name="settings_adapter_inspector">بررسی سخت‌افزار دانگل و پین‌اوت موتورسیکلت</string>
-    <string name="settings_adapter_inspector_desc">تست اصالت چیپ ELM327 و کابل‌های تبدیل ۶ پین</string>
+    <string name="settings_adapter_inspector_desc">مشخصات گزارش‌شده آداپتور و محدودیت شواهد اتصال</string>
     <string name="action_view_more">مشاهده ></string>
     <string name="language_persian_label">فارسی (پیش‌فرض)</string>
     <string name="language_english_label">English</string>
@@ -267,4 +267,19 @@
     <string name="notify_voltage">پروتکل: %1$s · ولتاژ گزارش‌شده ATRV: %2$s V</string>
     <string name="trip_partial">پوشش اندازه‌گیری ناقص است یا سقف ضبط پر شده؛ فاصله‌های بدون داده محاسبه نمی‌شوند.</string>
     <string name="trip_fuel_unknown">مصرف سوخت نامشخص است؛ بار موتور نرخ سوخت اندازه‌گیری‌شده نیست. رویدادهای رانندگی تخمینی‌اند و تشخیص عیب نیستند.</string>
+    <string name="issue_permission">مجوز رد شد؛ از کنترل مجوزها برای اجازه دسترسی استفاده کنید.</string>
+    <string name="issue_permanent">مجوز مسدود است؛ تنظیمات اندروید این برنامه را باز کنید.</string>
+    <string name="issue_bluetooth_off">بلوتوث خاموش است؛ آن را روشن و سپس اتصال را دوباره انتخاب کنید.</string>
+    <string name="issue_unsupported">قابلیت بلوتوث مورد نیاز در این دستگاه در دسترس نیست.</string>
+    <string name="issue_ble_scan">جستجوی BLE ناموفق بود؛ بلوتوث و مجوزها را بررسی و دوباره جستجو کنید.</string>
+    <string name="issue_ble_subscription">اشتراک BLE ناموفق بود؛ سرویس و مشخصه‌های پشتیبانی‌شده را بررسی و دوباره متصل شوید.</string>
+    <string name="issue_usb_permission">مجوز USB رد شد یا مهلت آن تمام شد؛ به همان دستگاه انتخاب‌شده مجوز دهید.</string>
+    <string name="issue_usb_target">دستگاه یا رابط USB انتخاب‌شده غایب یا مبهم است؛ مقصد دقیق را بررسی کنید.</string>
+    <string name="issue_wifi_timeout">مهلت اتصال وای‌فای تمام شد؛ شبکه آداپتور، میزبان و درگاه را بررسی کنید.</string>
+    <string name="issue_no_data">ECU برای این درخواست داده‌ای گزارش نکرد.</string>
+    <string name="issue_protocol">پروتکل رد شد یا تطابق نداشت؛ نمایه را بررسی کنید. پروتکل جایگزین انتخاب نشد.</string>
+    <string name="issue_service">پایش پیش‌زمینه متوقف شد؛ تنظیمات اعلان را بررسی و اتصال را دوباره انتخاب کنید.</string>
+    <string name="issue_unknown">اتصال در دسترس نیست؛ شواهد تشخیصی زیر را بررسی کنید.</string>
+    <string name="issue_timeout">مهلت اتصال یا پاسخ آداپتور تمام شد؛ پیوند و تنظیمات مهلت را بررسی کنید.</string>
+    <string name="issue_transport_eof">مسیر انتقال بسته شد؛ نشست دیگر متصل نیست.</string>
 </resources>

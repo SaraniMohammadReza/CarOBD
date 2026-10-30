@@ -68,7 +68,7 @@ fun StatusHeader(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val (statusColor, statusText) = when (val cs = connectionState) {
                         is ConnectionState.Connected -> NeonGreen to stringResource(R.string.status_connected)
-                        is ConnectionState.Failure -> NeonRed to cs.humanMessageFa
+                        is ConnectionState.Failure -> NeonRed to connectionIssueLabel(cs.issue)
                         is ConnectionState.Disconnected, is ConnectionState.Idle -> TextMuted to stringResource(R.string.status_disconnected)
                         is ConnectionState.Disconnecting -> NeonAmber to stringResource(R.string.status_connecting)
                         is ConnectionState.AdapterIdentifying -> NeonAmber to cs.probeStage

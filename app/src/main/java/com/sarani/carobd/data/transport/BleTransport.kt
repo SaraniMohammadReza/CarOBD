@@ -126,7 +126,7 @@ class BleTransport(
 
         if (connected != true) {
             disconnect()
-            throw ConnectionFailedException("Failed to establish and configure GATT connection to $deviceAddress")
+            throw com.sarani.carobd.core.model.ConnectionIssueException(com.sarani.carobd.core.model.ConnectionIssue.BleSubscriptionFailed, "BLE service discovery or CCCD acknowledgement failed for $deviceAddress")
         }
     }
 

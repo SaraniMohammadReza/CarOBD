@@ -31,7 +31,8 @@ sealed interface ConnectionState {
         val humanMessageFa: String,
         val technicalMessage: String,
         val isRecoverable: Boolean,
-        val rawResponse: String? = null
+        val rawResponse: String? = null,
+        val issue: ConnectionIssue? = null
     ) : ConnectionState
 }
 

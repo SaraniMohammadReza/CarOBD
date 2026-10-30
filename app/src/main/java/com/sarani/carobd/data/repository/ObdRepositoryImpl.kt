@@ -88,7 +88,7 @@ class ObdRepositoryImpl(
         scope.launch { sessionMutex.withLock {
             if (_foregroundSessionId.value == sessionId) {
                 disconnectLocked()
-                _connectionState.value = ConnectionState.Failure("FOREGROUND_SERVICE", "پایش پس‌زمینه متوقف شد", reason, true)
+                _connectionState.value = ConnectionState.Failure("FOREGROUND_SERVICE", "پایش پس‌زمینه متوقف شد", reason, true, issue = com.sarani.carobd.core.model.ConnectionIssue.ForegroundServiceUnavailable)
             }
         } }
     }
@@ -204,7 +204,7 @@ class ObdRepositoryImpl(
                     created = session
                     activeSession = session
                     val result = session.execute { it.initialize(forced) }
-                    check(result.isSuccess) { result.errorMessage ?: "Initialization failed" }
+                    if (!result.isSuccess) throw com.sarani.carobd.core.model.ConnectionIssueException(result.failureIssue ?: com.sarani.carobd.core.model.ConnectionIssue.Unknown, result.errorMessage ?: "Initialization failed")
                     connectionProfiles.save(profile.copy(lastSuccessfulAt = System.currentTimeMillis()))
                     if (testOnly) {
                         disconnectLocked()
@@ -243,7 +243,7 @@ class ObdRepositoryImpl(
                     _liveTelemetry.value = LiveTelemetry()
                     currentTripComputer = null
                     runCatching { stopService() }
-                    _connectionState.value = ConnectionState.Failure("CONNECTION", "اتصال برقرار نشد", e.message.orEmpty(), true)
+                    _connectionState.value = ConnectionState.Failure("CONNECTION", "اتصال برقرار نشد", e.message.orEmpty(), true, issue = com.sarani.carobd.core.model.connectionIssue(e))
                     Result.failure(e)
                 }
             }

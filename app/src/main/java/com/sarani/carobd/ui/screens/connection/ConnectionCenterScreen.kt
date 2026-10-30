@@ -31,7 +31,7 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
             com.sarani.carobd.ui.components.RuntimeAccessControls()
             Text(when (val connection = state.connectionState) {
                 is ConnectionState.Connected -> if (connection.isSimulator) "Connected — SIMULATOR" else "Connected — physical ECU read-only (${connection.protocolName})"
-                is ConnectionState.Failure -> "Failed: ${connection.technicalMessage}"
+                is ConnectionState.Failure -> com.sarani.carobd.ui.components.connectionIssueLabel(connection.issue) + "\n" + connection.technicalMessage
                 else -> connection.toString()
             })
             if (state.isConnected || state.isConnecting) {

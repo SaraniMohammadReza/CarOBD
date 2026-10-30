@@ -12,7 +12,7 @@ object UsbTargetSelection {
             (config.vendorId == null || d.vendorId == config.vendorId) &&
             (config.productId == null || d.productId == config.productId)
         }
-        require(matches.size == 1) { "DEVICE_UNAVAILABLE: selected USB device absent or ambiguous" }
-        return matches.single().also { require(port in 0 until it.interfaceCount) { "DEVICE_UNAVAILABLE: selected interface absent" } }
+        if (matches.size != 1) throw ConnectionIssueException(ConnectionIssue.UsbTargetMissing, "DEVICE_UNAVAILABLE: selected USB device absent or ambiguous")
+        return matches.single().also { if (port !in 0 until it.interfaceCount) throw ConnectionIssueException(ConnectionIssue.UsbTargetMissing, "DEVICE_UNAVAILABLE: selected interface absent") }
     }
 }

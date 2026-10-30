@@ -49,5 +49,6 @@ data class AdapterInitializationResult(
     val batteryVoltage: Float,
     val capabilities: AdapterCapabilities,
     val quality: AdapterQuality,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val failureIssue: com.sarani.carobd.core.model.ConnectionIssue? = null
 )

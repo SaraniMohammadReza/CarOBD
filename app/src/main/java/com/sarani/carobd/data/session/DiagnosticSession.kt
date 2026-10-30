@@ -40,7 +40,7 @@ class DiagnosticSession(
             if (isOpen && !transport.isConnected && adapter.state.value !is ConnectionState.Connected) {
                 invalidate()
                 withContext(NonCancellable) { transport.disconnect() }
-                onState(ConnectionState.Failure("TRANSPORT", "زمان اتصال منقضی شد", "Transport connect deadline exceeded", true))
+                onState(ConnectionState.Failure("TRANSPORT", "زمان اتصال منقضی شد", "Transport connect deadline exceeded", true, issue = if (transport.transportType == TransportType.WIFI_TCP) ConnectionIssue.WifiTimeout else ConnectionIssue.ConnectTimeout))
                 onLoss()
             }
         }
@@ -50,7 +50,7 @@ class DiagnosticSession(
                 if (transport.isConnected || adapter.state.value is ConnectionState.Connected) sawLink = true
                 if (sawLink && !transport.isConnected) {
                     invalidate()
-                    onState(ConnectionState.Failure("TRANSPORT_LOST", "ارتباط قطع شد", "Transport disconnected", true))
+                    onState(ConnectionState.Failure("TRANSPORT_LOST", "ارتباط قطع شد", "Transport disconnected", true, issue = ConnectionIssue.TransportEof))
                     onLoss()
                     break
                 }

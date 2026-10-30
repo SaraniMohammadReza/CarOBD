@@ -30,7 +30,7 @@ class BleDeviceDiscovery(private val context: Context) {
                     trySend(snapshot)
                 } catch (e: SecurityException) { close(e) }
             }
-            override fun onScanFailed(errorCode: Int) { close(IllegalStateException("BLE scan failed ($errorCode)")) }
+            override fun onScanFailed(errorCode: Int) { close(com.sarani.carobd.core.model.ConnectionIssueException(com.sarani.carobd.core.model.ConnectionIssue.BleScanFailed, "BLE scan failed ($errorCode)")) }
         }
         try { scanner.startScan(callback) } catch (e: SecurityException) { close(e); return@callbackFlow }
         awaitClose { runCatching { scanner.stopScan(callback) } }
