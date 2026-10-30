@@ -25,7 +25,7 @@ class RecordingController(val store: FileTranscriptStore, private val scope: Cor
     }
     @Synchronized fun session(profile: ConnectionProfile) {
         builder?.let { old -> val snapshot = old.toTranscript(); scope.launch { runCatching { store.save(snapshot) } } }
-        metadata = TranscriptMetadata(profile.name, profile.transport.type, profile.transport.connectionTarget)
+        metadata = TranscriptMetadata(profile.name, profile.transport.type, profile.transport.connectionTarget, commandTimeoutMs = profile.commandTimeoutMs)
         builder = null
         _state.value = "Stopped"
     }
@@ -63,7 +63,7 @@ class RecordingController(val store: FileTranscriptStore, private val scope: Cor
         if (snapshot != null) scope.launch { runCatching { store.save(snapshot) }.onFailure { _state.value = "Storage failed: ${it.message}" } }
     }
     fun parsed(command: String, response: com.sarani.carobd.core.adapter.command.AdapterResponse) {
-        try { response.toWireEnvelopes(command).forEach { builder?.recordParsed(command, it) } }
+        try { response.toWireEnvelopes(command).forEach { builder?.recordParsed(command, it, ((response as? com.sarani.carobd.core.adapter.command.AdapterResponse.Error)?.error as? com.sarani.carobd.core.adapter.command.AdapterError.Timeout)?.timeoutMs) } }
         catch (e: Exception) { failure(e) }
     }
 }

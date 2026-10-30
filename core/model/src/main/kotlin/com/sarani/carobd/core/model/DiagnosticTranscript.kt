@@ -68,7 +68,8 @@ data class TranscriptMetadata(
     /** Vehicle protocol reported/applied (e.g. "ISO 15765-4 CAN 11/500"). */
     val vehicleProtocol: String? = null,
     val startedAtMs: Long = System.currentTimeMillis(),
-    val sessionId: String = java.util.UUID.randomUUID().toString()
+    val sessionId: String = java.util.UUID.randomUUID().toString(),
+    val commandTimeoutMs: Long? = null
 )
 
 /** An immutable, exportable diagnostic transcript. */
@@ -100,7 +101,7 @@ data class DiagnosticTranscript(
             """"target":${md.target?.let { jsonStr(it) } ?: "null"},""" +
             """"adapterIdentity":${md.adapterIdentity?.let { jsonStr(it) } ?: "null"},""" +
             """"vehicleProtocol":${md.vehicleProtocol?.let { jsonStr(it) } ?: "null"},""" +
-            """"startedAtMs":${md.startedAtMs},"sessionId":${jsonStr(md.sessionId)}},"events":[$eventsJson]}"""
+            """"startedAtMs":${md.startedAtMs},"sessionId":${jsonStr(md.sessionId)},"commandTimeoutMs":${md.commandTimeoutMs ?: "null"}},"events":[$eventsJson]}"""
     }
 
     /**

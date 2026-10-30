@@ -60,4 +60,15 @@ class ReplayFidelityTest {
             assertTrue(store.delete(t.metadata.sessionId))
         } finally { dir.deleteRecursively() }
     }
+    @Test fun recordedTimeoutDrivesDefaultProductReplay() = runTest {
+        val t = transcript(event(Direction.TX, 0, "010C\r"), event(Direction.RX, 150, "410C1AF8\r>"),
+            DiagnosticEvent(Direction.ERR, 200, 200, "010C", "", outcome = DiagnosticOutcome.TIMEOUT, protocolMetadata = mapOf("event" to "parsed", "timeoutMs" to "100")),
+            event(Direction.TX, 210, "03\r"), event(Direction.RX, 220, "430000\r>"))
+        val reloaded = DiagnosticTranscript.fromJson(t.copy(metadata = t.metadata.copy(commandTimeoutMs = 1000)).toJson())
+        assertEquals(1000L, reloaded.metadata.commandTimeoutMs)
+        val results = TranscriptReplayRunner().run(reloaded)
+        assertEquals(DiagnosticResult.Timeout, results[0].evidence.single().result)
+        assertTrue(results[1].evidence.single().result is DiagnosticResult.Positive)
+    }
+
 }

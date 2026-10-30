@@ -8,7 +8,7 @@ internal object TranscriptJson {
         val md = root["metadata"].obj()
         val metadata = TranscriptMetadata(md.string("profileName"), TransportType.valueOf(md.string("transport")),
             md.optional("target"), md.optional("adapterIdentity"), md.optional("vehicleProtocol"), md.number("startedAtMs"),
-            md.optional("sessionId") ?: "legacy-${md.number("startedAtMs")}")
+            md.optional("sessionId") ?: "legacy-${md.number("startedAtMs")}", (md["commandTimeoutMs"] as? Long)?.also { require(it in 100..30_000) })
         require(metadata.sessionId.matches(Regex("[A-Za-z0-9-]{1,80}"))) { "Invalid session ID" }
         val list = root["events"] as? List<*> ?: error("Missing events")
         require(list.size <= 50_000) { "Too many events" }

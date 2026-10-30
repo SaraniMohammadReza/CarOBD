@@ -10,7 +10,7 @@ class DiagnosticTranscriptBuilder(private var metadata: TranscriptMetadata) {
     @Synchronized fun recordRx(rawHex: String, responder: String? = null, outcome: DiagnosticOutcome = DiagnosticOutcome.RAW,
         protocolMetadata: Map<String, String> = emptyMap()) = add(Direction.RX, null, rawHex, responder, outcome, protocolMetadata)
     @Synchronized fun recordErr(message: String) = add(Direction.ERR, null, message, outcome = DiagnosticOutcome.ADAPTER_FAILURE)
-    @Synchronized fun recordParsed(command: String, envelope: DiagnosticWireResponse) {
+    @Synchronized fun recordParsed(command: String, envelope: DiagnosticWireResponse, timeoutMs: Long? = null) {
         val outcome = when (envelope.result) {
             is DiagnosticResult.Positive -> DiagnosticOutcome.POSITIVE
             is DiagnosticResult.NegativeResponse -> DiagnosticOutcome.NEGATIVE_RESPONSE
@@ -21,7 +21,7 @@ class DiagnosticTranscriptBuilder(private var metadata: TranscriptMetadata) {
             is DiagnosticResult.Unsupported -> DiagnosticOutcome.UNSUPPORTED
             is DiagnosticResult.AdapterFailure -> DiagnosticOutcome.ADAPTER_FAILURE
         }
-        add(Direction.ERR, command, envelope.rawLines.joinToString("\r"), envelope.responderId, outcome, mapOf("event" to "parsed", "service" to envelope.service.name))
+        add(Direction.ERR, command, envelope.rawLines.joinToString("\r"), envelope.responderId, outcome, mapOf("event" to "parsed", "service" to envelope.service.name) + (timeoutMs?.let { mapOf("timeoutMs" to it.toString()) } ?: emptyMap()))
     }
     @Synchronized fun updateIdentity(adapter: String?, protocol: String?) { metadata = metadata.copy(adapterIdentity = adapter, vehicleProtocol = protocol) }
     @Synchronized fun recordConnect() { connected = true }

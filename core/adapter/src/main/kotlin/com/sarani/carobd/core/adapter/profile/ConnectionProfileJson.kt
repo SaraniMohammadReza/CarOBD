@@ -9,8 +9,7 @@ import com.sarani.carobd.core.model.TransportType
  * §11 JSON codec for [ConnectionProfile] ↔ string, used by the DataStore-backed
  * repository. Round-trips every transport config + protocol mode + settings.
  * Unknown fields are ignored on decode (forward compatibility), unknown
- * TransportConfig subclasses fall back to [TransportConfig.Simulator] so a
- * corrupt/peer profile can never crash the store.
+ * transport kinds and protocol modes are rejected; the DataStore reader reports only decodable profiles.
  */
 object ConnectionProfileJson {
 
@@ -42,7 +41,7 @@ object ConnectionProfileJson {
             id = s("id").ifEmpty { error("profile id missing") },
             name = s("name").ifEmpty { error("profile name missing") },
             transport = t,
-            protocolMode = nullableString("protocolMode")?.let { runCatching { ProtocolMode.valueOf(it) }.getOrNull() } ?: ProtocolMode.AUTO,
+            protocolMode = nullableString("protocolMode")?.let { ProtocolMode.valueOf(it) } ?: ProtocolMode.AUTO,
             manualProtocolCode = nullableString("manualProtocolCode"),
             vehicleProfileId = nullableString("vehicleProfileId"),
             autoReconnect = b("autoReconnect"),
@@ -72,7 +71,7 @@ object ConnectionProfileJson {
     private fun decodeTransport(m: Map<*, *>): TransportConfig {
         @Suppress("UNCHECKED_CAST")
         fun s(key: String) = (m[key] as? String?) ?: ""
-        fun i(key: String): Int? = (m[key] as? Number)?.toInt()
+        fun i(key: String): Int? = (m[key] as? Number)?.toLong()?.let { require(it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) { "Integer out of range: $key" }; it.toInt() }
         fun nullableString(key: String): String? =
             (m[key] as? String?)?.takeIf { it.isNotEmpty() && it != "null" }
         return when (s("kind")) {
@@ -90,7 +89,7 @@ object ConnectionProfileJson {
                 deviceId = i("deviceId"), portIndex = i("portIndex"), baudRate = i("baudRate"),
             )
             "SIMULATOR" -> TransportConfig.Simulator(nullableString("scenarioId"), nullableString("transcriptId"))
-            else -> TransportConfig.Simulator() // unknown kind → safe fallback
+            else -> error("Unknown transport kind")
         }
     }
 }

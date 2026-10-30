@@ -39,7 +39,7 @@ class ReplayTransport(
         val expected = SingleCommandParser.canonicalize((tx.command ?: tx.rawHex).removeSuffix("\r"))
         check(command == expected) { "Replay command mismatch: expected $expected" }
         val end = segments.getOrNull(position + 1) ?: transcript.events.size
-        val response = transcript.events.subList(start + 1, end)
+        val response = transcript.events.subList(start + 1, end).filter { it.direction == Direction.RX || it.protocolMetadata["event"] == "disconnect" }
         require(response.all { it.elapsedMs >= tx.elapsedMs && it.elapsedMs - tx.elapsedMs <= 60_000 }) { "Replay timing outside bounded window" }
         position++
         pending = scope.launch {

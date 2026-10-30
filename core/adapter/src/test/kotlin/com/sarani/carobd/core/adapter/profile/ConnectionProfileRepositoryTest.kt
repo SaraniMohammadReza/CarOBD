@@ -58,13 +58,11 @@ class ConnectionProfileRepositoryTest {
     }
 
     @Test
-    fun codecUnknownTransportKindFallsBackToSimulator() {
-        val json = """{"id":"x","name":"n","transport":{"kind":"BOGUS","deviceAddress":""},"protocolMode":"AUTO","manualProtocolCode":null,"vehicleProfileId":null,"autoReconnect":true,"connectTimeoutMs":3000,"commandTimeoutMs":2500,"simulatorScenarioId":null,"lastSuccessfulAt":null}"""
-        val back = ConnectionProfileJson.decode(json)
-        assertEquals(TransportType.SIMULATOR, back.transport.type)
+    fun codecUnknownTransportKindIsRejected() {
+        val json = ConnectionProfileJson.encode(ConnectionProfile.newProfile("bad", TransportConfig.Simulator())).replace("SIMULATOR", "UNKNOWN_TRANSPORT")
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) { ConnectionProfileJson.decode(json) }
     }
 
-    // ---- repository ----
     private fun repo() = InMemoryConnectionProfileRepository()
 
     @Test
@@ -129,4 +127,10 @@ class ConnectionProfileRepositoryTest {
         assertEquals("WiFi replaced", list.single().name)
         assertEquals(TransportType.WIFI_TCP, list.single().transport.type)
     }
+    @Test fun codecRejectsOverflowAndUnknownProtocolRatherThanChangingTarget() {
+        val encoded = ConnectionProfileJson.encode(ConnectionProfile.newProfile("exact", TransportConfig.Wifi("host", 35000)))
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { ConnectionProfileJson.decode(encoded.replace("35000", "4294967297")) }
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { ConnectionProfileJson.decode(encoded.replace("AUTO", "UNRECOGNIZED")) }
+    }
+
 }
