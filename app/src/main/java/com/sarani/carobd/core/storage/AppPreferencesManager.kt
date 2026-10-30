@@ -38,14 +38,15 @@ enum class AppLanguage(val tag: String, val titleFa: String) {
     ENGLISH("en", "English")
 }
 
+/** Optional user metadata. Absence never selects a vehicle or supplies a fuel assumption. */
 data class UserVehicleSetup(
-    val make: String = "ایران خودرو",
-    val model: String = "پژو ۲۰۶ تیپ ۵",
-    val fuelType: String = "بنزینی",
-    val engineDisplacementLiters: Float = 1.6f,
-    val tankCapacityLiters: Float = 50f,
-    val odometerKm: Int = 120000,
-    val fuelPriceTomans: Float = 3000f,
+    val make: String = "",
+    val model: String = "",
+    val fuelType: String = "",
+    val engineDisplacementLiters: Float? = null,
+    val tankCapacityLiters: Float? = null,
+    val odometerKm: Int? = null,
+    val fuelPriceTomans: Float? = null,
     val isMotorcycle: Boolean = false
 )
 
@@ -92,13 +93,13 @@ class AppPreferencesManager(private val dataStore: androidx.datastore.core.DataS
 
     val userVehicleSetup: Flow<UserVehicleSetup> = dataStore.data.map { prefs ->
         UserVehicleSetup(
-            make = prefs[KEY_VEHICLE_MAKE] ?: "ایران خودرو",
-            model = prefs[KEY_VEHICLE_MODEL] ?: "پژو ۲۰۶ تیپ ۵ (TU5)",
-            fuelType = prefs[KEY_FUEL_TYPE] ?: "بنزینی",
-            engineDisplacementLiters = prefs[KEY_DISPLACEMENT] ?: 1.6f,
-            tankCapacityLiters = prefs[KEY_TANK_CAPACITY] ?: 50f,
-            odometerKm = prefs[KEY_ODOMETER] ?: 120000,
-            fuelPriceTomans = prefs[KEY_FUEL_PRICE] ?: 3000f,
+            make = prefs[KEY_VEHICLE_MAKE] ?: "",
+            model = prefs[KEY_VEHICLE_MODEL] ?: "",
+            fuelType = prefs[KEY_FUEL_TYPE] ?: "",
+            engineDisplacementLiters = prefs[KEY_DISPLACEMENT],
+            tankCapacityLiters = prefs[KEY_TANK_CAPACITY],
+            odometerKm = prefs[KEY_ODOMETER],
+            fuelPriceTomans = prefs[KEY_FUEL_PRICE],
             isMotorcycle = prefs[KEY_IS_MOTORCYCLE] ?: false
         )
     }
@@ -145,10 +146,10 @@ class AppPreferencesManager(private val dataStore: androidx.datastore.core.DataS
             it[KEY_VEHICLE_MAKE] = setup.make
             it[KEY_VEHICLE_MODEL] = setup.model
             it[KEY_FUEL_TYPE] = setup.fuelType
-            it[KEY_DISPLACEMENT] = setup.engineDisplacementLiters
-            it[KEY_TANK_CAPACITY] = setup.tankCapacityLiters
-            it[KEY_ODOMETER] = setup.odometerKm
-            it[KEY_FUEL_PRICE] = setup.fuelPriceTomans
+            setup.engineDisplacementLiters?.takeIf { it.isFinite() && it > 0 }?.let { value -> it[KEY_DISPLACEMENT] = value } ?: it.remove(KEY_DISPLACEMENT)
+            setup.tankCapacityLiters?.takeIf { it.isFinite() && it > 0 }?.let { value -> it[KEY_TANK_CAPACITY] = value } ?: it.remove(KEY_TANK_CAPACITY)
+            setup.odometerKm?.takeIf { it >= 0 }?.let { value -> it[KEY_ODOMETER] = value } ?: it.remove(KEY_ODOMETER)
+            setup.fuelPriceTomans?.takeIf { it.isFinite() && it >= 0 }?.let { value -> it[KEY_FUEL_PRICE] = value } ?: it.remove(KEY_FUEL_PRICE)
             it[KEY_IS_MOTORCYCLE] = setup.isMotorcycle
             it[KEY_ONBOARDING_DONE] = true
         }

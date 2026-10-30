@@ -65,14 +65,11 @@ fun VehicleOnboardingModal(
     val carMakes = androidx.compose.ui.res.stringArrayResource(com.sarani.carobd.R.array.s5_car_makes)
     val bikeMakes = androidx.compose.ui.res.stringArrayResource(com.sarani.carobd.R.array.s5_bike_makes)
     val fuelOptions = androidx.compose.ui.res.stringArrayResource(com.sarani.carobd.R.array.s5_fuel_options)
-    val defaultCar = stringResource(com.sarani.carobd.R.string.s5_default_car)
-    val defaultBike = stringResource(com.sarani.carobd.R.string.s5_default_bike)
-    var selectedMake by remember { mutableStateOf(carMakes.first()) }
-    var modelName by remember { mutableStateOf(defaultCar) }
-    var fuelType by remember { mutableStateOf(fuelOptions.first()) }
-    var displacementText by remember { mutableStateOf("1.6") }
-    var tankCapacityText by remember { mutableStateOf("50") }
-    var odometerText by remember { mutableStateOf("115000") }
+    var selectedMake by remember { mutableStateOf("") }
+    var modelName by remember { mutableStateOf("") }
+    var fuelType by remember { mutableStateOf("") }
+    var tankCapacityText by remember { mutableStateOf("") }
+    var odometerText by remember { mutableStateOf("") }
 
     val makesList = if (isMotorcycle) bikeMakes.toList() else carMakes.toList()
 
@@ -109,10 +106,10 @@ fun VehicleOnboardingModal(
                             .border(1.dp, if (!isMotorcycle) NeonCyan else DarkCardBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 isMotorcycle = false
-                                selectedMake = carMakes.first()
-                                modelName = defaultCar
-                                tankCapacityText = "50"
-                                displacementText = "1.6"
+                                selectedMake = ""
+                                modelName = ""
+                                tankCapacityText = ""
+
                             }
                             .padding(10.dp),
                         contentAlignment = Alignment.Center
@@ -131,10 +128,10 @@ fun VehicleOnboardingModal(
                             .border(1.dp, if (isMotorcycle) NeonCyan else DarkCardBorder, RoundedCornerShape(10.dp))
                             .clickable {
                                 isMotorcycle = true
-                                selectedMake = bikeMakes[1]
-                                modelName = defaultBike
-                                tankCapacityText = "12"
-                                displacementText = "0.2"
+                                selectedMake = ""
+                                modelName = ""
+                                tankCapacityText = ""
+
                             }
                             .padding(10.dp),
                         contentAlignment = Alignment.Center
@@ -246,21 +243,21 @@ fun VehicleOnboardingModal(
         confirmButton = {
             Button(
                 onClick = {
-                    val disp = displacementText.toFloatOrNull() ?: 1.6f
-                    val tank = tankCapacityText.toFloatOrNull() ?: 50f
-                    val odo = odometerText.toIntOrNull() ?: 115000
+                    val tank = tankCapacityText.toFloatOrNull()?.takeIf { it.isFinite() && it > 0 }
+                    val odo = odometerText.toIntOrNull()?.takeIf { it >= 0 }
 
                     val setup = UserVehicleSetup(
                         make = selectedMake,
                         model = modelName,
                         fuelType = fuelType,
-                        engineDisplacementLiters = disp,
                         tankCapacityLiters = tank,
                         odometerKm = odo,
                         isMotorcycle = isMotorcycle
                     )
                     onSetupSaved(setup)
                 },
+                enabled = (tankCapacityText.isBlank() || tankCapacityText.toFloatOrNull()?.let { it.isFinite() && it > 0 } == true) &&
+                    (odometerText.isBlank() || odometerText.toIntOrNull()?.let { it >= 0 } == true),
                 colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp)

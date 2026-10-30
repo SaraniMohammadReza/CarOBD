@@ -101,7 +101,7 @@ fun MaintenanceScreen(
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = com.sarani.carobd.core.calculator.UnitConverter.formatDistance((state.currentOdometerKm).toDouble(), com.sarani.carobd.ui.theme.LocalUnitSystem.current).let { "${it.first} ${it.second}" },
+                        text = state.currentOdometerKm?.let { km -> com.sarani.carobd.core.calculator.UnitConverter.formatDistance(km.toDouble(), com.sarani.carobd.ui.theme.LocalUnitSystem.current).let { "${it.first} ${it.second}" } } ?: "—",
                         color = TextPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,

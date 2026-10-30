@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 data class MaintenanceState(
     val activeProfile: VehicleProfile? = null,
     val specSheet: VehicleSpecSheet? = null,
-    val currentOdometerKm: Int = 0,
+    val currentOdometerKm: Int? = null,
     val reminders: List<ServiceReminderItem> = emptyList()
 ) : UiState
 
@@ -50,7 +50,7 @@ class MaintenanceViewModel(
                     activeProfile = profile,
                     specSheet = specs,
                     currentOdometerKm = setup.odometerKm,
-                    reminders = buildReminders(setup.odometerKm, specs, lastChanged)
+                    reminders = setup.odometerKm?.let { buildReminders(it, specs, lastChanged) } ?: emptyList()
                 )
             }.collect { newState -> setState { newState } }
         }
@@ -89,7 +89,7 @@ class MaintenanceViewModel(
         when (intent) {
             is MaintenanceIntent.ResetService -> viewModelScope.launch {
                 // Persist last-service so it survives restart (§18 reminder-state persistence).
-                appPreferencesManager.setServiceLastChangedKm(intent.serviceId, uiState.value.currentOdometerKm)
+                uiState.value.currentOdometerKm?.let { appPreferencesManager.setServiceLastChangedKm(intent.serviceId, it) }
             }
             is MaintenanceIntent.UpdateOdometer -> viewModelScope.launch {
                 appPreferencesManager.setOdometerKm(intent.km)
