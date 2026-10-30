@@ -122,7 +122,7 @@ fun TerminalScreen(
             ) {
                 if (state.logs.isEmpty()) {
                     Text(
-                        text = "> Terminal ready. Send an AT command or OBD PID above.",
+                        text = stringResource(com.sarani.carobd.R.string.ui_terminal_ready),
                         color = TextMuted,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace

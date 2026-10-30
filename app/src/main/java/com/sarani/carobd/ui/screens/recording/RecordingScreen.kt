@@ -36,7 +36,7 @@ fun RecordingScreen(viewModel: RecordingViewModel) {
     }
     Column(Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.recordings_title))
-        Text(recording)
+        Text(com.sarani.carobd.ui.components.recordingLabel(recording))
         Text(stringResource(R.string.recording_limitations))
         Row {
             TextButton(enabled = !state.busy && recording != "Recording", onClick = viewModel::start) { Text(stringResource(R.string.record_start)) }

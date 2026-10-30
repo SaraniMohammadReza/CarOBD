@@ -104,14 +104,13 @@ fun SettingsScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            Text(if (isPersian) "آهنگ خواندن اطلاعات خودرو" else "Vehicle polling cadence", color = TextPrimary)
+            Text(stringResource(R.string.ui_polling_title), color = TextPrimary)
             com.sarani.carobd.core.model.TelemetryPollMode.entries.forEach { mode ->
                 FilterChip(selected = pollMode == mode,
                     onClick = { scope.launch { appPreferencesManager.setTelemetryPollMode(mode) } },
                     label = { Text(if (isPersian) mode.titleFa else mode.titleEn) })
             }
-            Text(if (isPersian) "این فاصله پس از پایان هر چرخه اعمال می‌شود؛ سرعت بازطراحی نمایشگر نیست."
-                else "Delay after each polling cycle; display refresh is independent.", color = TextMuted)
+            Text(stringResource(R.string.ui_polling_help), color = TextMuted)
 
             // Theme Customization & AMOLED Mode
             Box(
@@ -139,7 +138,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(mode.titleFa, color = if (themeMode == mode) NeonCyan else TextMuted, fontSize = 12.sp)
+                            Text(stringResource(when (mode) { AppThemeMode.AMOLED_BLACK -> R.string.ui_theme_amoled; AppThemeMode.NEON_CYBERPUNK -> R.string.ui_theme_neon; AppThemeMode.RACING_RED -> R.string.ui_theme_red; AppThemeMode.LIGHT_THEME -> R.string.ui_theme_light }), color = if (themeMode == mode) NeonCyan else TextMuted, fontSize = 12.sp)
                             if (themeMode == mode) {
                                 Text(stringResource(R.string.state_active), color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
@@ -174,7 +173,7 @@ fun SettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(unit.titleFa, color = if (unitSystem == unit) NeonCyan else TextMuted, fontSize = 12.sp)
+                            Text(stringResource(if (unit == UnitSystem.METRIC) R.string.ui_unit_metric else R.string.ui_unit_imperial), color = if (unitSystem == unit) NeonCyan else TextMuted, fontSize = 12.sp)
                             if (unitSystem == unit) {
                                 Text(stringResource(R.string.state_selected), color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }

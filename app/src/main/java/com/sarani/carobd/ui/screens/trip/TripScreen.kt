@@ -1,5 +1,6 @@
 package com.sarani.carobd.ui.screens.trip
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -76,7 +77,7 @@ fun TripScreen(
             ) {
                 Column {
                     Text(
-                        text = "ثبت سفر و لاگ تله‌متری (Trip Computer)",
+                        text = stringResource(com.sarani.carobd.R.string.ui_trip_title),
                         color = TextPrimary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -210,13 +211,13 @@ fun TripScreen(
                     .padding(14.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text("آنالیز رفتار رانندگی", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(com.sarani.carobd.R.string.ui_driving_events), color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("شتاب‌گیری‌های سنگین (Hard Accel):", color = TextMuted, fontSize = 12.sp)
+                        Text(stringResource(com.sarani.carobd.R.string.ui_hard_accel), color = TextMuted, fontSize = 12.sp)
                         Text("${state.summary.hardAccelerationsCount} بار", color = if (state.summary.hardAccelerationsCount > 3) NeonRed else NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
@@ -224,7 +225,7 @@ fun TripScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("ترمزهای شدید و ناگهانی:", color = TextMuted, fontSize = 12.sp)
+                        Text(stringResource(com.sarani.carobd.R.string.ui_hard_brake), color = TextMuted, fontSize = 12.sp)
                         Text("${state.summary.hardBrakingCount} بار", color = if (state.summary.hardBrakingCount > 2) NeonRed else NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
@@ -232,7 +233,7 @@ fun TripScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("تعداد نمونه‌های ثبت شده در حافظه:", color = TextMuted, fontSize = 12.sp)
+                        Text(stringResource(com.sarani.carobd.R.string.ui_sample_count), color = TextMuted, fontSize = 12.sp)
                         Text("${state.summary.samplesCount} فریم", color = NeonCyan, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     }
                 }
@@ -249,7 +250,7 @@ fun TripScreen(
             ) {
                 Icon(Icons.Default.FileDownload, contentDescription = null, tint = NeonCyan)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("خروجی اکسل و CSV از لاگ‌های تله‌متری", fontWeight = FontWeight.Bold)
+                Text(stringResource(com.sarani.carobd.R.string.ui_trip_export), fontWeight = FontWeight.Bold)
             }
 
             state.exportedCsvSnippet?.let { snippet ->
@@ -262,7 +263,7 @@ fun TripScreen(
                         .padding(10.dp)
                 ) {
                     Column {
-                        Text("پیش‌نمایش خروجی CSV (ذخیره شد):", color = NeonGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(com.sarani.carobd.R.string.ui_csv_preview), color = NeonGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(snippet, color = TextMuted, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                     }

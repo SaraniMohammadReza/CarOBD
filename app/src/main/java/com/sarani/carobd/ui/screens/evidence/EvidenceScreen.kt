@@ -23,10 +23,10 @@ fun EvidenceScreen(viewModel: ReadinessViewModel, onVehicleInfo: () -> Unit, onF
         Text(state.source)
         if (state.loading) CircularProgressIndicator()
         state.readings.forEach { reading ->
-            Text("${reading.state} · ${reading.evidence.firstOrNull()?.responderId ?: "—"}")
+            Text("${com.sarani.carobd.ui.components.readingLabel(reading.state)} · ${reading.evidence.firstOrNull()?.responderId ?: "—"}")
             reading.detail?.let { Text(it) }
             reading.value?.let { value ->
-                Text("MIL: ${value.milActive} · DTC: ${value.dtcCount} · ${value.ignitionType}")
+                Text("MIL: " + stringResource(if (value.milActive) R.string.mil_on else R.string.mil_off) + " · DTC: ${value.dtcCount} · " + stringResource(if (value.ignitionType == com.sarani.carobd.core.model.IgnitionType.Spark) R.string.ui_ignition_spark else R.string.ui_ignition_compression))
                 value.monitors.forEach { monitor ->
                     Text("${monitor.id}: " + stringResource(if (!monitor.isSupported) R.string.monitor_unsupported else if (monitor.isComplete) R.string.monitor_complete else R.string.monitor_incomplete))
                 }
@@ -47,7 +47,7 @@ fun VehicleInformationScreen(viewModel: VehicleInformationViewModel) {
         if (state.loading) CircularProgressIndicator()
         state.readings.forEach { row ->
             val r = row.reading
-            Text("09%02X · %s · %s".format(row.pid, r.state, r.evidence.firstOrNull()?.responderId ?: "—"))
+            Text("09%02X · %s · %s".format(row.pid, com.sarani.carobd.ui.components.readingLabel(r.state), r.evidence.firstOrNull()?.responderId ?: "—"))
             r.value?.values?.forEach { Text(it) }
             r.detail?.let { Text(it) }
             Text(r.evidence.flatMap { it.rawLines }.joinToString("\n"))
@@ -67,7 +67,7 @@ fun FreezeFrameScreen(viewModel: FreezeFrameViewModel) {
         Text("${state.source} · ${state.frame}")
         if (state.loading) CircularProgressIndicator()
         state.readings.forEach { r ->
-            Text("${r.state} · ${r.evidence.firstOrNull()?.responderId ?: "—"}")
+            Text("${com.sarani.carobd.ui.components.readingLabel(r.state)} · ${r.evidence.firstOrNull()?.responderId ?: "—"}")
             r.value?.let { v ->
                 val converted = v.value?.let { com.sarani.carobd.ui.theme.displayMeasurement(it, v.unit.orEmpty(), com.sarani.carobd.ui.theme.LocalUnitSystem.current) }
                 Text("PID %02X · frame %02X · %s %s · %s".format(v.pid, v.frameIndex, converted?.value ?: "—", converted?.unit.orEmpty(), v.rawHex))

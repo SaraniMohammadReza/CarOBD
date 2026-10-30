@@ -96,7 +96,7 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // 1. Status Header
-            item { com.sarani.carobd.ui.components.RuntimeAccessControls(); Text(recording); Text(state.activeConnectionName ?: state.connectingName ?: "—") }
+            item { com.sarani.carobd.ui.components.RuntimeAccessControls(); Text(com.sarani.carobd.ui.components.recordingLabel(recording)); Text(state.activeConnectionName ?: state.connectingName ?: "—") }
             item {
                 StatusHeader(
                     connectionState = state.connectionState,

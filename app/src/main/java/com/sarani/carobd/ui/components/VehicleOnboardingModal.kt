@@ -1,5 +1,6 @@
 package com.sarani.carobd.ui.components
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -75,13 +76,13 @@ fun VehicleOnboardingModal(
         title = {
             Column {
                 Text(
-                    text = "خوش آمدید! راه‌اندازی پروفایل وسیله نقلیه",
+                    text = stringResource(com.sarani.carobd.R.string.ui_onboarding_title),
                     color = TextPrimary,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "مشخصات خودرو یا موتورسیکلت را وارد کنید تا محاسبات مصرف سوخت، تخمین مسافت و سرویس‌ها دقیق شود:",
+                    text = stringResource(com.sarani.carobd.R.string.ui_onboarding_limits),
                     color = TextMuted,
                     fontSize = 11.sp,
                     lineHeight = 16.sp
@@ -113,7 +114,7 @@ fun VehicleOnboardingModal(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = if (!isMotorcycle) NeonCyan else TextMuted, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("خودرو سواری", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(com.sarani.carobd.R.string.ui_car), color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -135,7 +136,7 @@ fun VehicleOnboardingModal(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.TwoWheeler, contentDescription = null, tint = if (isMotorcycle) NeonCyan else TextMuted, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("موتورسیکلت", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(com.sarani.carobd.R.string.ui_motorcycle), color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -143,7 +144,7 @@ fun VehicleOnboardingModal(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Brand / Make row
-                Text("سازنده / برند:", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(com.sarani.carobd.R.string.ui_make), color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -168,7 +169,7 @@ fun VehicleOnboardingModal(
                 OutlinedTextField(
                     value = modelName,
                     onValueChange = { modelName = it },
-                    label = { Text("مدل دقیق (مثال: دنا پلاس، پراید، تیبا)", fontSize = 11.sp) },
+                    label = { Text(stringResource(com.sarani.carobd.R.string.ui_vehicle_model), fontSize = 11.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -183,7 +184,7 @@ fun VehicleOnboardingModal(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Fuel type row
-                Text("نوع سوخت و پیشرانه:", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(com.sarani.carobd.R.string.ui_fuel), color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("بنزینی", "دوگانه‌سوز CNG", "توربوشارژ", "هیبریدی").forEach { f ->
@@ -205,7 +206,7 @@ fun VehicleOnboardingModal(
                     OutlinedTextField(
                         value = tankCapacityText,
                         onValueChange = { tankCapacityText = it },
-                        label = { Text("حجم باک (لیتر)", fontSize = 10.sp) },
+                        label = { Text(stringResource(com.sarani.carobd.R.string.ui_tank_capacity), fontSize = 10.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
                         singleLine = true,
@@ -221,7 +222,7 @@ fun VehicleOnboardingModal(
                     OutlinedTextField(
                         value = odometerText,
                         onValueChange = { odometerText = it },
-                        label = { Text("کیلومتر فعلی (km)", fontSize = 10.sp) },
+                        label = { Text(stringResource(com.sarani.carobd.R.string.ui_odometer), fontSize = 10.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
                         singleLine = true,
@@ -260,7 +261,7 @@ fun VehicleOnboardingModal(
             ) {
                 Icon(Icons.Default.Check, contentDescription = null, tint = DarkBg)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("تأیید و ورود به سوپر اپ CarOBD Pro", color = DarkBg, fontWeight = FontWeight.Bold)
+                Text(stringResource(com.sarani.carobd.R.string.ui_onboarding_save), color = DarkBg, fontWeight = FontWeight.Bold)
             }
         }
     )

@@ -1,5 +1,6 @@
 package com.sarani.carobd.ui.screens.maintenance
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -125,12 +126,12 @@ fun MaintenanceScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("یادآور سرویس‌های دوره‌ای", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 0) NeonCyan else TextMuted) }
+                    text = { Text(stringResource(com.sarani.carobd.R.string.ui_service_reminders), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 0) NeonCyan else TextMuted) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("مشخصات فنی روغن و قطعات", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 1) NeonCyan else TextMuted) }
+                    text = { Text(stringResource(com.sarani.carobd.R.string.ui_parts_specs), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 1) NeonCyan else TextMuted) }
                 )
             }
 
@@ -215,7 +216,7 @@ fun ServiceReminderCard(
                 ) {
                     Icon(Icons.Default.Check, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("انجام شد", color = NeonCyan, fontSize = 11.sp)
+                    Text(stringResource(com.sarani.carobd.R.string.ui_done), color = NeonCyan, fontSize = 11.sp)
                 }
             }
 
@@ -308,7 +309,7 @@ fun TechnicalSpecsView(specs: VehicleSpecSheet) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("نکات فنی و حیاتی نگهداری این خودرو", color = NeonAmber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(com.sarani.carobd.R.string.ui_maintenance_notes), color = NeonAmber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     specs.maintenanceTipsFa.forEach { tip ->

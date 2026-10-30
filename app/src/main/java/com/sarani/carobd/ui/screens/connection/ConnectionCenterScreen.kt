@@ -1,5 +1,6 @@
 package com.sarani.carobd.ui.screens.connection
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -20,10 +21,10 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
         viewModel.effect.collect { if (it is ConnectionCenterEffect.ShowMessage) snackbar.showSnackbar(it.text) }
     }
     Scaffold(modifier = modifier.fillMaxSize(), snackbarHost = { SnackbarHost(snackbar) }, topBar = {
-        TopAppBar(title = { Text("Read-only connections") }, navigationIcon = {
-            onBack?.let { TextButton(onClick = it) { Text("Back") } }
+        TopAppBar(title = { Text(stringResource(com.sarani.carobd.R.string.ui_connection_title)) }, navigationIcon = {
+            onBack?.let { TextButton(onClick = it) { Text(stringResource(com.sarani.carobd.R.string.ui_back)) } }
         }, actions = {
-            TextButton(onClick = { editing = ConnectionProfile.newProfile("New connection", TransportConfig.Simulator("healthy")) }) { Text("Add") }
+            TextButton(onClick = { editing = ConnectionProfile.newProfile("New connection", TransportConfig.Simulator("healthy")) }) { Text(stringResource(com.sarani.carobd.R.string.ui_add)) }
         })
     }) { padding ->
         Column(Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -34,32 +35,32 @@ fun ConnectionCenterScreen(viewModel: ConnectionCenterViewModel, onBack: (() -> 
                 else -> connection.toString()
             })
             if (state.isConnected || state.isConnecting) {
-                Button(onClick = { viewModel.onIntent(ConnectionCenterIntent.Disconnect) }) { Text("Disconnect / cancel") }
+                Button(onClick = { viewModel.onIntent(ConnectionCenterIntent.Disconnect) }) { Text(stringResource(com.sarani.carobd.R.string.ui_disconnect_cancel)) }
             }
-            Text("Physical clearing, actuator control and programming are disabled. Test connection takes session ownership and closes the test link when finished.")
+            Text(stringResource(com.sarani.carobd.R.string.ui_connection_safety))
             state.testReport?.let { report ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
                         Text(if (report.isSimulator) "SIMULATOR test evidence" else "Physical read-only test evidence")
                         report.stages.forEach { stage -> Text("${stage.stage}: ${stage.status}\n${stage.evidence}") }
-                        if (report.passed) Text("Read-only test passed; test session closed. Device/vehicle validation remains required.")
+                        if (report.passed) Text(stringResource(com.sarani.carobd.R.string.ui_connection_passed))
                     }
                 }
             }
-            if (state.profiles.isEmpty()) Text("No profiles. Add a profile with an explicit target.")
+            if (state.profiles.isEmpty()) Text(stringResource(com.sarani.carobd.R.string.ui_no_profiles))
             state.profiles.forEach { profile ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(profile.name + if (profile.id == state.selectedProfileId) " (selected)" else "")
                         Text("${profile.transportType}: ${profile.target}\nProtocol: ${profile.protocol}")
                         Row {
-                            TextButton(enabled = !state.isConnecting, onClick = { viewModel.onIntent(ConnectionCenterIntent.ConnectSpecific(profile.id)) }) { Text("Connect") }
-                            TextButton(enabled = !state.isConnecting, onClick = { viewModel.onIntent(ConnectionCenterIntent.TestConnection(profile.id)) }) { Text("Test") }
-                            TextButton(onClick = { editing = state.fullProfiles.find { it.id == profile.id } }) { Text("Edit") }
+                            TextButton(enabled = !state.isConnecting, onClick = { viewModel.onIntent(ConnectionCenterIntent.ConnectSpecific(profile.id)) }) { Text(stringResource(com.sarani.carobd.R.string.ui_connect)) }
+                            TextButton(enabled = !state.isConnecting, onClick = { viewModel.onIntent(ConnectionCenterIntent.TestConnection(profile.id)) }) { Text(stringResource(com.sarani.carobd.R.string.ui_test)) }
+                            TextButton(onClick = { editing = state.fullProfiles.find { it.id == profile.id } }) { Text(stringResource(com.sarani.carobd.R.string.ui_edit)) }
                         }
                         Row {
-                            TextButton(onClick = { viewModel.onIntent(ConnectionCenterIntent.Select(profile.id)) }) { Text("Select") }
-                            TextButton(onClick = { viewModel.onIntent(ConnectionCenterIntent.Delete(profile.id)) }) { Text("Delete") }
+                            TextButton(onClick = { viewModel.onIntent(ConnectionCenterIntent.Select(profile.id)) }) { Text(stringResource(com.sarani.carobd.R.string.ui_select)) }
+                            TextButton(onClick = { viewModel.onIntent(ConnectionCenterIntent.Delete(profile.id)) }) { Text(stringResource(com.sarani.carobd.R.string.ui_delete)) }
                         }
                     }
                 }
@@ -91,38 +92,38 @@ private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onS
     var connectTimeout by remember(profile.id) { mutableStateOf(profile.connectTimeoutMs.toString()) }
     var commandTimeout by remember(profile.id) { mutableStateOf(profile.commandTimeoutMs.toString()) }
     var error by remember { mutableStateOf<String?>(null) }
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("Connection profile") }, text = {
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(com.sarani.carobd.R.string.ui_profile)) }, text = {
         Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+            OutlinedTextField(name, { name = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_name)) }, singleLine = true)
             TransportType.entries.forEach { choice ->
                 FilterChip(selected = type == choice, onClick = { type = choice }, label = { Text(choice.name) })
             }
             when (type) {
                 TransportType.BLUETOOTH_CLASSIC, TransportType.BLUETOOTH_LE -> {
-                    OutlinedTextField(address, { address = it }, label = { Text("Exact device MAC address") }, singleLine = true)
+                    OutlinedTextField(address, { address = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_mac)) }, singleLine = true)
                     com.sarani.carobd.ui.components.BluetoothTargetPicker(type == TransportType.BLUETOOTH_LE) { address = it }
                 }
                 TransportType.WIFI_TCP -> {
-                    OutlinedTextField(host, { host = it }, label = { Text("Host / IP address") }, singleLine = true)
-                    OutlinedTextField(port, { port = it }, label = { Text("TCP port (required)") }, singleLine = true)
+                    OutlinedTextField(host, { host = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_host)) }, singleLine = true)
+                    OutlinedTextField(port, { port = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_tcp)) }, singleLine = true)
                 }
                 TransportType.USB_SERIAL -> {
-                    Text("Choose device ID or both VID and PID. Interface is required. IDs use decimal; 0x hexadecimal is also accepted. No fallback device is used.")
-                    OutlinedTextField(deviceId, { deviceId = it }, label = { Text("Device ID (optional with VID/PID)") }, singleLine = true)
-                    OutlinedTextField(vid, { vid = it }, label = { Text("Vendor ID") }, singleLine = true)
-                    OutlinedTextField(pid, { pid = it }, label = { Text("Product ID") }, singleLine = true)
-                    OutlinedTextField(usbPort, { usbPort = it }, label = { Text("Interface index (required)") }, singleLine = true)
-                    OutlinedTextField(baud, { baud = it }, label = { Text("CDC baud (blank = 38400)") }, singleLine = true)
+                    Text(stringResource(com.sarani.carobd.R.string.ui_usb_help))
+                    OutlinedTextField(deviceId, { deviceId = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_usb_device)) }, singleLine = true)
+                    OutlinedTextField(vid, { vid = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_usb_vendor)) }, singleLine = true)
+                    OutlinedTextField(pid, { pid = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_usb_product)) }, singleLine = true)
+                    OutlinedTextField(usbPort, { usbPort = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_usb_interface)) }, singleLine = true)
+                    OutlinedTextField(baud, { baud = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_usb_baud)) }, singleLine = true)
                 }
                 TransportType.SIMULATOR -> SimulatorScenario.entries.forEach { option ->
                     FilterChip(selected = scenario == option.id, onClick = { scenario = option.id }, label = { Text(option.labelEn) })
                 }
             }
-            OutlinedTextField(connectTimeout, { connectTimeout = it }, label = { Text("Connect timeout (ms)") }, singleLine = true)
-            OutlinedTextField(commandTimeout, { commandTimeout = it }, label = { Text("Command timeout (ms)") }, singleLine = true)
-            Text("Automatic reconnect is unavailable. A new connection never repeats a prior action.")
-            OutlinedTextField(manual, { manual = it }, label = { Text("Manual protocol 0–9/A; blank = AUTO") }, singleLine = true)
-            Text("BLE uses supported NUS/FFF0 services. Custom UUID/MTU and vehicle-profile protocol selection are unavailable.")
+            OutlinedTextField(connectTimeout, { connectTimeout = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_connect_timeout)) }, singleLine = true)
+            OutlinedTextField(commandTimeout, { commandTimeout = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_command_timeout)) }, singleLine = true)
+            Text(stringResource(com.sarani.carobd.R.string.ui_reconnect_unavailable))
+            OutlinedTextField(manual, { manual = it }, label = { Text(stringResource(com.sarani.carobd.R.string.ui_manual_protocol)) }, singleLine = true)
+            Text(stringResource(com.sarani.carobd.R.string.ui_ble_limits))
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }, confirmButton = {
@@ -143,6 +144,6 @@ private fun ProfileEditor(profile: ConnectionProfile, onDismiss: () -> Unit, onS
                     autoReconnect = false, connectTimeoutMs = connectTimeout.toLong(), commandTimeoutMs = commandTimeout.toLong(), simulatorScenarioId = null, lastSuccessfulAt = null).also { require(it.validate().isEmpty()) { it.validate().joinToString("\n") } }
             }
             result.onSuccess(onSave).onFailure { error = it.message ?: "Invalid profile" }
-        }) { Text("Save") }
-    }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
+        }) { Text(stringResource(com.sarani.carobd.R.string.ui_save)) }
+    }, dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(com.sarani.carobd.R.string.ui_cancel)) } })
 }

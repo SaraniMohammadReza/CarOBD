@@ -5,6 +5,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -39,7 +40,7 @@ fun BluetoothTargetPicker(ble: Boolean, onSelected: (String) -> Unit) {
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { error = e.message ?: "Bluetooth discovery failed" }
             }
-        }) { Text(if (ble) "Scan BLE (10 s)" else "Scan Classic (10 s)") }
+        }) { Text(if (ble) stringResource(com.sarani.carobd.R.string.ui_scan_ble) else stringResource(com.sarani.carobd.R.string.ui_scan_classic)) }
         error?.let { Text(it) }
         devices.forEach { device -> TextButton(onClick = { job?.cancel(); onSelected(device.address) }) { Text("${device.name} · ${device.address}") } }
     }

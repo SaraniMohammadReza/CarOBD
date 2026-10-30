@@ -27,10 +27,13 @@ import org.koin.core.component.inject
 
 /**
  * Android 14+ Foreground Service for continuous automotive diagnostic communication and trip telemetry.
- * Ensures OS low-memory killer does not disrupt live ECU polling while driving or running background diagnostics.
+ * Owns visible foreground notification state; service loss retires its bound session.
  */
 class ConnectionForegroundService : Service(), KoinComponent {
 
+    private val preferences: com.sarani.carobd.core.storage.AppPreferencesManager by inject()
+    private var stringsContext: Context? = null
+    private fun text(id: Int, vararg args: Any): String = (stringsContext ?: this).getString(id, *args)
     private val repository: ObdRepository by inject()
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
 
@@ -63,6 +66,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
 
     override fun onCreate() {
         super.onCreate()
+        serviceScope.launch { preferences.language.collect { language -> stringsContext = com.sarani.carobd.core.storage.LocaleHelper.wrapContext(this@ConnectionForegroundService, language) } }
         createNotificationChannel()
     }
 
@@ -103,7 +107,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
     }
 
     private fun startForegroundWithNotification() {
-        val initialNotification = buildNotification("در حال اتصال به خودرو...", "پایش زنده پارامترهای موتور")
+        val initialNotification = buildNotification(text(R.string.notify_initial_title), text(R.string.notify_initial_body))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
@@ -138,32 +142,32 @@ class ConnectionForegroundService : Service(), KoinComponent {
                         val coolant = tele.signal("0105").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
                         val voltage = tele.signal("ATRV").takeIf { it.quality == com.sarani.carobd.core.model.SignalQuality.GOOD }?.value?.toString() ?: "—"
                         val content = if (tele.isMeasured("010D") || tele.isMeasured("010C")) {
-                            "سرعت: $speed km/h | دور موتور: $rpm RPM | آب: $coolant°C"
+                            text(R.string.notify_measurements, speed, rpm, coolant)
                         } else {
-                            "ایسیو آنلاین (${conn.protocolName}) | ولتاژ: $voltage V"
+                            text(R.string.notify_voltage, conn.protocolName, voltage)
                         }
                         updateNotification(title, content)
                     }
                     is ConnectionState.Failure -> {
-                        updateNotification("خطا در ارتباط", conn.humanMessageFa)
+                        updateNotification(text(R.string.notify_failure), conn.humanMessageFa)
                     }
                     is ConnectionState.Disconnecting -> {
-                        updateNotification("در حال قطع ارتباط...", "اتصال منقطع می‌شود")
+                        updateNotification(text(R.string.notify_disconnecting), text(R.string.notify_disconnecting_body))
                     }
                     is ConnectionState.AdapterIdentifying -> {
-                        updateNotification("هماهنم‌سازی با ایسیو...", conn.probeStage)
+                        updateNotification(text(R.string.notify_adapter_identity), conn.probeStage)
                     }
                     is ConnectionState.AdapterConfiguring -> {
-                        updateNotification("تنظیمات آداپتور...", conn.setting)
+                        updateNotification(text(R.string.notify_adapter_config), conn.setting)
                     }
                     is ConnectionState.ProtocolDetecting -> {
-                        updateNotification("جستجوی پروتکل...", "${conn.candidateName} (${conn.attemptIndex}/${conn.totalCandidates})")
+                        updateNotification(text(R.string.notify_protocol), "${conn.candidateName} (${conn.attemptIndex}/${conn.totalCandidates})")
                     }
                     is ConnectionState.Disconnected -> {
                         stopServiceSafely()
                     }
                     else -> {
-                        updateNotification("در حال اتصال به دانگل دیاگ...", "ارسال سیگنال‌های آغازین")
+                        updateNotification(text(R.string.notify_connecting), text(R.string.notify_connecting_body))
                     }
                 }
             }
@@ -211,7 +215,7 @@ class ConnectionForegroundService : Service(), KoinComponent {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
-                "قطع اتصال (Disconnect)",
+                text(R.string.notify_disconnect),
                 disconnectPendingIntent
             )
             .build()
@@ -221,10 +225,10 @@ class ConnectionForegroundService : Service(), KoinComponent {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "پایش تله‌متری دیاگ خودرو",
+                text(R.string.notify_channel),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "نمایش زنده سرعت، دور موتور و وضعیت اتصال به ایسیو در پس‌زمینه"
+                description = text(R.string.notify_channel_description)
                 setShowBadge(false)
             }
             val manager = getSystemService(NotificationManager::class.java)

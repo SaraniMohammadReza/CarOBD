@@ -89,7 +89,7 @@ fun SensorPickerModal(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("افزودن گیج / سنسور به داشبورد", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(com.sarani.carobd.R.string.ui_sensor_picker), color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Default.Close, contentDescription = "Close", tint = TextMuted)
                 }
@@ -101,7 +101,7 @@ fun SensorPickerModal(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("جستجوی نام سنسور یا PID...", fontSize = 11.sp, color = TextMuted) },
+                    placeholder = { Text(stringResource(com.sarani.carobd.R.string.ui_sensor_search), fontSize = 11.sp, color = TextMuted) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -125,7 +125,7 @@ fun SensorPickerModal(
                         FilterChip(
                             selected = selectedCategory == null,
                             onClick = { selectedCategory = null },
-                            label = { Text("همه", fontSize = 10.sp) }
+                            label = { Text(stringResource(com.sarani.carobd.R.string.ui_all), fontSize = 10.sp) }
                         )
                     }
                     items(SensorCategory.values()) { cat ->
@@ -184,7 +184,7 @@ fun SensorPickerModal(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Widget Display Style (عقربه‌ای، کارت، نواری، گراف)
-                Text("شکل و نوع نمایش ویجت:", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(com.sarani.carobd.R.string.ui_widget_type), color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -202,18 +202,18 @@ fun SensorPickerModal(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 // Widget Size (عرض نیمه یا تمام‌عرض)
-                Text("اندازه ویجت:", color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(com.sarani.carobd.R.string.ui_widget_size), color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(
                         selected = selectedWidgetSize == WidgetSize.MEDIUM,
                         onClick = { selectedWidgetSize = WidgetSize.MEDIUM },
-                        label = { Text("استاندارد (نصف صفحه)", fontSize = 10.sp) }
+                        label = { Text(stringResource(com.sarani.carobd.R.string.ui_widget_half), fontSize = 10.sp) }
                     )
                     FilterChip(
                         selected = selectedWidgetSize == WidgetSize.LARGE,
                         onClick = { selectedWidgetSize = WidgetSize.LARGE },
-                        label = { Text("بزرگ (تمام‌عرض)", fontSize = 10.sp) }
+                        label = { Text(stringResource(com.sarani.carobd.R.string.ui_widget_full), fontSize = 10.sp) }
                     )
                 }
             }
@@ -235,7 +235,7 @@ fun SensorPickerModal(
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, tint = DarkBg, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("افزودن به داشبورد", color = DarkBg, fontWeight = FontWeight.Bold)
+                Text(stringResource(com.sarani.carobd.R.string.ui_widget_add), color = DarkBg, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

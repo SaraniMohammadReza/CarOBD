@@ -1,5 +1,6 @@
 package com.sarani.carobd.ui.screens.adapter
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -75,14 +76,14 @@ fun AdapterInspectorScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Text(
-                text = "سلامت سخت‌افزار دانگل دیاگ و راهنمای اتصالات",
+                text = stringResource(com.sarani.carobd.R.string.ui_adapter_title),
                 color = TextPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "مشخصات گزارش‌شده آداپتور و شواهد اتصال؛ رشته ATI اصالت سخت‌افزار را اثبات نمی‌کند.",
+                text = stringResource(com.sarani.carobd.R.string.ui_adapter_intro),
                 color = TextMuted,
                 fontSize = 12.sp
             )
@@ -102,17 +103,17 @@ fun AdapterInspectorScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("مشخصات دانگل", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 0) NeonCyan else TextMuted) }
+                    text = { Text(stringResource(com.sarani.carobd.R.string.ui_adapter_tab), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 0) NeonCyan else TextMuted) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("حل مشکل عدم اتصال", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 1) NeonCyan else TextMuted) }
+                    text = { Text(stringResource(com.sarani.carobd.R.string.ui_troubleshoot_tab), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 1) NeonCyan else TextMuted) }
                 )
                 Tab(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    text = { Text("دیاگ موتورسیکلت", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 2) NeonCyan else TextMuted) }
+                    text = { Text(stringResource(com.sarani.carobd.R.string.ui_motorcycle_tab), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (selectedTab == 2) NeonCyan else TextMuted) }
                 )
             }
 
@@ -192,27 +193,27 @@ fun AdapterHealthView(
                     .padding(14.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("پارامترهای عملکردی لایه سخت‌افزار:", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(com.sarani.carobd.R.string.ui_adapter_fields), color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     HealthRow(
-                        label = "وضعیت اتصال:",
+                        label = stringResource(com.sarani.carobd.R.string.ui_connection_state),
                         value = if (isConnected) "متصل (Connected)" else "قطع (Disconnected)"
                     )
                     HealthRow(
-                        label = "پروتکل ارتباطی فعال:",
+                        label = stringResource(com.sarani.carobd.R.string.ui_observed_protocol),
                         value = if (isConnected) (connectedInfo?.protocolName ?: "—") else "—"
                     )
                     HealthRow(
-                        label = "نسخه شناسایی شده فریمور ELM:",
+                        label = stringResource(com.sarani.carobd.R.string.ui_reported_firmware),
                         value = if (isConnected) (connectedInfo?.elmVersion ?: "—") else "—"
                     )
                     HealthRow(
-                        label = "ولتاژ پین ۱۶ پورت OBD:",
+                        label = stringResource(com.sarani.carobd.R.string.ui_adapter_voltage),
                         value = if (isConnected && telemetry.signal("ATRV").quality == com.sarani.carobd.core.model.SignalQuality.GOOD) {
                             String.format(java.util.Locale.US, "%.1f ولت", telemetry.batteryVoltage)
                         } else "—"
                     )
                     HealthRow(
-                        label = "تاخیر پاسخگویی (Round-Trip Latency):",
+                        label = stringResource(com.sarani.carobd.R.string.ui_latency),
                         value = if (isConnected) "پایش فعال در حلقه تله‌متری" else "—"
                     )
                 }
@@ -231,11 +232,11 @@ fun AdapterHealthView(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = NeonAmber, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("محدودیت شناسایی آداپتور:", color = NeonAmber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(com.sarani.carobd.R.string.ui_adapter_limit_title), color = NeonAmber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "نسخه گزارش‌شده به‌تنهایی اصالت یا سازگاری آداپتور را اثبات نمی‌کند. برای هر مدل، مستندات سازنده و آزمون کنترل‌شده لازم است. پین‌اوت یا فرمان اختصاصی نباید حدس زده شود.",
+                        text = stringResource(com.sarani.carobd.R.string.ui_adapter_limit_body),
                         color = TextMuted,
                         fontSize = 11.sp,
                         lineHeight = 17.sp
@@ -296,7 +297,7 @@ fun MotorcyclePinoutView() {
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "برای دیاگ موتورسیکلت با دانگل استاندارد OBD-II ۱۶ پین، به کابل تبدیل مخصوص (Adapter Cable) نیاز دارید. پین‌اوت رنگ‌بندی و سوکت‌های مختلف در زیر آمده است:",
+                    text = stringResource(com.sarani.carobd.R.string.ui_motorcycle_limits),
                     color = TextPrimary,
                     fontSize = 12.sp,
                     lineHeight = 18.sp

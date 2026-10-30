@@ -67,7 +67,7 @@ fun BluetoothDeviceDialog(
                     Icon(Icons.Default.Bluetooth, contentDescription = null, tint = NeonCyan)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "انتخاب دانگل بلوتوث OBD-II",
+                        text = stringResource(com.sarani.carobd.R.string.ui_bt_pick),
                         color = TextPrimary,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -87,7 +87,7 @@ fun BluetoothDeviceDialog(
             Column(modifier = Modifier.fillMaxWidth()) {
                 RuntimeAccessControls()
                 Text(
-                    text = "دستگاه‌های جفت شده و دانگل‌های ELM327 اطراف را لمس کنید تا اتصال برقرار شود:",
+                    text = stringResource(com.sarani.carobd.R.string.ui_bt_pick_help),
                     color = TextMuted,
                     fontSize = 12.sp
                 )
@@ -101,7 +101,7 @@ fun BluetoothDeviceDialog(
                             .padding(20.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("فهرست خالی است؛ ابتدا مجوز و وضعیت بلوتوث را بررسی و سپس جستجو کنید.", color = TextMuted, fontSize = 12.sp)
+                        Text(stringResource(com.sarani.carobd.R.string.ui_bt_empty), color = TextMuted, fontSize = 12.sp)
                     }
                 } else {
                     LazyColumn(
