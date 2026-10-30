@@ -25,7 +25,9 @@ internal fun DiagnosticReportCard(report: DiagnosticSessionReport) {
                 ScanCompleteness.PARTIAL -> R.string.diagnosis_partial
                 ScanCompleteness.FAILED -> R.string.diagnosis_failed
             }))
-            Text(stringResource(R.string.diagnosis_summary, report.codes.size, report.responders.size))
+            Text(androidx.compose.ui.res.pluralStringResource(R.plurals.diagnosis_codes, report.codes.size, report.codes.size))
+            Text(androidx.compose.ui.res.pluralStringResource(R.plurals.diagnosis_responders, report.responders.size, report.responders.size))
+            Text(stringResource(R.string.diagnosis_unknown_count))
             Text(stringResource(R.string.diagnosis_not_collected))
             if (expanded) {
                 Text("${report.observedProtocol ?: "—"} · ${report.adapterIdentity ?: "—"}")

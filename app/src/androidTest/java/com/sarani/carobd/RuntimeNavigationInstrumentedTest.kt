@@ -36,6 +36,11 @@ class RuntimeNavigationInstrumentedTest {
         var scrollAttempt = 0
         while (SystemClock.uptimeMillis() < end) {
             find(text)?.let { return it }
+            nodes(root()).lastOrNull { it.text?.toString() == text }?.let {
+                it.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.id)
+                SystemClock.sleep(200)
+                find(text)?.let { visible -> return visible }
+            }
             swipe((scrollAttempt++ / 4) % 2 == 0)
             SystemClock.sleep(300)
         }

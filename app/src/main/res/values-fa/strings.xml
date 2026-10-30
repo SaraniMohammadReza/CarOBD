@@ -418,7 +418,6 @@
     <string name="diagnosis_complete">محدودهٔ کدها کامل؛ بدون نتیجه‌گیری دربارهٔ سلامت خودرو</string>
     <string name="diagnosis_partial">شواهد ناقص — برخی درخواست‌ها یا پاسخ‌دهندگان ناموفق بودند</string>
     <string name="diagnosis_failed">هیچ پاسخ موفق کد خطایی دریافت نشد — به معنای نبود کد نیست</string>
-    <string name="diagnosis_summary">%1$d کد با دسته‌بندی متمایز · %2$d پاسخ‌دهندهٔ شناخته‌شده؛ پاسخ‌دهندهٔ نامعلوم در شمارش نیست</string>
     <string name="diagnosis_not_collected">در این گزارش خوانده نشده‌اند: آمادگی/MIL، فریزفریم، Mode09 و Mode06. برای شواهد کدها لمس کنید.</string>
     <string name="diagnosis_adapter_reported">شناسه اعلام‌شده توسط آداپتور؛ اصالت تأیید نشده است.</string>
     <string name="diagnosis_physical">آداپتور فیزیکی · فقط خواندنی</string>
@@ -441,4 +440,7 @@
     <string name="sensor_ecu_source">منبع: بیت‌مپ Mode01 از ECU و رمزگشای استاندارد PID. یک خواندن در هر چرخهٔ producer؛ زمان متغیر است.</string>
     <string name="sensor_adapter_source">منبع: ATRV اعلام‌شده توسط آداپتور، نه ولتاژ ECU. خواندن در هر ۱۵ چرخهٔ producer.</string>
     <string name="widget_save_failed">چیدمان داشبورد ذخیره نشد. ممکن است این تغییرات پس از راه‌اندازی دوباره باقی نمانند.</string>
+    <plurals name="diagnosis_codes"><item quantity="one">%1$d کد خطای متمایز با دسته‌بندی</item><item quantity="other">%1$d کد خطای متمایز با دسته‌بندی</item></plurals>
+    <plurals name="diagnosis_responders"><item quantity="one">%1$d پاسخ‌دهندهٔ شناخته‌شده</item><item quantity="other">%1$d پاسخ‌دهندهٔ شناخته‌شده</item></plurals>
+    <string name="diagnosis_unknown_count">پاسخ‌دهندگان نامعلوم در این شمارش نیستند.</string>
 </resources>

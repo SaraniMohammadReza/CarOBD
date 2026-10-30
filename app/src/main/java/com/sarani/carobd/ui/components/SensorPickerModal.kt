@@ -1,5 +1,8 @@
 package com.sarani.carobd.ui.components
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -98,7 +101,9 @@ fun SensorPickerModal(
             }
         },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth()
+                .heightIn(max = minOf(520, androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp / 2).dp)
+                .verticalScroll(rememberScrollState())) {
                 // Search field
                 OutlinedTextField(
                     value = searchQuery,
@@ -217,7 +222,7 @@ fun SensorPickerModal(
                 // Widget Size (عرض نیمه یا تمام‌عرض)
                 Text(stringResource(com.sarani.carobd.R.string.ui_widget_size), color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     FilterChip(
                         selected = selectedWidgetSize == WidgetSize.MEDIUM,
                         onClick = { selectedWidgetSize = WidgetSize.MEDIUM },

@@ -418,7 +418,6 @@
     <string name="diagnosis_complete">DTC scope complete; no vehicle health conclusion</string>
     <string name="diagnosis_partial">Partial evidence — some requests or responders failed</string>
     <string name="diagnosis_failed">No successful DTC response — not a no-codes result</string>
-    <string name="diagnosis_summary">%1$d distinct categorized codes · %2$d identified responders; unknown responders excluded from count</string>
     <string name="diagnosis_not_collected">Not collected in this report: readiness/MIL, freeze frame, Mode09 and Mode06. Tap for captured DTC evidence.</string>
     <string name="diagnosis_adapter_reported">Identity reported by adapter; authenticity not verified.</string>
     <string name="diagnosis_physical">Physical adapter · read-only</string>
@@ -441,4 +440,7 @@
     <string name="sensor_ecu_source">Source: ECU Mode01 bitmap and canonical PID decoder. One read per producer cycle; timing varies.</string>
     <string name="sensor_adapter_source">Source: adapter-reported ATRV, not ECU voltage. Read every 15 producer cycles.</string>
     <string name="widget_save_failed">Dashboard layout could not be saved. These changes may not survive restart.</string>
+    <plurals name="diagnosis_codes"><item quantity="one">%1$d distinct categorized DTC</item><item quantity="other">%1$d distinct categorized DTCs</item></plurals>
+    <plurals name="diagnosis_responders"><item quantity="one">%1$d identified responder</item><item quantity="other">%1$d identified responders</item></plurals>
+    <string name="diagnosis_unknown_count">Unknown responders are excluded from this count.</string>
 </resources>
