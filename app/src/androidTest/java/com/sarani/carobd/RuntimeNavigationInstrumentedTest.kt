@@ -209,6 +209,26 @@ class RuntimeNavigationInstrumentedTest {
         automation.executeShellCommand("cmd statusbar collapse").use { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).readBytes() }
         activity = instrumentation.startActivitySync(Intent(instrumentation.targetContext, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         await(label(R.string.ui_onboarding_save))
+        fun setCapacity(value: String) {
+            await(label(R.string.ui_tank_capacity))
+            val editable = nodes(root()).filter { it.isEditable }
+            val capacity = editable.firstOrNull { field ->
+                field.hintText?.toString() == label(R.string.ui_tank_capacity) ||
+                    nodes(field).any { it.text?.toString() == label(R.string.ui_tank_capacity) }
+            } ?: error("Capacity field not exposed: " + editable.map { "${it.text}/${it.hintText}" })
+            assertTrue(capacity.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, android.os.Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, value)
+            }))
+            SystemClock.sleep(300)
+        }
+        fun saveEnabled(): Boolean {
+            var node: AccessibilityNodeInfo? = await(label(R.string.ui_onboarding_save))
+            while (node != null && !node.isClickable) node = node.parent
+            return node?.isEnabled == true
+        }
+        setCapacity("۵۰٫۵"); assertTrue("Persian decimal capacity must be accepted", saveEnabled())
+        setCapacity("۵۰٬۵"); assertFalse("Ambiguous grouping must be rejected", saveEnabled())
+        setCapacity(""); assertTrue("Blank optional capacity must remain valid", saveEnabled())
         shot("onboarding"); tap(label(R.string.ui_onboarding_save))
         await(label(R.string.qa_more))
         shot("dashboard-disconnected")

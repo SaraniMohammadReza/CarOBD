@@ -446,4 +446,5 @@
     <string name="diagnosis_export_json">Export report JSON</string>
     <string name="diagnosis_export_contents">Includes vehicle/profile labels and raw diagnostic evidence. Choose the document destination; no automatic upload is performed.</string>
     <string name="diagnosis_export_saved">Report saved to the selected document.</string>
+    <string name="ui_number_invalid">Enter a valid number or leave blank.</string>
 </resources>

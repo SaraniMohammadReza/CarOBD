@@ -446,4 +446,5 @@
     <string name="diagnosis_export_json">خروجی JSON گزارش</string>
     <string name="diagnosis_export_contents">شامل نام خودرو/پروفایل و شواهد خام عیب‌یابی است. مقصد سند را خودتان انتخاب کنید؛ بارگذاری خودکار انجام نمی‌شود.</string>
     <string name="diagnosis_export_saved">گزارش در سند انتخاب‌شده ذخیره شد.</string>
+    <string name="ui_number_invalid">عدد معتبر وارد کنید یا خالی بگذارید.</string>
 </resources>

@@ -51,3 +51,7 @@ Automatic Android cloud backup now excludes every app data domain; modern device
 ## Foreground notification respects settings
 
 NotificationMeasurements formats fresh shared telemetry with saved units, retaining unknowns, measured zero, negative temperatures and independent PID timestamps. Service observes units/language in its existing notification collector; no additional producer or commands. App143 tests passed, exit0,3s. Complete Android10/10 passed, exit0,3m11s, including real Settings imperial→metric change reflected in NotificationManager with the same diagnostic generation. EN/FA resources447 matched. Logs `/tmp/carobd-overnight-notification-unit.log`, `/tmp/carobd-overnight-notification-ui.log`. Physical notification/lifecycle bench remains required.
+
+## Localized metadata numbers
+
+VehicleSetupNumbers accepts English/Persian/Arabic digits and decimal separator٫ for positive finite tank litres, and localized nonnegative integer odometers. Ambiguous grouping, exponent/nonfinite/overflow and fractional odometer values are rejected, not guessed or rounded. Blank input remains null. Onboarding shares parsed values between validation/save, uses decimal keyboard for capacity and localized error support. Four new JVM regressions passed in app147, exit0,3s. Actual form accepts۵۰٫۵, rejects۵۰٬۵ and returns to valid unknown after clearing. Complete FA/RTL900×2000/font130 Android10/10 passed, exit0,3m22s (`/tmp/carobd-overnight-numeric-fa-ui.log`). Resource validation448 EN/FA keys passes. No vehicle data defaults or commands added.

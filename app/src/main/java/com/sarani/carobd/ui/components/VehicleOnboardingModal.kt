@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sarani.carobd.core.storage.UserVehicleSetup
+import com.sarani.carobd.core.storage.VehicleSetupNumbers
 import com.sarani.carobd.ui.theme.DarkBg
 import com.sarani.carobd.ui.theme.DarkCardBg
 import com.sarani.carobd.ui.theme.DarkCardBorder
@@ -70,6 +71,11 @@ fun VehicleOnboardingModal(
     var fuelType by remember { mutableStateOf("") }
     var tankCapacityText by remember { mutableStateOf("") }
     var odometerText by remember { mutableStateOf("") }
+
+    val tankCapacity = VehicleSetupNumbers.tankLitres(tankCapacityText)
+    val odometer = VehicleSetupNumbers.odometerKm(odometerText)
+    val tankInvalid = tankCapacityText.isNotBlank() && tankCapacity == null
+    val odometerInvalid = odometerText.isNotBlank() && odometer == null
 
     val makesList = if (isMotorcycle) bikeMakes.toList() else carMakes.toList()
 
@@ -209,8 +215,10 @@ fun VehicleOnboardingModal(
                     OutlinedTextField(
                         value = tankCapacityText,
                         onValueChange = { tankCapacityText = it },
+                        isError = tankInvalid,
+                        supportingText = if (tankInvalid) ({ Text(stringResource(com.sarani.carobd.R.string.ui_number_invalid)) }) else null,
                         label = { Text(stringResource(com.sarani.carobd.R.string.ui_tank_capacity), fontSize = 10.sp) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
@@ -225,6 +233,8 @@ fun VehicleOnboardingModal(
                     OutlinedTextField(
                         value = odometerText,
                         onValueChange = { odometerText = it },
+                        isError = odometerInvalid,
+                        supportingText = if (odometerInvalid) ({ Text(stringResource(com.sarani.carobd.R.string.ui_number_invalid)) }) else null,
                         label = { Text(stringResource(com.sarani.carobd.R.string.ui_odometer), fontSize = 10.sp) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
@@ -243,21 +253,17 @@ fun VehicleOnboardingModal(
         confirmButton = {
             Button(
                 onClick = {
-                    val tank = tankCapacityText.toFloatOrNull()?.takeIf { it.isFinite() && it > 0 }
-                    val odo = odometerText.toIntOrNull()?.takeIf { it >= 0 }
-
                     val setup = UserVehicleSetup(
                         make = selectedMake,
                         model = modelName,
                         fuelType = fuelType,
-                        tankCapacityLiters = tank,
-                        odometerKm = odo,
+                        tankCapacityLiters = tankCapacity,
+                        odometerKm = odometer,
                         isMotorcycle = isMotorcycle
                     )
                     onSetupSaved(setup)
                 },
-                enabled = (tankCapacityText.isBlank() || tankCapacityText.toFloatOrNull()?.let { it.isFinite() && it > 0 } == true) &&
-                    (odometerText.isBlank() || odometerText.toIntOrNull()?.let { it >= 0 } == true),
+                enabled = !tankInvalid && !odometerInvalid,
                 colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp)

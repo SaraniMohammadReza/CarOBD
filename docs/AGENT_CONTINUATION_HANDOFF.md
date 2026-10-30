@@ -8,14 +8,11 @@ CarOBD; `git@github.com:SaraniMohammadReza/CarOBD.git`; branch **feat/car-obd-de
 
 ## 2. Current Git State
 
-Snapshot taken before the privacy checkpoint, 2026-10-30 23:34 +03:30:
+Verified source snapshot: `08ff3e806009a6a3044ae1533eb5054d6f9c92d1`, equal to origin after push. Branch `feat/car-obd-development` only. Later commits containing this document necessarily sit above the sampled source hash; inspect actual HEAD rather than resetting to this snapshot.
 
-- Local HEAD at latest source snapshot: `70704aa05071ee5208c1aac3a0efd4ef21742ccb`.
-- Remote HEAD after verified push: `70704aa05071ee5208c1aac3a0efd4ef21742ccb`.
-- Branch: `feat/car-obd-development`; source checkpoint pushed. The documentation commit containing this snapshot is necessarily above the sampled source hash; always inspect actual Git HEAD rather than resetting to this value.
-- Staged diff empty before this checkpoint. Permission guard and structured export are pushed. Privacy/SAF Save verification is active; a separate foreground notification units/language correction is being developed and will be tested independently.
-- Uncommitted documentation: ARCHITECTURE.md, OBD_SUPPORT_MATRIX.md, docs/ANDROID_STUDIO_SETUP.md, docs/COMPETITOR_FEATURE_MATRIX.md, new docs/COMPETITOR_GAP_DEVELOPMENT.md.
-- Pre-existing untracked `report.md` must remain unchanged and uncommitted. SHA256 `cc39511e9fccbc8f31fcb15fcf84e1927d85695058e1af72fe8810cc58cf4325` verified again. It is not a build/source input.
+The localized numeric-input checkpoint is active; see section4. Final integration documentation is being completed in ARCHITECTURE.md, OBD_SUPPORT_MATRIX.md, COMPETITOR_FEATURE_MATRIX.md, COMPETITOR_GAP_DEVELOPMENT.md, ANDROID_STUDIO_OFFLINE_SETUP.md and the safety/gaps documents. Staging is explicit per checkpoint.
+
+Pre-existing untracked `report.md` must remain unchanged and uncommitted. SHA256 `cc39511e9fccbc8f31fcb15fcf84e1927d85695058e1af72fe8810cc58cf4325` verified repeatedly. No dependency on it; no caches/SDK/JDK/APK enter Git. No master modification or force push.
 
 ## 3. Completed Engineering Work
 
@@ -29,28 +26,32 @@ All listed source checkpoints were tested and pushed immediately:
 | `dabdc81` | TelemetryGraphHistory, LiveTelemetry.pidSupport, producer publication; Dashboard MVI/screen; SensorPicker; layout codec/preferences | Capability selection, bounded/gap-aware per-PID histories, layout order/style/size/recreation; complete offline clean gate, 107 executed tasks |
 | `7ef5476` | SensorPicker scrolling/vertical size choices; plural report counts; accessibility show-on-screen test helper | Final exact offline gate exit0 1m24s, JVM441 zero failures/errors/skips, lint84 warnings/0errors; EN8/8 3m3s; FA/RTL900×2000/font130 8/8 3m7s |
 | `d4c41d5` | ObdRepository.disconnectIfCurrent; repository lock; ConnectionForegroundService stale start/stop/disconnect handling; RuntimeNavigation test | Three new repository regressions; app135 tests passed; actual Android8/8 exit0 2m54s including stale service intents and current-token disconnect |
+| `9ed09ea` | AdmissionGuardedTransport; TransportFactory; actual repository-session revocation regression; LAN UI test | App136/adapter115 JVM pass; Android8/8 exit0,2m58s; LAN shared-group pregrant observed, not explicit denial/regrant |
+| `70704aa` | DiagnosticReportExport/JsonStrings; history ViewModel/Card/Screen SAF; core/VM/Android JSON tests | App139/model57/adapter115 pass; Android9/9 exit0,2m59s; SAF launch/cancel |
+| `98953bb` | Backup XML exclusions; packaged-policy regression; actual DocumentsUI Save/readback | Android10/10 exit0,3m6s; no cloud backup/migration executed |
+| `08ff3e8` | NotificationMeasurements; foreground saved units/language; four unit tests and Settings/notification UI assertion | App143 pass exit0,3s; Android10/10 exit0,3m11s; same session through imperial→metric |
 
 Full details/path explanations: [overnight engineering record](OVERNIGHT_DEVELOPMENT_HANDOFF.md), [competitor continuation draft](COMPETITOR_GAP_DEVELOPMENT.md), [previous runtime QA](RUNTIME_QA_CONTINUATION.md). The draft may contain explicitly pending fields until final integration; this file is the current task authority.
 
 ## 4. Current Active Task
 
-**VERIFIED: permission revocation guard**. New `core/adapter/src/main/kotlin/com/sarani/carobd/core/adapter/transport/AdmissionGuardedTransport.kt` rechecks the existing admission callback on connect/write and passive isConnected checks. Physical Classic/BLE/Wi-Fi are wrapped by `app/.../data/transport/TransportFactory.kt`; simulator/USB keep existing ownership. A revoked generation never revives on regrant. No new commands, permissions, reader or producer. Five new guard unit tests and an actual repository-session regression passed (`/tmp/carobd-overnight-revocation-tests.log`, exit0 11s; app136, adapter115). Updated RuntimeNavigation test exercises LAN permission outcomes as well as existing flows. Full Android run `/tmp/carobd-overnight-revocation-ui-final.log` is now VERIFIED: exit0,2m58s,8/8,zero failures/errors/skips. Permission-guard source checkpoint: `9ed09ea` (pushed); no need to repeat its successful tests without a change.
+**VERIFIED: localized numeric metadata input**. VehicleSetupNumbers normalizes English/Persian/Arabic digits and Arabic decimal separator; rejects ambiguous grouping, exponent/nonfinite/overflow/fractional odometer input; blank stays null. VehicleOnboardingModal uses exactly the same parsed values for validation/save and highlights errors. Four parser regressions passed in app147/0failure/error/skip, exit0,3s (`/tmp/carobd-overnight-numeric-unit.log`). Complete FA/RTL900×2000/font130 instrumentation passed: Android10/10, zero failures/errors/skips, exit0,3m22s (`/tmp/carobd-overnight-numeric-fa-ui.log`). Android test sets Persian decimal, rejects grouping and clears back to optional blank.
 
-Important LAN finding: do not demand a separate dialog after Bluetooth grant. Official Android guidance says ACCESS_LOCAL_NETWORK shares NEARBY_DEVICES and may be granted without another prompt. An initial new test wrongly expected a deny button and failed; the corrected test records the actual path. Current log marker is `CAROBD_LAN_PERMISSION_FLOW=PREGRANTED_ON_REQUEST_NO_DIALOG`. It also verifies admission remains blocked if a request is not granted. Do not claim actual LAN denial/regrant or OS permission revocation from that pregrant run. No LAN/vehicle socket is opened by this test.
+Do not repeat earlier vehicle/report/dashboard/service/export/notification implementation. Do not weaken assertions to hide failures. Next publish this checkpoint, then fresh full offline gate, EN instrumentation, cache revalidation and final documentation.
 
-**VERIFIED: structured report export**. `core/model/.../DiagnosticReportExport.kt`, `JsonStrings.kt`, DiagnosticTranscript shared escaping, `app/.../ui/screens/evidence/DtcHistoryViewModel.kt`, DiagnosticReportCard/EvidenceScreen, EN/FA strings and new `DiagnosticReportExportViewModelTest`. Existing reports only; schema1 JSON, null identities, scope/source/category/responders/raw/outcomes and explicit unread services/no health assertion. SAF CreateDocument, write on IO, selection ID captured across picker recreation, failure never says Saved. Core JSON and ViewModel tests now pass: app139/model57/adapter115, exit0,9s (`/tmp/carobd-overnight-export-tests.log`). Independent Android JSONObject/output test and real SAF picker cancellation check passed: `/tmp/carobd-overnight-export-ui.log`, exit0,2m59s,9/9,zero failures/errors/skips. Actual SAF Save callback will additionally be exercised in the next privacy/export verification iteration; do not conflate cancellation with a successful provider write. Full integration gate remains to be refreshed after subsequent changes.
-
-Do not repeat the earlier vehicle/report/dashboard implementation. Do not weaken assertions to hide failures. Keep permission and export checkpoints independently staged.
+LAN nuance: ACCESS_LOCAL_NETWORK shares NEARBY_DEVICES and may grant without another dialog. Actual emulator marker was `PREGRANTED_ON_REQUEST_NO_DIALOG`. Earlier new test wrongly demanded a deny button; corrected to handle real permission states. No actual LAN denial/regrant or physical OS revocation is established, and no vehicle/LAN socket is opened by this UI test.
 
 ## 5. Remaining Priorities
 
-- **P0 VERIFIED (software/emulator):** admission guard unit and repository tests plus Android8/8 pass; publish intended files independently of the unfinished export. Physical OS revocation remains REQUIRES_DEVICE/ADAPTER.
-- **P0 REQUIRES_DEVICE/ADAPTER:** physical Bluetooth/BLE/USB/Wi-Fi revocation, CCCD/late callbacks, exact USB target/detach, network loss and sustained lifecycle. Existing software policies/tests are not physical certification. No physical operations authorized overnight.
-- **P1 VERIFIED:** report JSON export unit/Android file/JSON tests and SAF cancellation pass; explicit provider Save verification is next. New review found unrestricted template OS cloud-backup rules; exclude private diagnostic data from automatic cloud backup without deleting local data.
-- **P1 PARTIAL:** reports currently only03/07/0A; next combined scope must use existing typed readiness/02/09/06 readers and expected session token. No fake diagnostic depth selector.
-- **P1 PARTIAL:** lazy/paged report details for large archives; more canonical sensors only after proven decoder/support; existing-widget style editing.
-- **P2 NOT_IMPLEMENTED/PARTIAL:** manual fuel ledger, maintenance source confidence, alerts, full app backup, contextual help. Preserve measured/estimated distinction.
-- **P3 DEFERRED:** HUD/parking/OEM read-only datasets. Dashcam/monetization out of scope; physical scripts/plugins/writes rejected.
+- **P0 VERIFIED (software/emulator):** generation-locked foreground teardown and runtime admission retirement; no regrant resurrection. Physical OS revocation remains REQUIRES_DEVICE/ADAPTER.
+- **P0 REQUIRES_DEVICE/ADAPTER:** Classic/BLE/USB/Wi-Fi revocation, CCCD/late callbacks, exact USB target/detach, network loss and sustained lifecycle. No physical operations authorized overnight.
+- **P1 VERIFIED:** captured-report JSON export, real SAF cancellation and successful Save/readback; automatic OS cloud-backup exclusions. Actual cloud/OS migration behavior not executed; full app backup remains NOT_IMPLEMENTED.
+- **P1 PARTIAL:** combine existing readiness/MIL/02/09/06 typed readers with persistent report and expected session identity. Report currently03/07/0A only. Preserve per-reader partial outcomes, no fake depth/health.
+- **P1 PARTIAL:** lazy/paged report detail loading for large archives; more canonical sensors only after proven decoder/support; existing-widget style editing.
+- **P2 NOT_IMPLEMENTED/PARTIAL:** manual fuel ledger, maintenance source confidence, alerts, full app backup/restore, contextual help. Preserve measured/estimated distinction.
+- **P3 DEFERRED:** HUD/parking/OEM datasets. Dashcam/monetization outside scope; physical scripts/plugins/writes rejected.
+
+See [remaining gaps](CAROBD_REMAINING_GAPS.md) and [safety status](CAROBD_SAFETY_STATUS.md).
 
 ## 6. Architecture Map
 
@@ -81,17 +82,21 @@ SDK `/home/mohammad/Android/Sdk`; compile/target37, min24; actual package platfo
 
 ## 9. Test Evidence
 
-Environment prefix for CLI: `JAVA_HOME=/home/mohammad/.local/share/carobd-build/jdks/jdk-24.0.2+12 ANDROID_HOME=/home/mohammad/Android/Sdk`.
+Exact fresh offline gate (run after final source changes):
 
-Exact major gate (last fully verified at7ef5476):
 ```bash
-./gradlew --offline clean :app:assembleDebug :app:testDebugUnitTest :app:checkDebugDuplicateClasses :app:lintDebug :core:model:test :core:adapter:test :core:protocol:test :core:telemetry:test :core:vehicle:test :app:assembleDebugAndroidTest --console=plain
+JAVA_HOME=/home/mohammad/.local/share/carobd-build/jdks/jdk-24.0.2+12 \
+ANDROID_HOME=/home/mohammad/Android/Sdk \
+./gradlew --offline clean :app:assembleDebug :app:testDebugUnitTest \
+ :app:checkDebugDuplicateClasses :app:lintDebug :core:model:test :core:adapter:test \
+ :core:protocol:test :core:telemetry:test :core:vehicle:test :app:assembleDebugAndroidTest --console=plain
 ```
-Exit0,107 tasks executed,JVM441/0fail/0error/0skip,lint84warnings/0errors. Latest targeted guard tests: `./gradlew --offline :core:adapter:test :app:testDebugUnitTest --console=plain`, exit0,11s,app136+adapter115/0fail/0error/0skip. New JSON core tests were also run by the active command; inspect reports for final counts.
 
-Emulator: official Pixel_10 API37 x86_64 Playstore16KiB image; isolated adb5038 because Studio/default adb5037 has separate instability. Check `adb -P5038 devices` and ro.kernel.qemu=1; never select a physical serial. Android command prefix additionally `ANDROID_ADB_SERVER_PORT=5038 ADB_SERVER_SOCKET=tcp:localhost:5038`; task `:app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.qaLocale=en`. Current active run log above; wait for completion. UTP fresh installation is required by permission/onboarding fixture. Preserve failed logs; do not call a no-device failure a product test PASS.
+Prior full gate on7ef5476: exit0,1m24s,107 executed tasks,JVM441/0fail/error/skip,lint84warnings/0errors. Subsequent targeted and Android results are in section3; latest localized parser app147 passed. Full integration will be refreshed before delivery.
 
-FA test uses emulator wm size900x2000/font_scale1.3, then restore wm size reset/font1.0. Previous FA and EN runs each8/8 passed; only RuntimeNavigation is the broad UI workflow, other methods are SQLite/applicationId checks. No physical device/adapter/vehicle PASS exists. Local evidence `/home/mohammad/.local/share/carobd-build/competitor-gap-qa/`; do not depend on it for source portability.
+Emulator: official Pixel_10 API37 x86_64 Playstore16KiB; isolated adb5038. Verify `adb -P5038 devices` and ro.kernel.qemu=1 before emulator operations; never select physical serial. Prefix Android task with `ANDROID_ADB_SERVER_PORT=5038 ADB_SERVER_SOCKET=tcp:localhost:5038`; task `:app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.qaLocale=en` (fa for Persian). FA uses wm900×2000/font1.3, then restore wm reset/font1.0. UTP fresh-install fixture is required by onboarding/permissions; do not clear owner device data.
+
+Evidence logs are named in section3 and OVERNIGHT_DEVELOPMENT_HANDOFF.md; local screenshots/log copies `/home/mohammad/.local/share/carobd-build/competitor-gap-qa/` are optional QA evidence, not source dependencies. No physical device, adapter or vehicle PASS exists. Preserve failed logs; no-device infrastructure failure is not a product PASS.
 
 ## 10. Known Limitations
 
@@ -99,11 +104,11 @@ Combined report readiness/MIL/02/09/06 absent; no diagnostic health verdict; cod
 
 ## 11. Exact Next Actions
 
-1. Permission guard checkpoint is green and being published separately. Record its actual Git hash after push; do not redo the successful8/8 run absent changes. Continue the export ViewModel/Android tests, leaving physical admission validation explicitly separate.
-2. Export targeted tests and Android9/9 now pass. Next: protect automatic OS cloud backup via the existing XML policies, test packaged policies, and exercise SAF Save/readback on simulator evidence. Do not enable cloud sync or claim full application backup/restore.
-3. Run the exact fresh offline gate and final Android EN/FA where changed. Capture test counts, lint, APK SHA256/size and signature; update final documents without pending fields.
-4. Run `./gradlew --offline -PcarobdCacheWarmup=true carobdWarmAllConfigurations --no-configuration-cache --console=plain`, then `./gradlew --offline help` in the same persistent user cache. Add/update docs/ANDROID_STUDIO_OFFLINE_SETUP.md, preserving existing setup evidence rather than duplicating contradictory instructions.
-5. Continue safe high-value implementation within the available budget; update this file after each substantial checkpoint and at least every45min. Before ending, push everything verified, fetch and compare exact heads; leave only documented report.md unrelated.
+1. Localized metadata is green: app147 and FA10/10 passed. Publish intended checkpoint and record actual hash; no wire changes. Do not repeat successful FA tests without a new change.
+2. Execute the exact fresh offline gate and final Android EN/FA where changed. Record actual counts/lint/APK hash/size/signature; no pending placeholders in final reports.
+3. Run offline all-configuration warm-up then offline help in normal ~/.gradle. See ANDROID_STUDIO_OFFLINE_SETUP.md; do not move caches or put machine routing in project repositories.
+4. Reconcile final documents, commit/push all verified work, fetch and verify exact local/remote heads; only unrelated report.md may remain untracked. Verify no active builds/tests before final native sleep.
+5. Morning engineering: add one combined report scope via existing typed readers and expected generation guard; separately preserve partial failures and unread services. Then lazy archive details and existing-widget editing. Physical validation stays explicitly separate.
 
 ## 12. Morning Resume Instructions
 
@@ -116,26 +121,10 @@ git switch feat/car-obd-development
 git pull --ff-only origin feat/car-obd-development
 git rev-parse HEAD origin/feat/car-obd-development
 ```
-Do not discard local changes to switch/pull. Open the Git root directory in Android Studio; use compatible Temurin24.0.2+12 for Gradle, Java/Kotlin target17, default persistent user Gradle home and installed SDK37/build-tools37.0.0. Install/resolve dependencies on that machine; no cache is in Git. See existing [Studio setup](ANDROID_STUDIO_SETUP.md). Read active task and latest evidence before any refactor.
+Do not discard local changes to switch/pull. Open the Git root directory in Android Studio; use compatible Temurin24.0.2+12 for Gradle, Java/Kotlin target17, default persistent user Gradle home and installed SDK37/build-tools37.0.0. Install/resolve dependencies on that machine; no cache is in Git. See existing [Studio setup](ANDROID_STUDIO_OFFLINE_SETUP.md). Read active task and latest evidence before any refactor.
 
 ## 13. Last Updated
 
-2026-10-30 23:39 +03:30, Asia/Tehran workstation time. Requested window ends 2026-10-31 07:00 local or actual execution budget/blocker first; no artificial waiting. Final native sleep is authorized **only after** verified push, saved final report, completed build/tests, and confirmation this is the actual local workstation with suspend support. No sleep has been invoked. Never suspend a container/VM/SSH/shared host; report inability honestly. Sleep must be the last system action, with no later development scheduled.
+2026-10-30 23:44 +03:30, Asia/Tehran. Requested window ends2026-10-31 07:00 or actual execution budget/blocker first; no artificial waiting. Final native sleep is authorized only after final report/source push, remote equality and completed builds/tests. No sleep has been invoked.
 
-### Latest verified checkpoint additions
-
-`9ed09ea` (pushed): ongoing runtime admission guard, six new JVM regressions and Android8/8. Report export is introduced by the source commit publishing this handoff update: DiagnosticReportExport/JsonStrings plus shared transcript escaping; history ViewModel and Card/Screen SAF flow; EN/FA copy; three core and three ViewModel regressions; independent Android JSON persistence/readback; actual SAF cancellation. Targeted tests app139/model57/adapter115 exit0,9s; Android9/9 exit0,2m59s. No new dependencies or physical dispatch paths. Automatic OS backup templates are the next concrete privacy correction, not yet changed at this snapshot.
-
-Host sleep preflight (no suspend performed): Linux/systemd on ext4, systemd-detect-virt=none, active local Wayland seat0 session42 Remote=no, Lenovo hardware, no SSH_CONNECTION, logind CanSuspend=yes. Recheck before the final action. Do not suspend until all verified source and final reports are pushed and all build/test tasks have finished.
-
-### Privacy/provider-save checkpoint
-
-VERIFIED: existing template backup XMLs now exclude all nine backup domains from automatic cloud backup. Modern explicit device transfer retains owner data while excluding device-local runtime_access.xml; legacy rules exclude both modes. No local data is deleted. Packaged resource test plus actual DocumentsUI Save/readback of simulator report passed in the complete Android10/10 run, exit0,3m6s (`/tmp/carobd-overnight-backup-save-ui-retry.log`). Initial test compilation referenced hidden ApplicationInfo fields; removed those unsupported assertions, retaining public packaged-resource checks and separately reviewed manifest resource references. No cloud backup or device migration executed. See DATA_PRIVACY_AND_EXPORT.md.
-
-Current active source task: notification unit/language correction. NotificationMeasurements helper and four regressions are written; ConnectionForegroundService combines saved units/language with its existing shared stream. These changes are not in this privacy commit and are not yet claimed verified. Next run app unit tests and actual notification settings check in RuntimeNavigation; do not repeat already passed successful provider Save.
-
-### Notification settings checkpoint
-
-`98953bba6311a92469a2759675e904c065a5eb87` privacy checkpoint is pushed. Foreground notification now observes persisted units/language alongside the existing telemetry stream: unit conversion is presentation-only, freshness uses the existing clock, and vehicle labels select the saved language. Four new JVM regressions cover metric/imperial, measured zero/negative, stale/missing/clock rollback, independent PID freshness and nonfinite voltage. App143/0fail/error/skip passed, exit0,3s (`/tmp/carobd-overnight-notification-unit.log`). Android10/10 passed, exit0,3m11s (`/tmp/carobd-overnight-notification-ui.log`), including actual Settings imperial→metric updates read from NotificationManager and unchanged session token. No producer or wire-command changes.
-
-Next active task: Persian/Arabic numeric metadata input. VehicleSetupNumbers, VehicleOnboardingModal and four parser regressions are being implemented separately and are not claimed verified by the notification tests. Then run the final fresh gate, all-configuration cache check, EN/FA instrumentation and final portable documentation.
+Host preflight: Linux/systemd on ext4; systemd-detect-virt=none; active local Wayland seat0 session42 Remote=no; Lenovo hardware; no SSH_CONNECTION; logind CanSuspend=yes. Recheck before final action. Never suspend a container/VM/SSH/shared host, never force through inhibitors, and do not perform later development after suspend invocation. Full chronological evidence remains in OVERNIGHT_DEVELOPMENT_HANDOFF.md.
