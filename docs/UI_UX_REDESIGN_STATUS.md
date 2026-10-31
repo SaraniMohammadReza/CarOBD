@@ -94,3 +94,7 @@ Prior to this UI/UX reconstruction sprint, CarOBD suffered from several structur
   5. Simulator Polish: Prominent synthetic simulation explanation banner added; connection button integrated directly into status card.
   6. Automotive Splash & First-Run 3-Step Onboarding: Headlights illumination reveal animation; 3-step progressive onboarding (Overview, Iranian Vehicle Selection, Safety & Diagnostic Options) with persistence via AppPreferencesManager.
 - **Device Verification:** Live on Samsung Galaxy (9889db474842494948) running Android 9 Pie in Persian RTL. 0 crashes, 0 NoSuchMethodError, responsive layouts across all 360dp screens.
+
+## HOME-R1 — reconciliation
+
+Home draft preserved locally at `73e0dd8` on `home/ownership-preservation`; development based on company `d8b1f2d` in sibling worktree. See HOME_STABILIZATION.md for every file decision. No duplicate ownership architecture ported. Removed unsupported 100% safety claims and invalid percent formatting; physical safety code unchanged. Correctness stabilization is now active; earlier completion/runtime claims are historical.

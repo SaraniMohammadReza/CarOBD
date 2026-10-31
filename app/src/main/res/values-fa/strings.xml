@@ -583,7 +583,7 @@
     <string name="ui_retry">تلاش مجدد</string>
 
     <!-- Connection Center & Safety -->
-    <string name="connection_safety_title">تضمین ایمنی ۱۰۰٪ فقط-خواندنی</string>
+    <string name="connection_safety_title">سیاست عیب‌یابی فقط‌خواندنی</string>
     <string name="connection_safety_desc">کار‌او‌بی‌دی صرفاً در حالت‌های تشخیصی استاندارد فقط-خواندنی کار می‌کند. هرگونه تغییر در حافظه یا نرم‌افزار ECU و تحریک عملگرها مسدود است. سامانه برق و کامپیوتر خودرو کاملاً ایمن است.</string>
     <string name="connection_add_adapter_btn">+ افزودن آداپتور تشخیصی</string>
     <string name="connection_transport_hint_bt">بلوتوث استاندارد ELM327 (پیشنهادی برای خودروهای داخلی مانند ۲۰۶، سمند، پارس، پراید)</string>
@@ -620,7 +620,7 @@
     <string name="onboarding_feature_maint_desc">پیگیری زمان تعویض روغن، تسمه تایم، فیلترها و شمع‌ها بر اساس کیلومتر واقعی خودرو.</string>
     <string name="onboarding_feature_parts_title">بانک قطعات و دانشنامه فنی</string>
     <string name="onboarding_feature_parts_desc">قطعات سازگار تأییدشده با شماره فنی OEM و دانشنامه آموزشی نگهداری و عیب‌یابی خودرو.</string>
-    <string name="onboarding_feature_diag_title">عیب‌یابی ۱۰۰٪ ایمن و فقط-خواندنی</string>
+    <string name="onboarding_feature_diag_title">عیب‌یابی فقط‌خواندنی</string>
     <string name="onboarding_feature_diag_desc">اتصال به آداپتور بلوتوث/وای‌فای ELM327 یا شبیه‌ساز مجازی. کاملاً ایمن و بدون دستکاری ECU.</string>
     <string name="onboarding_step_intro">معرفی</string>
     <string name="onboarding_step_vehicle">انتخاب خودرو</string>

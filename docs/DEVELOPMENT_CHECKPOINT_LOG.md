@@ -323,3 +323,7 @@
   - Simulator Experience Polish (\SimulatorSelectorScreen.kt\): Added prominent synthetic diagnostic simulation explanation banner and inline connection controls.
   - First-Run Onboarding & Animated Splash (\AutomotiveSplashScreen.kt\, \OnboardingScreen.kt\, \MainActivity.kt\): Fast automotive headlights illumination reveal splash sequence; progressive 3-step onboarding (Overview, Iranian Vehicle Selection, Safety & Diagnostic Options) with smooth transition into Home.
   - Verification: 520 JVM unit tests passed (exit 0); full APK assembled and installed on attached device \9889db474842494948\; verified live on phone across onboarding, Home, Diagnostics, and Connection Center with 0 crashes.
+
+## HOME-R1 — reconciliation
+
+Home draft preserved locally at `73e0dd8` on `home/ownership-preservation`; development based on company `d8b1f2d` in sibling worktree. See HOME_STABILIZATION.md for every file decision. No duplicate ownership architecture ported. Removed unsupported 100% safety claims and invalid percent formatting; physical safety code unchanged. Correctness stabilization is now active; earlier completion/runtime claims are historical.

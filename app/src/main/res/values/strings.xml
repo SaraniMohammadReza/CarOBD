@@ -583,7 +583,7 @@
     <string name="ui_retry">Retry</string>
 
     <!-- Connection Center & Safety -->
-    <string name="connection_safety_title">100% Read-Only Safety Guarantee</string>
+    <string name="connection_safety_title">Read-only diagnostic policy</string>
     <string name="connection_safety_desc">CarOBD operates strictly in read-only diagnostic modes. ECU firmware flashing, ROM writing, and actuator actuation are physically blocked. Your vehicle electrical system is safe.</string>
     <string name="connection_add_adapter_btn">+ Add Diagnostic Adapter</string>
     <string name="connection_transport_hint_bt">Standard ELM327 Bluetooth (Recommended for Iranian vehicles like 206, Samand, Pars, Pride)</string>
@@ -620,7 +620,7 @@
     <string name="onboarding_feature_maint_desc">Track engine oil, timing belts, filters, and spark plug intervals. Never miss critical services.</string>
     <string name="onboarding_feature_parts_title">Parts &amp; Automotive Guide</string>
     <string name="onboarding_feature_parts_desc">Verified compatible parts with OEM part numbers and comprehensive automotive engineering encyclopedia.</string>
-    <string name="onboarding_feature_diag_title">100% Safe Read-Only Diagnostics</string>
+    <string name="onboarding_feature_diag_title">Read-only diagnostics</string>
     <string name="onboarding_feature_diag_desc">Connect an ELM327 Bluetooth/Wi-Fi adapter or explore with the simulator. Completely read-only with zero vehicle risk.</string>
     <string name="onboarding_step_intro">Overview</string>
     <string name="onboarding_step_vehicle">My Car</string>

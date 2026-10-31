@@ -171,3 +171,7 @@ Do not discard local changes to switch/pull. Open the Git root directory in Andr
 Host preflight: Linux/systemd on ext4; systemd-detect-virt=none; active local Wayland seat0 session42 Remote=no; Lenovo hardware; no SSH_CONNECTION; logind CanSuspend=yes. Recheck before final action. Never suspend a container/VM/SSH/shared host, never force through inhibitors, and do not perform later development after suspend invocation. Full chronological evidence remains in OVERNIGHT_DEVELOPMENT_HANDOFF.md.
 
 Final delivery is a safe execution-budget checkpoint before07:00, not a claim that the entire roadmap or physical validation is complete. All source through1f32763 is tested and pushed; this documentation publication follows it. Final APK was reinstalled/launched on emulator-5554 only, leaving fresh Persian onboarding with no active diagnostic session. Final Git equality and clean tracked tree are checked after publication; exact delivery hash is in Git history/final chat. Requested suspend is only invoked after that verification and no active build/test. No further development is scheduled after suspend.
+
+## HOME-R1 — reconciliation
+
+Home draft preserved locally at `73e0dd8` on `home/ownership-preservation`; development based on company `d8b1f2d` in sibling worktree. See HOME_STABILIZATION.md for every file decision. No duplicate ownership architecture ported. Removed unsupported 100% safety claims and invalid percent formatting; physical safety code unchanged. Correctness stabilization is now active; earlier completion/runtime claims are historical.
