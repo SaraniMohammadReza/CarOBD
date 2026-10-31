@@ -24,7 +24,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
 
     companion object {
         const val DATABASE_NAME = "car_obd_automotive.db"
-        const val DATABASE_VERSION = 7
+        const val DATABASE_VERSION = 8
 
         // Tables
         const val TABLE_GARAGE = "garage_vehicles"
@@ -139,6 +139,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         OwnedVehicleMigration.version5.forEach(db::execSQL)
         OwnedVehicleDetailsMigration.version6.forEach(db::execSQL)
         MaintenanceFoundationMigration.version7.forEach(db::execSQL)
+        OwnershipMaintenanceMigration.version8.forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -148,9 +149,11 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         if (oldVersion < 5 && newVersion >= 5) OwnedVehicleMigration.version5.forEach(db::execSQL)
         if (oldVersion < 6 && newVersion >= 6) OwnedVehicleDetailsMigration.version6.forEach(db::execSQL)
         if (oldVersion < 7 && newVersion >= 7) MaintenanceFoundationMigration.version7.forEach(db::execSQL)
+        if (oldVersion < 8 && newVersion >= 8) OwnershipMaintenanceMigration.version8.forEach(db::execSQL)
     }
 
     fun saveOwnedVehicle(vehicle: OwnedVehicle) {
+        check(!readableDatabase.rawQuery("SELECT 1 FROM owned_vehicles WHERE id=? AND archived=1", arrayOf(vehicle.id)).use { it.moveToFirst() }) { "Vehicle archived" }
         val normalized = vehicle.normalized()
         require(normalized.validationErrors().isEmpty()) { normalized.validationErrors().joinToString() }
         val values = ContentValues().apply {
@@ -171,7 +174,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
     }
 
     fun ownedVehicles(): List<OwnedVehicle> = buildList {
-        readableDatabase.query("owned_vehicles", null, null, null, null, null, "updated_at DESC").use { c ->
+        readableDatabase.query("owned_vehicles", null, "archived=0", null, null, null, "updated_at DESC").use { c ->
             while (c.moveToNext()) add(c.toOwnedVehicle())
         }
     }
@@ -181,7 +184,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
     ).use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else null }
 
     fun selectOwnedVehicle(id: String?): Boolean {
-        if (id != null && !readableDatabase.query("owned_vehicles", arrayOf("id"), "id=?", arrayOf(id), null, null, null).use { it.moveToFirst() }) return false
+        if (id != null && !readableDatabase.query("owned_vehicles", arrayOf("id"), "id=? AND archived=0", arrayOf(id), null, null, null).use { it.moveToFirst() }) return false
         val values = ContentValues().apply { put("singleton_id", 1); putNullable("vehicle_id", id) }
         return writableDatabase.insertWithOnConflict("owned_vehicle_selection", null, values, SQLiteDatabase.CONFLICT_REPLACE) != -1L
     }
@@ -190,7 +193,8 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         val db = writableDatabase
         db.beginTransaction()
         return try {
-            val deleted = db.delete("owned_vehicles", "id=?", arrayOf(id)) > 0
+            val deleted = db.update("owned_vehicles", ContentValues().apply { put("archived", 1) }, "id=? AND archived=0", arrayOf(id)) > 0
+            db.delete("maintenance_reminder_state", "vehicle_id=?", arrayOf(id))
             db.execSQL("UPDATE owned_vehicle_selection SET vehicle_id=NULL WHERE singleton_id=1 AND vehicle_id=?", arrayOf(id))
             db.setTransactionSuccessful()
             deleted
@@ -506,7 +510,18 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
     // -------------------------------------------------------------
 
     fun saveMaintenanceSchedule(schedule: MaintenanceSchedule) {
+        val oldUpdated = readableDatabase.rawQuery("SELECT updated_at FROM vehicle_maintenance_schedules WHERE id=?", arrayOf(schedule.id)).use { if(it.moveToFirst()) it.getLong(0) else -1L }
+        require(schedule.intervalKm?.let { it > 0 } != false)
+        require(schedule.intervalMonths?.let { it > 0 } != false)
+        require(schedule.lastServiceKm?.let { it >= 0 } != false)
+        check(ownedVehicles().any { it.id == schedule.vehicleId }) { "Vehicle unavailable" }
+        val previous = readableDatabase.rawQuery("SELECT baseline_km,baseline_date FROM vehicle_maintenance_schedules WHERE id=?", arrayOf(schedule.id)).use { c ->
+            if (c.moveToFirst()) (if(c.isNull(0)) null else c.getLong(0)) to (if(c.isNull(1)) null else c.getLong(1)) else null
+        }
+        val hasLinkedHistory = readableDatabase.rawQuery("SELECT 1 FROM vehicle_maintenance_records WHERE schedule_id=?", arrayOf(schedule.id)).use { it.moveToFirst() }
         val cv = ContentValues().apply {
+            put("baseline_km", if (hasLinkedHistory) previous?.first else schedule.lastServiceKm)
+            put("baseline_date", if (hasLinkedHistory) previous?.second else schedule.lastServiceDateMs)
             put("id", schedule.id)
             put("vehicle_id", schedule.vehicleId)
             put("item_key", schedule.itemKey)
@@ -522,9 +537,10 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
             put("provenance", schedule.provenance.name)
             put("is_custom", if (schedule.isCustom) 1 else 0)
             put("created_at", schedule.createdAtMs)
-            put("updated_at", schedule.updatedAtMs)
+            put("updated_at", maxOf(schedule.updatedAtMs, oldUpdated + 1))
         }
-        writableDatabase.insertWithOnConflict(TABLE_VEHICLE_MAINTENANCE_SCHEDULES, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        check(writableDatabase.insertWithOnConflict(TABLE_VEHICLE_MAINTENANCE_SCHEDULES, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L)
+        if (hasLinkedHistory) reconcileScheduleHistory(schedule.id)
     }
 
     fun getMaintenanceSchedulesForVehicle(
@@ -548,7 +564,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
 
             while (c.moveToNext()) {
                 val actionType = runCatching { MaintenanceActionType.valueOf(c.getString(c.getColumnIndexOrThrow("action_type"))) }.getOrDefault(MaintenanceActionType.REPLACE)
-                val prov = runCatching { MaintenanceIntervalProvenance.valueOf(c.getString(c.getColumnIndexOrThrow("provenance"))) }.getOrDefault(MaintenanceIntervalProvenance.OEM_RECOMMENDED)
+                val prov = runCatching { MaintenanceIntervalProvenance.valueOf(c.getString(c.getColumnIndexOrThrow("provenance"))) }.getOrDefault(MaintenanceIntervalProvenance.UNVERIFIED)
                 val intervalKm = c.nullInt("interval_km")
                 val intervalMonths = c.nullInt("interval_months")
                 val lastKm = c.nullLong("last_service_km")
@@ -590,11 +606,22 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
     }
 
     fun deleteMaintenanceSchedule(scheduleId: String): Boolean {
-        return writableDatabase.delete(TABLE_VEHICLE_MAINTENANCE_SCHEDULES, "id = ?", arrayOf(scheduleId)) > 0
+        val db = writableDatabase
+        db.beginTransaction()
+        return try {
+            db.execSQL("UPDATE vehicle_maintenance_records SET schedule_id=NULL WHERE schedule_id=?", arrayOf(scheduleId))
+            db.delete("maintenance_reminder_state", "schedule_id=?", arrayOf(scheduleId))
+            val deleted = db.delete(TABLE_VEHICLE_MAINTENANCE_SCHEDULES, "id = ?", arrayOf(scheduleId)) > 0
+            db.setTransactionSuccessful()
+            deleted
+        } finally { db.endTransaction() }
     }
 
     fun saveVehicleMaintenanceRecord(record: VehicleMaintenanceRecord) {
+        require(record.performedKm >= 0 && record.performedDateMs >= 0 && record.costTomans >= 0)
+        check(ownedVehicles().any { it.id == record.vehicleId }) { "Vehicle unavailable" }
         val cv = ContentValues().apply {
+            put("schedule_id", record.scheduleId)
             put("id", record.id)
             put("vehicle_id", record.vehicleId)
             put("item_key", record.itemKey)
@@ -609,7 +636,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
             put("provenance", record.provenance.name)
             put("created_at", record.createdAtMs)
         }
-        writableDatabase.insertWithOnConflict(TABLE_VEHICLE_MAINTENANCE_RECORDS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        check(writableDatabase.insertWithOnConflict(TABLE_VEHICLE_MAINTENANCE_RECORDS, null, cv, SQLiteDatabase.CONFLICT_REPLACE) != -1L)
     }
 
     fun getVehicleMaintenanceRecords(vehicleId: String): List<VehicleMaintenanceRecord> {
@@ -630,6 +657,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
                 val prov = runCatching { MaintenanceIntervalProvenance.valueOf(c.getString(c.getColumnIndexOrThrow("provenance"))) }.getOrDefault(MaintenanceIntervalProvenance.USER_CUSTOM)
                 list.add(
                     VehicleMaintenanceRecord(
+                        scheduleId = c.nullText("schedule_id"),
                         id = c.getString(c.getColumnIndexOrThrow("id")),
                         vehicleId = c.getString(c.getColumnIndexOrThrow("vehicle_id")),
                         itemKey = c.getString(c.getColumnIndexOrThrow("item_key")),
@@ -652,5 +680,30 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
 
     fun deleteVehicleMaintenanceRecord(recordId: String): Boolean {
         return writableDatabase.delete(TABLE_VEHICLE_MAINTENANCE_RECORDS, "id = ?", arrayOf(recordId)) > 0
+    }
+
+    /** Latest linked event is authoritative; manual/imported baseline is the fallback when none remain. */
+    fun reconcileScheduleHistory(scheduleId: String) {
+        val db = writableDatabase
+        val record = db.rawQuery("SELECT performed_km,performed_date FROM vehicle_maintenance_records WHERE schedule_id=? ORDER BY performed_date DESC,created_at DESC,id DESC LIMIT 1", arrayOf(scheduleId)).use { c ->
+            if(c.moveToFirst()) c.getLong(0) to c.getLong(1) else null
+        }
+        val baseline = db.rawQuery("SELECT baseline_km,baseline_date FROM vehicle_maintenance_schedules WHERE id=?", arrayOf(scheduleId)).use { c ->
+            if(!c.moveToFirst()) return
+            (if(c.isNull(0)) null else c.getLong(0)) to (if(c.isNull(1)) null else c.getLong(1))
+        }
+        val km = record?.first ?: baseline.first
+        val date = record?.second ?: baseline.second
+        db.execSQL("UPDATE vehicle_maintenance_schedules SET last_service_km=?,last_service_date=?,next_due_km=NULL,next_due_date=NULL,updated_at=MAX(updated_at+1,?) WHERE id=?", arrayOf(km,date,System.currentTimeMillis(),scheduleId))
+        db.delete("maintenance_reminder_state", "schedule_id=?", arrayOf(scheduleId))
+    }
+
+    fun reminderSnoozeUntil(vehicleId: String, scheduleId: String, basis: Long): Long? =
+        readableDatabase.rawQuery("SELECT snoozed_until FROM maintenance_reminder_state WHERE vehicle_id=? AND schedule_id=? AND basis_updated_at=?", arrayOf(vehicleId,scheduleId,basis.toString())).use { if(it.moveToFirst()) it.getLong(0) else null }
+
+    fun replaceReminderSnooze(vehicleId: String, scheduleId: String, basis: Long, until: Long) {
+        check(writableDatabase.insertWithOnConflict("maintenance_reminder_state", null, ContentValues().apply {
+            put("vehicle_id",vehicleId); put("schedule_id",scheduleId); put("basis_updated_at",basis); put("snoozed_until",until)
+        }, SQLiteDatabase.CONFLICT_REPLACE) != -1L)
     }
 }

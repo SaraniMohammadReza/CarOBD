@@ -179,3 +179,13 @@ Home draft preserved locally at `73e0dd8` on `home/ownership-preservation`; deve
 ## HOME-R2 — explicit catalog identity and fitment
 
 Owned-vehicle resolution now distinguishes UNKNOWN, ENGINE_REQUIRED, AMBIGUOUS and EXACT. Blank identity never discovers a default vehicle. Maintenance/Home/Parts consume only exact resolution; no legacy name-based fallback. Default schedules only take numeric intervals from safe field evidence; generic fields remain UNVERIFIED with null intervals. User schedule edits are USER_CUSTOM. Parts search intersects vehicle-compatible fitments. Targeted maintenance/parts JVM and core vehicle tests PASS (exit0); localization and diff checks run before publication. No runtime claim.
+
+## HOME-R3/R5 — durable reminders and transactional history
+
+SQLite v8 adds nullable record.schedule_id (old records never guessed), original manual baseline, persisted snooze bound to schedule revision, and owned-vehicle archive flag. Latest linked event by performed date drives schedule; editing/deleting it recomputes baseline, reverting to manual baseline only when all linked events are gone. Odometer is monotonic and is not rewound by historical corrections. Record completion writes history, baseline and odometer in one SQLite transaction; injected update failure rolls everything back.
+
+Normal reminder reconciliation respects persisted snooze across reload/recreation. Completion invalidates the old snooze and schedules every recalculated schedule, including future time warnings. Mileage-only OK schedules keep their persisted facts but have no invented wall-clock trigger; owner odometer edits reevaluate. WorkManager timing is best effort, not exact. Worker rereads current vehicle/schedule/snooze and closes its helper.
+
+Deletion policy: archive owner, clear selection, retain schedules/history under the original owner id, delete snooze metadata, cancel tagged work and visible schedule notifications. Archived vehicles cannot be selected or resurrected by stale edits; workers ignore them. Deleting a schedule unlinks retained history rather than guessing another association.
+
+Validation: targeted Reminder/Maintenance JVM PASS; Android API37 emulator actual SQLite/repository/migration/WorkManager tests 11/11 PASS, exit0. Final follow-up reran 5 stabilization Android tests plus targeted JVM, exit0. Localization 619 entries PASS; diff check PASS. No physical adapter/vehicle operation.

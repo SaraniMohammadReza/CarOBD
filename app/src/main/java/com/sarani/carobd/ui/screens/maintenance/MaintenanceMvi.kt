@@ -222,7 +222,7 @@ class MaintenanceViewModel(
 
         if (reminderScheduler != null) {
             for (s in schedules) {
-                if (s.dueState == DueState.DUE_SOON || s.dueState == DueState.DUE || s.dueState == DueState.OVERDUE) {
+                run {
                     val dueResult = MaintenanceDueEngine.calculateDueState(
                         currentKm = selected.currentOdometerKm,
                         currentDateMs = System.currentTimeMillis(),
@@ -231,7 +231,7 @@ class MaintenanceViewModel(
                         intervalKm = s.intervalKm,
                         intervalMonths = s.intervalMonths
                     )
-                    reminderScheduler.scheduleReminder(selected, s, dueResult)
+                    reminderScheduler?.scheduleReminder(selected, s, dueResult)
                 }
             }
         }
@@ -385,7 +385,7 @@ class MaintenanceViewModel(
                     }
 
                     setState { copy(recordServiceDialog = null) }
-                    loadDataForVehicle(uiState.value.vehicles, currentVehicle)
+                    loadDataForVehicle(ownedVehicleRepository.vehicles.value, ownedVehicleRepository.vehicles.value.find { it.id == currentVehicle?.id })
                 } else {
                     setState {
                         copy(recordServiceDialog = model.copy(errorMessage = result.exceptionOrNull()?.message ?: "Failed to record service"))
@@ -536,7 +536,9 @@ class MaintenanceViewModel(
                 }
                 val cost = model.costTomans.trim().toLongOrNull() ?: 0L
 
+                if (model.vehicleId != vehicle.id) return@launch
                 val updatedRecord = VehicleMaintenanceRecord(
+                    scheduleId = uiState.value.records.firstOrNull { it.id == model.recordId }?.scheduleId,
                     id = model.recordId,
                     vehicleId = model.vehicleId,
                     itemKey = model.itemKey,
@@ -558,7 +560,7 @@ class MaintenanceViewModel(
                         ownedVehicleRepository.save(vehicle.copy(currentOdometerKm = km))
                     }
                     setState { copy(editRecordDialog = null) }
-                    loadDataForVehicle(uiState.value.vehicles, vehicle)
+                    loadDataForVehicle(ownedVehicleRepository.vehicles.value, ownedVehicleRepository.vehicles.value.find { it.id == vehicle.id })
                 } else {
                     setState {
                         copy(editRecordDialog = model.copy(errorMessage = result.exceptionOrNull()?.message ?: "Failed to save record"))

@@ -457,7 +457,7 @@
     <string name="my_vehicle_add">Add vehicle</string>
     <string name="my_vehicle_edit">Edit vehicle</string>
     <string name="my_vehicle_delete_title">Delete vehicle?</string>
-    <string name="my_vehicle_delete_message">Delete %1$s? Existing diagnostic, trip, and service records will not be reassigned to another vehicle.</string>
+    <string name="my_vehicle_delete_message">Archive %1$s? It will be hidden and its reminders stopped. Service history is retained on this device.</string>
     <string name="my_vehicle_name">Vehicle name</string>
     <string name="my_vehicle_manufacturer">Manufacturer (optional)</string>
     <string name="my_vehicle_model">Model (optional)</string>

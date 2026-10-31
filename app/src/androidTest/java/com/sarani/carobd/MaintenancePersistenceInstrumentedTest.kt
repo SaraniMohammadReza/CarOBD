@@ -26,6 +26,8 @@ class MaintenancePersistenceInstrumentedTest {
         try {
             val helper = CarObdDatabaseHelper(context, dbName)
             val repo = SQLiteMaintenanceRepository(helper)
+            for (id in listOf("veh-1", "veh-2")) helper.saveOwnedVehicle(com.sarani.carobd.core.model.OwnedVehicle(id,id,createdAtMs=1L,updatedAtMs=1L))
+            val now = System.currentTimeMillis()
 
             val sched1 = MaintenanceSchedule(
                 id = "sched-oil-1",
@@ -37,7 +39,7 @@ class MaintenancePersistenceInstrumentedTest {
                 intervalKm = 10000,
                 intervalMonths = 6,
                 lastServiceKm = 100000L,
-                lastServiceDateMs = 1700000000000L,
+                lastServiceDateMs = now,
                 nextDueKm = 110000L,
                 nextDueDateMs = 1715000000000L,
                 provenance = MaintenanceIntervalProvenance.OEM_RECOMMENDED,
@@ -55,7 +57,7 @@ class MaintenancePersistenceInstrumentedTest {
                 intervalKm = 30000,
                 intervalMonths = 24,
                 lastServiceKm = 40000L,
-                lastServiceDateMs = 1680000000000L,
+                lastServiceDateMs = now,
                 nextDueKm = 70000L,
                 nextDueDateMs = 1740000000000L,
                 provenance = MaintenanceIntervalProvenance.OEM_RECOMMENDED,
@@ -84,7 +86,7 @@ class MaintenancePersistenceInstrumentedTest {
             val record = repo.recordCompletedService(
                 scheduleId = "sched-oil-1",
                 performedKm = 110000L,
-                performedDateMs = 1710000000000L,
+                performedDateMs = now,
                 costTomans = 850000L,
                 serviceCenter = "IKCO Central",
                 partsBrand = "Total 7000",

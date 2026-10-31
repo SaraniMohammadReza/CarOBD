@@ -39,12 +39,12 @@ class DiagnosticReportPersistenceInstrumentedTest {
         try {
             CarObdDatabaseHelper(context, name).use { helper ->
                 helper.writableDatabase.apply {
-                    for (table in listOf("diagnosis_raw_lines", "diagnosis_codes", "diagnosis_outcomes", "diagnosis_reports")) execSQL("DROP TABLE $table")
+                    for (table in listOf("maintenance_reminder_state", "vehicle_maintenance_records", "vehicle_maintenance_schedules", "owned_vehicle_selection", "owned_vehicles", "diagnosis_raw_lines", "diagnosis_codes", "diagnosis_outcomes", "diagnosis_reports")) execSQL("DROP TABLE $table")
                     version = 3
                 }
             }
             CarObdDatabaseHelper(context, name).use {
-                assertEquals(4, it.readableDatabase.version)
+                assertEquals(CarObdDatabaseHelper.DATABASE_VERSION, it.readableDatabase.version)
                 assertTrue(it.recentDiagnosticReports().isEmpty())
                 it.saveDiagnosticReport(report())
             }

@@ -130,7 +130,8 @@ data class VehicleMaintenanceRecord(
     val notes: String? = null,
     val receiptUri: String? = null,
     val provenance: MaintenanceIntervalProvenance = MaintenanceIntervalProvenance.USER_CUSTOM,
-    val createdAtMs: Long = System.currentTimeMillis()
+    val createdAtMs: Long = System.currentTimeMillis(),
+    val scheduleId: String? = null
 )
 
 data class DueCalculationResult(

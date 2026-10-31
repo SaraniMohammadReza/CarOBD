@@ -38,7 +38,7 @@ val appModule = module {
         com.sarani.carobd.data.repository.DataStoreConnectionProfileRepository(androidContext())
     }
     single { CarObdDatabaseHelper(androidContext()) }
-    single<OwnedVehicleRepository> { SQLiteOwnedVehicleRepository(get()) }
+    single<OwnedVehicleRepository> { SQLiteOwnedVehicleRepository(get(), reminders = get()) }
     single<com.sarani.carobd.core.vehicle.catalog.VehicleCatalogRepository> {
         com.sarani.carobd.core.vehicle.catalog.DefaultVehicleCatalogRepository()
     }

@@ -22,6 +22,7 @@ interface OwnedVehicleRepository {
 class SQLiteOwnedVehicleRepository(
     private val database: CarObdDatabaseHelper,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val reminders: com.sarani.carobd.domain.reminder.MaintenanceReminderScheduler? = null,
 ) : OwnedVehicleRepository {
     private val _vehicles = MutableStateFlow<List<OwnedVehicle>>(emptyList())
     override val vehicles: StateFlow<List<OwnedVehicle>> = _vehicles.asStateFlow()
@@ -36,6 +37,7 @@ class SQLiteOwnedVehicleRepository(
     override suspend fun save(vehicle: OwnedVehicle): Result<Unit> = runCatching {
         withContext(io) { database.saveOwnedVehicle(vehicle) }
         refresh()
+        reminders?.reevaluateAllRemindersForVehicle(vehicle)
     }
 
     override suspend fun select(id: String?): Boolean = withContext(io) { database.selectOwnedVehicle(id) }.also {
@@ -43,6 +45,6 @@ class SQLiteOwnedVehicleRepository(
     }
 
     override suspend fun delete(id: String): Boolean = withContext(io) { database.deleteOwnedVehicle(id) }.also {
-        if (it) refresh()
+        if (it) { reminders?.cancelAllVehicleReminders(id); refresh() }
     }
 }

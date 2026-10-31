@@ -11,6 +11,7 @@ import kotlinx.coroutines.withContext
 import java.util.UUID
 
 interface MaintenanceRepository {
+    val changes: kotlinx.coroutines.flow.Flow<Long> get() = kotlinx.coroutines.flow.flowOf(0L)
     suspend fun getSchedules(vehicleId: String, currentOdometerKm: Long? = null): List<MaintenanceSchedule>
     suspend fun saveSchedule(schedule: MaintenanceSchedule): Result<Unit>
     suspend fun deleteSchedule(scheduleId: String): Boolean
@@ -34,6 +35,14 @@ interface MaintenanceRepository {
 class SQLiteMaintenanceRepository(
     private val dbHelper: CarObdDatabaseHelper
 ) : MaintenanceRepository {
+    private val revision = kotlinx.coroutines.flow.MutableStateFlow(0L)
+    override val changes: kotlinx.coroutines.flow.Flow<Long> get() = revision
+    private fun changed() { revision.value += 1 }
+    private fun <T> transaction(block: () -> T): T {
+        val db = dbHelper.writableDatabase
+        db.beginTransaction()
+        return try { val value = block(); db.setTransactionSuccessful(); value } finally { db.endTransaction() }
+    }
 
     override suspend fun getSchedules(vehicleId: String, currentOdometerKm: Long?): List<MaintenanceSchedule> =
         withContext(Dispatchers.IO) {
@@ -42,12 +51,12 @@ class SQLiteMaintenanceRepository(
 
     override suspend fun saveSchedule(schedule: MaintenanceSchedule): Result<Unit> =
         withContext(Dispatchers.IO) {
-            runCatching { dbHelper.saveMaintenanceSchedule(schedule) }
+            runCatching { transaction { dbHelper.saveMaintenanceSchedule(schedule) }; changed() }
         }
 
     override suspend fun deleteSchedule(scheduleId: String): Boolean =
         withContext(Dispatchers.IO) {
-            dbHelper.deleteMaintenanceSchedule(scheduleId)
+            dbHelper.deleteMaintenanceSchedule(scheduleId).also { if(it) changed() }
         }
 
     override suspend fun getRecords(vehicleId: String): List<VehicleMaintenanceRecord> =
@@ -57,12 +66,30 @@ class SQLiteMaintenanceRepository(
 
     override suspend fun saveRecord(record: VehicleMaintenanceRecord): Result<Unit> =
         withContext(Dispatchers.IO) {
-            runCatching { dbHelper.saveVehicleMaintenanceRecord(record) }
+            runCatching {
+                transaction {
+                    val old = dbHelper.writableDatabase.rawQuery("SELECT vehicle_id,item_key,schedule_id FROM vehicle_maintenance_records WHERE id=?", arrayOf(record.id)).use { c ->
+                        if(c.moveToFirst()) Triple(c.getString(0),c.getString(1),if(c.isNull(2)) null else c.getString(2)) else null
+                    }
+                    if(old != null) require(old.first == record.vehicleId && old.second == record.itemKey && old.third == record.scheduleId) { "History identity is immutable" }
+                    record.scheduleId?.let { id ->
+                        check(dbHelper.getMaintenanceSchedulesForVehicle(record.vehicleId).any { it.id == id && it.itemKey == record.itemKey }) { "Schedule mismatch" }
+                    }
+                    dbHelper.saveVehicleMaintenanceRecord(record)
+                    record.scheduleId?.let(dbHelper::reconcileScheduleHistory)
+                }
+                changed()
+            }
         }
 
     override suspend fun deleteRecord(recordId: String): Boolean =
         withContext(Dispatchers.IO) {
-            dbHelper.deleteVehicleMaintenanceRecord(recordId)
+            transaction {
+                val scheduleId = dbHelper.writableDatabase.rawQuery("SELECT schedule_id FROM vehicle_maintenance_records WHERE id=?", arrayOf(recordId)).use { if(it.moveToFirst() && !it.isNull(0)) it.getString(0) else null }
+                dbHelper.deleteVehicleMaintenanceRecord(recordId).also { deleted ->
+                    if(deleted) { scheduleId?.let(dbHelper::reconcileScheduleHistory); changed() }
+                }
+            }
         }
 
     override suspend fun recordCompletedService(
@@ -76,6 +103,7 @@ class SQLiteMaintenanceRepository(
         notes: String?
     ): Result<VehicleMaintenanceRecord> = withContext(Dispatchers.IO) {
         runCatching {
+          val completed = transaction {
             val db = dbHelper.writableDatabase
             val cursor = db.query(
                 CarObdDatabaseHelper.TABLE_VEHICLE_MAINTENANCE_SCHEDULES,
@@ -99,6 +127,7 @@ class SQLiteMaintenanceRepository(
             val (intervalKm, intervalMonths) = intervals
 
             val record = VehicleMaintenanceRecord(
+                scheduleId = scheduleId,
                 id = UUID.randomUUID().toString(),
                 vehicleId = vehicleId,
                 itemKey = itemKey,
@@ -114,30 +143,17 @@ class SQLiteMaintenanceRepository(
             )
             dbHelper.saveVehicleMaintenanceRecord(record)
 
-            val nextDue = MaintenanceDueEngine.calculateDueState(
-                currentKm = performedKm,
-                currentDateMs = performedDateMs,
-                lastKm = performedKm,
-                lastDateMs = performedDateMs,
-                intervalKm = intervalKm,
-                intervalMonths = intervalMonths
-            )
-
-            val updateCv = ContentValues().apply {
-                put("last_service_km", performedKm)
-                put("last_service_date", performedDateMs)
-                put("next_due_km", nextDue.nextDueKm)
-                put("next_due_date", nextDue.nextDueDateMs)
+            dbHelper.reconcileScheduleHistory(scheduleId)
+            check(db.update("owned_vehicles", ContentValues().apply {
+                val previous = dbHelper.ownedVehicles().first { it.id == vehicleId }
+                put("current_odometer_km", maxOf(previous.currentOdometerKm ?: performedKm, performedKm))
                 put("updated_at", System.currentTimeMillis())
-            }
-            db.update(
-                CarObdDatabaseHelper.TABLE_VEHICLE_MAINTENANCE_SCHEDULES,
-                updateCv,
-                "id = ?",
-                arrayOf(scheduleId)
-            )
+            }, "id=? AND archived=0", arrayOf(vehicleId)) == 1)
 
             record
+          }
+          changed()
+          completed
         }
     }
 }

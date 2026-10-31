@@ -35,7 +35,7 @@ class MaintenanceReminderWorker(
         val vehicleId = inputData.getString(KEY_VEHICLE_ID) ?: return Result.success()
         val scheduleId = inputData.getString(KEY_SCHEDULE_ID) ?: return Result.success()
 
-        val dbHelper = CarObdDatabaseHelper(applicationContext)
+        return CarObdDatabaseHelper(applicationContext).use { dbHelper ->
 
         val vehicle = dbHelper.ownedVehicles().firstOrNull { it.id == vehicleId }
             ?: return Result.success() // Vehicle deleted, discard obsolete work
@@ -46,6 +46,8 @@ class MaintenanceReminderWorker(
         )
         val schedule = schedules.firstOrNull { it.id == scheduleId }
             ?: return Result.success() // Schedule deleted, discard obsolete work
+
+        if ((dbHelper.reminderSnoozeUntil(vehicleId, scheduleId, schedule.updatedAtMs) ?: 0L) > System.currentTimeMillis()) return Result.success()
 
         // Recalculate truthful due state at the moment of execution
         val dueResult = MaintenanceDueEngine.calculateDueState(
@@ -73,7 +75,8 @@ class MaintenanceReminderWorker(
         }
 
         postNotification(applicationContext, scheduleId, content)
-        return Result.success()
+        Result.success()
+        }
     }
 
     private fun areNotificationsAllowed(context: Context): Boolean {
