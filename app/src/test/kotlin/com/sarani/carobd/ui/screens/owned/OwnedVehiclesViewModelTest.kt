@@ -54,6 +54,35 @@ class OwnedVehiclesViewModelTest {
             assertTrue(repo.vehicles.value.isEmpty()); assertNull(repo.activeVehicleId.value)
     }
 
+    @Test fun catalogMatchAppliesVerifiedSpecificationsToDraft() = runWithMain {
+            val repo = FakeOwnedVehicles()
+            val vm = OwnedVehiclesViewModel(repo)
+            backgroundScope.launch { vm.state.collect {} }
+            advanceUntilIdle()
+            vm.add()
+            val matches = vm.findCatalogMatches("ایران خودرو", "206", "2015", "TU5")
+            assertEquals(1, matches.size)
+            val match = matches.first()
+            assertEquals("var_206_type5", match.variant.id)
+            vm.update(OwnedVehicleDraft(displayName = "Family 206"))
+            vm.applyCatalogSelection(match)
+            advanceUntilIdle()
+            val draft = vm.state.value.editor!!
+            assertEquals("Iran Khodro", draft.manufacturer)
+            assertEquals("Peugeot 206", draft.model)
+            assertEquals("Type 5", draft.variant)
+            assertEquals("TU5 JP4", draft.engine)
+            assertEquals("50.0", draft.tankCapacity)
+            vm.save()
+            advanceUntilIdle()
+            val saved = repo.vehicles.value.single()
+            assertEquals("Family 206", saved.displayName)
+            assertEquals("Iran Khodro", saved.manufacturer)
+            assertEquals("Peugeot 206", saved.model)
+            assertEquals("TU5 JP4", saved.engine)
+            assertEquals(50.0, saved.tankCapacityLiters!!, 0.0)
+    }
+
     private fun vehicle(id: String) = OwnedVehicle(id, id, createdAtMs = 1, updatedAtMs = 1)
 }
 

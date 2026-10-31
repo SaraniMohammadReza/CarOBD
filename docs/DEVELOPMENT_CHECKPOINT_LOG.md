@@ -32,3 +32,19 @@
 - Android runtime status: `NOT_VERIFIABLE_ON_BLUESTACKS`. The local Pie64 API 28 instance accepted app and test APK installation but became offline before instrumentation. Gradle connected testing was additionally unable to resolve the UTP additional-test-output artifact. This is infrastructure evidence, not a product failure or pass.
 - No Bluetooth, BLE, USB, Wi-Fi adapter or vehicle validation was performed.
 - Next: execute the compiled persistence/UI instrumentation on a stable supported emulator before treating Android runtime behavior as verified; then begin provenance-aware vehicle catalog/fitment foundation.
+
+# 2026-10-31 — Checkpoint D: provenance-aware normalized vehicle catalog foundation
+
+- Local timestamp: 2026-10-31 10:20 Asia/Tehran.
+- Goal: Establish normalized, expandable, provenance-aware vehicle catalog foundation (makes, models, generations, engine families, transmissions, variants, specifications) without hardcoding or unverified guesses.
+- BlueStacks / Android runtime investigation: Reconnected BlueStacks at 127.0.0.1:5555 (Pie64 API 28, x86_64). Installed debug and test APKs. Execution of `am instrument` triggered a native crash in BlueStacks HD-Player.exe (exception code 0xc0000409 in ucrtbase.dll). Corroborates previous status `NOT_VERIFIABLE_ON_BLUESTACKS`.
+- Implementation:
+  - Canonical entities in `core:model`: `VehicleMake`, `VehicleModel`, `VehicleGeneration`, `EngineVariant`, `TransmissionVariant`, `VehicleSpecification`, `VehicleVariant`, `ResolvedVehicleMatch`, `VehicleMarket`, `FuelType`, `AspirationType`, `TransmissionType`, `DriveLayout`. Retains `ConfidenceLevel.VERIFIED_OEM` and `DataSourceReference`.
+  - In `core:vehicle`: `VehicleCatalogRepository` interface and `DefaultVehicleCatalogRepository` implementing structured lookup, English/Persian alias search, and fuzzy variant resolution with strict model year production bounds and engine family differentiation (e.g. 206 TU3 != 206 TU5; Dena EF7 NA != Dena+ EF7 TC).
+  - Wired into `AppModule` DI and integrated with `OwnedVehiclesViewModel` via `findCatalogMatches` and `applyCatalogSelection` so owners can autofill verified specifications into their vehicle drafts without mandatory constraints.
+- Regressions & Tests:
+  - 6 new tests in `VehicleCatalogRepositoryTest`: make/model lookup, Persian/English alias search, engine differentiation, production year boundary gating, and provenance preservation.
+  - 1 new ViewModel regression in `OwnedVehiclesViewModelTest`: catalog match autofill of verified specifications into draft.
+  - Total full suite across all 6 modules: 477 JVM tests (app 152, core:adapter 115, core:model 59, core:protocol 125, core:telemetry 19, core:vehicle 7), 0 failures, 0 errors, 0 skipped.
+  - Lint: 0 errors, 99 warnings. Duplicate class check: passed. Both APK assemblies: passed.
+- Next: Maintenance Center data model, per-vehicle service schedules, and provenance-backed intervals.

@@ -34,7 +34,10 @@ data class OwnedVehiclesState(
     val error: OwnedVehicleEditorError? = null,
 )
 
-class OwnedVehiclesViewModel(private val repository: OwnedVehicleRepository) : ViewModel() {
+class OwnedVehiclesViewModel(
+    private val repository: OwnedVehicleRepository,
+    private val catalog: com.sarani.carobd.core.vehicle.catalog.VehicleCatalogRepository = com.sarani.carobd.core.vehicle.catalog.DefaultVehicleCatalogRepository()
+) : ViewModel() {
     private val editor = kotlinx.coroutines.flow.MutableStateFlow<OwnedVehicleDraft?>(null)
     private val deleting = kotlinx.coroutines.flow.MutableStateFlow<OwnedVehicle?>(null)
     private val error = kotlinx.coroutines.flow.MutableStateFlow<OwnedVehicleEditorError?>(null)
@@ -51,6 +54,31 @@ class OwnedVehiclesViewModel(private val repository: OwnedVehicleRepository) : V
     fun requestDelete(vehicle: OwnedVehicle) { deleting.value = vehicle }
     fun cancelDelete() { deleting.value = null }
     fun confirmDelete() { val id = deleting.value?.id ?: return; viewModelScope.launch { repository.delete(id); deleting.value = null } }
+
+    fun findCatalogMatches(make: String, model: String, year: String? = null, engine: String? = null): List<com.sarani.carobd.core.model.ResolvedVehicleMatch> {
+        if (make.isBlank() || model.isBlank()) return emptyList()
+        val parsedYear = year?.takeIf { it.isNotBlank() }?.let { VehicleSetupNumbers.modelYear(it) }
+        return catalog.findMatchingVariants(make, model, parsedYear, engine)
+    }
+
+    fun applyCatalogSelection(match: com.sarani.carobd.core.model.ResolvedVehicleMatch) {
+        val current = editor.value ?: return
+        val tankCap = match.variant.specifications?.fuelTankCapacityLiters?.let {
+            if (current.tankCapacity.isBlank()) it.toString() else current.tankCapacity
+        } ?: current.tankCapacity
+        editor.value = current.copy(
+            manufacturer = match.make.name,
+            model = match.model.name,
+            generation = match.generation.name,
+            variant = match.variant.trim,
+            engine = match.engine.code,
+            engineCode = match.engine.code,
+            transmission = match.transmission?.type?.name ?: current.transmission,
+            fuelType = match.engine.fuelType.name,
+            market = match.generation.market.name,
+            tankCapacity = tankCap
+        )
+    }
 
     fun save() {
         val d = editor.value ?: return

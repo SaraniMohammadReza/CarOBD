@@ -39,6 +39,9 @@ val appModule = module {
     }
     single { CarObdDatabaseHelper(androidContext()) }
     single<OwnedVehicleRepository> { SQLiteOwnedVehicleRepository(get()) }
+    single<com.sarani.carobd.core.vehicle.catalog.VehicleCatalogRepository> {
+        com.sarani.carobd.core.vehicle.catalog.DefaultVehicleCatalogRepository()
+    }
     single { BluetoothDeviceScanner(androidContext()) }
     single { TripLogger() }
     single { AppPreferencesManager(androidContext()) }
@@ -76,6 +79,6 @@ val appModule = module {
     viewModel { TerminalViewModel(get()) }
     viewModel { SimulatorSelectorViewModel(get(), get()) }
     viewModel { MaintenanceViewModel(get(), get()) }
-    viewModel { OwnedVehiclesViewModel(get()) }
+    viewModel { OwnedVehiclesViewModel(get(), get()) }
     viewModel { TripViewModel(get(), get(), get()) }
 }
