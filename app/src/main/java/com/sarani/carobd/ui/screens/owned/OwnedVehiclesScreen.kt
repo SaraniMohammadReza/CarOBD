@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Engineering
@@ -22,7 +23,11 @@ import com.sarani.carobd.R
 import com.sarani.carobd.core.model.OwnedVehicle
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun OwnedVehiclesScreen(viewModel: OwnedVehiclesViewModel, onNavigateToMaintenance: () -> Unit = {}) {
+@Composable fun OwnedVehiclesScreen(
+    viewModel: OwnedVehiclesViewModel,
+    onNavigateToMaintenance: () -> Unit = {},
+    onNavigateToParts: () -> Unit = {}
+) {
     val state by viewModel.state.collectAsState()
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.my_vehicle_title)) }) },
         floatingActionButton = { FloatingActionButton(modifier = Modifier.testTag("owned_vehicle_add"), onClick = viewModel::add) { Icon(Icons.Default.Add, null) } }) { padding ->
@@ -31,7 +36,8 @@ import com.sarani.carobd.core.model.OwnedVehicle
         } else LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.vehicles, key = { it.id }) { vehicle -> VehicleRow(vehicle, vehicle.id == state.selectedId,
                 { viewModel.select(vehicle.id) }, { viewModel.edit(vehicle) }, { viewModel.requestDelete(vehicle) },
-                { viewModel.select(vehicle.id); onNavigateToMaintenance() }) }
+                { viewModel.select(vehicle.id); onNavigateToMaintenance() },
+                { viewModel.select(vehicle.id); onNavigateToParts() }) }
         }
     }
     state.editor?.let { VehicleEditorDialog(it, state.error, viewModel::update, viewModel::save, viewModel::cancelEdit) }
@@ -42,7 +48,15 @@ import com.sarani.carobd.core.model.OwnedVehicle
         dismissButton = { TextButton(onClick = viewModel::cancelDelete) { Text(stringResource(R.string.ui_cancel)) } }) }
 }
 
-@Composable private fun VehicleRow(v: OwnedVehicle, selected: Boolean, onSelect: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onMaintenance: () -> Unit = {}) {
+@Composable private fun VehicleRow(
+    v: OwnedVehicle,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onMaintenance: () -> Unit = {},
+    onParts: () -> Unit = {}
+) {
     ElevatedCard(Modifier.fillMaxWidth().testTag("owned_vehicle_${v.id}").clickable(onClick = onSelect)) {
         Column(Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -56,8 +70,9 @@ import com.sarani.carobd.core.model.OwnedVehicle
                 }
                 if (selected) AssistChip(onClick = {}, label = { Text(stringResource(R.string.my_vehicle_selected)) })
             }
-            Row {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onMaintenance) { Icon(Icons.Default.Engineering, null); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.nav_maintenance)) }
+                TextButton(onClick = onParts) { Icon(Icons.Default.Category, null); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.nav_parts)) }
                 TextButton(onClick = onEdit) { Icon(Icons.Default.Edit, null); Text(stringResource(R.string.ui_edit)) }
                 TextButton(onClick = onDelete) { Icon(Icons.Default.Delete, null); Text(stringResource(R.string.ui_delete)) }
             }

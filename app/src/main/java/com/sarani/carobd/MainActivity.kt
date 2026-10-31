@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.Navigation
@@ -84,6 +85,7 @@ sealed class AppDestination(val route: String, val titleRes: Int, val icon: Imag
     data object MyVehicle : AppDestination("my_vehicle", R.string.nav_my_vehicle, Icons.Default.DirectionsCar)
     data object Diagnostics : AppDestination("diagnostics", R.string.nav_diagnostics, Icons.Default.Build)
     data object Maintenance : AppDestination("maintenance", R.string.nav_maintenance, Icons.Default.Engineering)
+    data object Parts : AppDestination("parts", R.string.nav_parts, Icons.Default.Category)
     data object Trip : AppDestination("trip", R.string.nav_trip, Icons.Default.Navigation)
     data object EcuProfiles : AppDestination("ecu_profiles", R.string.nav_ecu_profiles, Icons.Default.DirectionsCar)
     data object Settings : AppDestination("settings", R.string.nav_settings, Icons.Default.Settings)
@@ -132,6 +134,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
         AppDestination.MyVehicle,
         AppDestination.Diagnostics,
         AppDestination.Maintenance,
+        AppDestination.Parts,
         AppDestination.Trip,
         AppDestination.EcuProfiles,
         AppDestination.Settings,
@@ -236,7 +239,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
             }
             composable(AppDestination.MyVehicle.route) {
                 val vm: OwnedVehiclesViewModel = koinViewModel()
-                OwnedVehiclesScreen(vm, onNavigateToMaintenance = { navController.navigate(AppDestination.Maintenance.route) })
+                OwnedVehiclesScreen(vm, onNavigateToMaintenance = { navController.navigate(AppDestination.Maintenance.route) }, onNavigateToParts = { navController.navigate(AppDestination.Parts.route) })
             }
             composable(AppDestination.Diagnostics.route) {
                 val vm: DiagnosticsViewModel = koinViewModel()
@@ -253,6 +256,13 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
             composable(AppDestination.Maintenance.route) {
                 val vm: MaintenanceViewModel = koinViewModel()
                 MaintenanceScreen(viewModel = vm)
+            }
+            composable(AppDestination.Parts.route) {
+                val vm: com.sarani.carobd.ui.screens.parts.PartsCenterViewModel = koinViewModel()
+                com.sarani.carobd.ui.screens.parts.PartsCenterScreen(
+                    viewModel = vm,
+                    onNavigateToMyVehicle = { navController.navigate(AppDestination.MyVehicle.route) }
+                )
             }
             composable(AppDestination.Trip.route) {
                 val vm: TripViewModel = koinViewModel()
@@ -290,3 +300,5 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
         }
     }
 }
+
+

@@ -42,6 +42,9 @@ val appModule = module {
     single<com.sarani.carobd.core.vehicle.catalog.VehicleCatalogRepository> {
         com.sarani.carobd.core.vehicle.catalog.DefaultVehicleCatalogRepository()
     }
+    single<com.sarani.carobd.core.vehicle.parts.PartsRepository> {
+        com.sarani.carobd.core.vehicle.parts.DefaultPartsRepository()
+    }
     single<com.sarani.carobd.data.repository.MaintenanceRepository> {
         com.sarani.carobd.data.repository.SQLiteMaintenanceRepository(get())
     }
@@ -85,6 +88,8 @@ val appModule = module {
     viewModel { TerminalViewModel(get()) }
     viewModel { SimulatorSelectorViewModel(get(), get()) }
     viewModel { MaintenanceViewModel(get(), get(), get(), get()) }
+    viewModel { com.sarani.carobd.ui.screens.parts.PartsCenterViewModel(get(), get(), get()) }
     viewModel { OwnedVehiclesViewModel(get(), get()) }
     viewModel { TripViewModel(get(), get(), get()) }
 }
+

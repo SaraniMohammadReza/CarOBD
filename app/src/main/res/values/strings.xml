@@ -529,4 +529,27 @@
     <string name="maintenance_export_title">Service History Export</string>
     <string name="maintenance_export_copy">Copy to Clipboard</string>
     <string name="maintenance_export_copied">Service history copied to clipboard</string>
+
+    <!-- Parts Center -->
+    <string name="nav_parts">Parts</string>
+    <string name="parts_center_title">Parts &amp; Consumables</string>
+    <string name="parts_no_active_vehicle">No active vehicle selected. Select a vehicle to view compatible parts.</string>
+    <string name="parts_search_hint">Search part name, OEM number, brand…</string>
+    <string name="parts_all_categories">All</string>
+    <string name="parts_safety_critical">Safety Critical</string>
+    <string name="parts_oem_verified">Verified OEM</string>
+    <string name="parts_community_confirmed">Community Verified</string>
+    <string name="parts_oem_part_number">OEM Part #</string>
+    <string name="parts_alt_oem_numbers">Alternative OEM #s</string>
+    <string name="parts_aftermarket_brands">Compatible Brands</string>
+    <string name="parts_specifications">Specifications</string>
+    <string name="parts_fitment_notes">Fitment Notes</string>
+    <string name="parts_generic_illustration_notice">Generic technical illustration — verify exact part numbers on vehicle before purchase.</string>
+    <string name="parts_copied_clipboard">Copied to clipboard: %1$s</string>
+    <string name="parts_no_compatible_found">No compatible parts recorded for this category and vehicle configuration.</string>
+
+    <!-- User Guide -->
+    <string name="nav_user_guide">User Guide</string>
+    <string name="guide_title">Automotive Guide &amp; Knowledge</string>
+    <string name="guide_search_hint">Search guide topics…</string>
 </resources>

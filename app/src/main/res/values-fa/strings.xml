@@ -529,4 +529,27 @@
     <string name="maintenance_export_title">خروجی سوابق سرویس</string>
     <string name="maintenance_export_copy">کپی در حافظه</string>
     <string name="maintenance_export_copied">سوابق سرویس در حافظه کپی شد</string>
+
+    <!-- Parts Center -->
+    <string name="nav_parts">قطعات</string>
+    <string name="parts_center_title">قطعات یدکی و مصرفی‌ها</string>
+    <string name="parts_no_active_vehicle">خودرویی انتخاب نشده است. برای مشاهده قطعات سازگار، ابتدا خودرو را در «خودروی من» مشخص کنید.</string>
+    <string name="parts_search_hint">جستجوی نام قطعه، پارت‌نامبر OEM یا برند…</string>
+    <string name="parts_all_categories">همه</string>
+    <string name="parts_safety_critical">ایمنی حساس</string>
+    <string name="parts_oem_verified">تأییدیه کارخانه (OEM)</string>
+    <string name="parts_community_confirmed">تأیید تجربی و مراجع فنی</string>
+    <string name="parts_oem_part_number">پارت‌نامبر OEM:</string>
+    <string name="parts_alt_oem_numbers">پارت‌نامبرهای معادل:</string>
+    <string name="parts_aftermarket_brands">برندهای سازگار بازار:</string>
+    <string name="parts_specifications">مشخصات فنی</string>
+    <string name="parts_fitment_notes">نکات و الزامات سازگاری</string>
+    <string name="parts_generic_illustration_notice">تصویر شماتیک فنی — قبل از خرید شماره فنی را حتماً با قطعه خودرو تطبیق دهید.</string>
+    <string name="parts_copied_clipboard">در حافظه کپی شد: %1$s</string>
+    <string name="parts_no_compatible_found">قطعه سازگاری برای این دسته‌بندی و مشخصات فنی خودرو ثبت نشده است.</string>
+
+    <!-- User Guide -->
+    <string name="nav_user_guide">راهنما</string>
+    <string name="guide_title">راهنما و دانشنامه فنی خودرو</string>
+    <string name="guide_search_hint">جستجو در سرفصل‌های راهنما…</string>
 </resources>

@@ -248,3 +248,46 @@
   - Total full suite across all 6 modules: 508 JVM tests (app 174, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
   - Lint: 0 errors. Both APK assemblies: passed.
 - Next: Complete master prompt priorities and final continuation verification.
+
+# 2026-10-31 — Checkpoint M: parts and fitment domain foundation, verified catalog, and Parts Center UI
+
+- Local timestamp: 2026-10-31 12:35 Asia/Tehran.
+- Goal: Establish parts and fitment domain foundation, curate initial verified parts catalog, build bilingual Parts & Consumables Center UI, and resolve runtime verification status.
+- Workstation Runtime Target Investigation:
+  - Inspected Android SDK tooling and system images. Local directory \AppData\Local\Android\Sdk\system-images\android-34\google_apis\x86_64\ contains only an aborted 192-byte \.installData\ file from previously aborted attempts.
+  - \emulator -list-avds\ returns 0 AVDs; \.android\avd\ directory is empty.
+  - Corporate workstation network policy terminates multi-gigabyte system-image downloads with host connection abort (\An established connection was aborted by the software in your host machine\).
+  - Per explicit instructions, documented honest status as **BLOCKED_BY_WORKSTATION**; stopped retrying large downloads to prevent session burn.
+- Implementation:
+  - Canonical entities in \core:model\ (\PartsModels.kt\):
+    - \PartCategory\ enum: \ENGINE_OIL\, \OIL_FILTER\, \AIR_FILTER\, \CABIN_FILTER\, \FUEL_FILTER\, \SPARK_PLUG\, \TIMING_BELT\, \BRAKE_PADS\, \BATTERY\, \COOLANT\, \TRANSMISSION_FLUID\, \ACCESSORY_BELT\, \WIPER_BLADES\.
+    - \PartDefinition\: id, category, canonicalNameEn, canonicalNameFa, descriptionEn, descriptionFa, isSafetyCritical, iconKey.
+    - \OemPartNumber\: partNumber, manufacturer, isDirectOem, source, notes.
+    - \AftermarketPartReference\: brand, partNumber, series, barcode, notes, source.
+    - \PartSpecification\: key, labelEn, labelFa, value, unit, confidence, source.
+    - \VehicleFitment\: id, partDefinitionId, vehicleMakeId, vehicleModelId, vehicleGenerationId, engineId, engineCode, engineFamily, minYear, maxYear, notesEn, notesFa, confidence, source, oemNumbers, aftermarketReferences, specifications.
+    - \CompatiblePartItem\: aggregation with \isSafetyCritical\, \isOemVerified\, \primaryOemNumber\.
+  - Repository in \core:vehicle\ (\PartsRepository.kt\ and \DefaultPartsRepository.kt\):
+    - Strict fitment matching with engine mismatch rejection (never guess across engine variants).
+    - Model year boundary enforcement.
+    - Truthful confidence preservation (VERIFIED_OEM preserved for Renault MR388 Tondar 90 parts; COMMUNITY_CONFIRMED for IKCO/Saipa parts).
+    - Initial verified parts dataset:
+      - Renault Tondar 90 (K4M 16V): OEM spark plugs \77 00 500 168\ (0.9mm gap), oil filter \77 00 274 177\, air filter \82 00 431 051\, timing belt \13 0C 175 29R\ (132 teeth), front brake pads \41 06 021 92R\.
+      - Peugeot 206 (TU5 16V): OEM spark plugs \5960 F3\ (0.9mm gap), timing belt \ 816 G4\ (134 teeth), oil filter \1109 AL\.
+      - Peugeot 206 (TU3 8V): Spark plugs \5962 5c\ (0.8mm gap), timing belt \ 816 71\ (104/108 teeth, strictly separated from TU5).
+      - IKCO Dena / Samand (EF7 NA): Spark plugs \K6RTC\ / \FR8DC+\, timing belt (127 teeth), oil filter.
+      - Saipa Quik / Saina (M15): Spark plugs \BPR6ES\, timing belt \410493\ (107 teeth), oil filter.
+  - UI in \pp\ (\PartsCenterMvi.kt\ and \PartsCenterScreen.kt\):
+    - Bilingual English + Persian RTL.
+    - Active vehicle header card showing displayName, trim, year, engine code, and formatted odometer.
+    - Prominent technical disclaimer banner: *Generic technical illustration — verify exact part numbers on vehicle before purchase* / *????? ?????? ??? — ??? ?? ???? ????? ??? ?? ????? ?? ???? ????? ????? ????*.
+    - Search bar across part names, OEM numbers, and aftermarket brands.
+    - Category filter chips with 24x24 automotive vector assets.
+    - Compatible part cards showcasing safety-critical badge, confidence badge, primary OEM number with copy-to-clipboard button, alternative OEM numbers, aftermarket brand pills, technical specifications, and safety/fitment warnings.
+    - Connected navigation route \AppDestination.Parts\ in \MainActivity.kt\, added "Parts" action button to \OwnedVehiclesScreen.kt\, and registered in \AppModule.kt\.
+- Regressions & Tests:
+  - 7 new unit tests in \PartsRepositoryTest.kt\: distinct categories, verified OEM specs, engine mismatch rejection (TU3 vs TU5 belt/plug separation), unknown engine safety rejection, model year boundary checks, confidence preservation, and number/brand search.
+  - 5 new unit tests in \PartsCenterViewModelTest.kt\: initial state loading, category filtering, search across OEM/aftermarket parts, empty vehicle handling, clipboard copy effect/toast.
+  - Total full suite across all 6 modules: **520 JVM tests** (app 179, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 20), **0 failures, 0 errors, 0 skipped**.
+  - Lint: **0 errors**. Duplicate class check: **passed**.
+  - Both APK assemblies: \ssembleDebug\ and \ssembleDebugAndroidTest\ **passed**.
