@@ -209,6 +209,10 @@ fun HomeScreen(
                         maintSubtitle = stringResource(R.string.status_due_soon_badge, state.dueSoonCount)
                         maintBadgeText = stringResource(R.string.status_due_soon_badge, state.dueSoonCount)
                         maintBadgeType = StatusChipType.WARNING
+                    } else if (state.unknownSchedulesCount > 0) {
+                        maintSubtitle = stringResource(R.string.home_maintenance_unknown)
+                        maintBadgeText = stringResource(R.string.s5_unknown)
+                        maintBadgeType = StatusChipType.NEUTRAL
                     } else if (state.nextServiceTitle != null && state.nextServiceRemainingKm != null) {
                         maintSubtitle = stringResource(
                             R.string.home_maintenance_next_service,
@@ -235,7 +239,9 @@ fun HomeScreen(
 
                 // Card C: Parts & Consumables
                 item {
-                    val partsSubtitle = if (state.compatiblePartsCount > 0) {
+                    val partsSubtitle = if (!state.partsContextKnown) {
+                        stringResource(R.string.vehicle_engine_selection_required)
+                    } else if (state.compatiblePartsCount > 0) {
                         stringResource(R.string.home_parts_subtitle, state.compatiblePartsCount)
                     } else {
                         stringResource(R.string.home_parts_empty_subtitle)
@@ -244,7 +250,7 @@ fun HomeScreen(
                     val (partsBadge, partsBadgeType) = when (state.partsConfidence) {
                         ConfidenceLevel.VERIFIED_OEM -> stringResource(R.string.parts_oem_verified) to StatusChipType.SUCCESS
                         ConfidenceLevel.COMMUNITY_CONFIRMED -> stringResource(R.string.parts_community_confirmed) to StatusChipType.INFO
-                        else -> stringResource(R.string.status_parts_badge, state.compatiblePartsCount) to StatusChipType.NEUTRAL
+                        else -> (if(state.partsContextKnown) stringResource(R.string.status_parts_badge, state.compatiblePartsCount) else stringResource(R.string.s5_unknown)) to StatusChipType.NEUTRAL
                     }
 
                     PrimaryFeatureCard(

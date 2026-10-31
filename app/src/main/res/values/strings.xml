@@ -634,4 +634,7 @@
     <string name="vehicle_exact_match_required">Select a known engine and variant in My Vehicle before using catalog recommendations. You can still create a custom schedule.</string>
     <string name="onboarding_add_owned_vehicle">Add an owned vehicle (optional)</string>
     <string name="onboarding_back">Back</string>
+    <string name="vehicle_engine_selection_required">Select a known engine and variant to establish parts compatibility.</string>
+    <string name="home_maintenance_unknown">Service status needs recorded mileage or service-date history.</string>
+    <string name="ownership_odometer_unknown">Odometer: —</string>
 </resources>

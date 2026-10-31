@@ -353,6 +353,7 @@ class HomeViewModelTest {
             val vm=HomeViewModel(owners,FakeMaintenanceRepository(mutableListOf(schedule)),DefaultPartsRepository(),DefaultVehicleCatalogRepository(),FakeObdRepository())
             advanceUntilIdle()
             assertEquals(vehicle,vm.uiState.value.activeVehicle)
+            assertEquals(1,vm.uiState.value.unknownSchedulesCount)
             assertEquals(odo,vm.uiState.value.activeVehicle!!.currentOdometerKm)
             if(odo==null) assertNull(vm.uiState.value.nextServiceRemainingKm)
             else assertEquals(90_000L-odo,vm.uiState.value.nextServiceRemainingKm)

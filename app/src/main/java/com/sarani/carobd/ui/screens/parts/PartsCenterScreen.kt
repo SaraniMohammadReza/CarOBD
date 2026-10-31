@@ -197,7 +197,7 @@ fun PartsCenterScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = stringResource(R.string.parts_no_compatible_found),
+                            text = stringResource(if (state.resolvedMatch == null) R.string.vehicle_engine_selection_required else R.string.parts_no_compatible_found),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

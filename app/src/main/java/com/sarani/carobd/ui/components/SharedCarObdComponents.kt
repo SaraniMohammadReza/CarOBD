@@ -165,11 +165,12 @@ fun VehicleContextHeader(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        val unknownOdometer = stringResource(R.string.ownership_odometer_unknown)
                         val summary = buildList {
                             if ((vehicle.year ?: 0) > 0) add(vehicle.year.toString())
                             if (!vehicle.engineCode.isNullOrBlank()) add(vehicle.engineCode)
                             val odo = vehicle.currentOdometerKm
-                            if (odo != null && odo > 0) add("%,d km".format(odo))
+                            add(if (odo == null) unknownOdometer else "%,d km".format(odo))
                         }.joinToString(" • ")
 
                         if (summary.isNotBlank()) {

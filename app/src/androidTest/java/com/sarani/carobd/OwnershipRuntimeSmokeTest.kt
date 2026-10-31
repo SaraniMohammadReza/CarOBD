@@ -80,7 +80,7 @@ class OwnershipRuntimeSmokeTest {
         field(R.string.my_vehicle_name,"QA 206 unknown")
         field(R.string.my_vehicle_manufacturer,"IKCO");field(R.string.my_vehicle_model,"206")
         tap(label(R.string.onboarding_btn_next));tap(label(R.string.onboarding_btn_get_started))
-        await("QA 206 unknown");shot("home-unknown")
+        await("QA 206 unknown");await(label(R.string.ownership_odometer_unknown));shot("home-unknown")
         val v=owners.vehicles.value.single();assertNull(v.currentOdometerKm);assertNull(v.engineCode);assertNull(v.tankCapacityLiters)
         val legacy=prefs.userVehicleSetup.first();assertNull(legacy.odometerKm);assertNull(legacy.fuelPriceTomans);assertNull(legacy.engineDisplacementLiters)
         assertEquals(routing,obd.activeVehicleProfile.value)
@@ -99,10 +99,12 @@ class OwnershipRuntimeSmokeTest {
         tap(label(R.string.maintenance_init_default_schedules));SystemClock.sleep(400)
         val maintenance=org.koin.java.KoinJavaComponent.get<MaintenanceRepository>(MaintenanceRepository::class.java)
         assertTrue(maintenance.getSchedules(v.id).isEmpty());shot("maintenance-ambiguous")
-        tap(label(R.string.qa_more));tap(label(R.string.nav_parts));await(label(R.string.parts_no_compatible_found))
+        maintenance.saveSchedule(MaintenanceSchedule("qa_unknown",v.id,"oil","Oil","روغن")).getOrThrow()
+        tap(label(R.string.nav_home));await(label(R.string.home_maintenance_unknown));shot("home-unknown-service")
+        tap(label(R.string.qa_more));tap(label(R.string.nav_parts));await(label(R.string.vehicle_engine_selection_required))
         val search=all().first{it.isEditable}
         assertTrue(search.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,Bundle().apply{putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,"timing")}))
-        await(label(R.string.parts_no_compatible_found));shot("parts-unknown")
+        await(label(R.string.vehicle_engine_selection_required));shot("parts-unknown")
         // Explicit known variant, still no physical identification/connection implied.
         owners.save(v.copy(engineCode="TU3",updatedAtMs=System.currentTimeMillis())).getOrThrow()
         tap(label(R.string.nav_my_vehicle));await("QA 206 unknown");shot("owned-selected")
