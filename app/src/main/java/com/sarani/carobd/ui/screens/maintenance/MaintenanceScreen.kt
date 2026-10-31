@@ -74,6 +74,7 @@ import com.sarani.carobd.core.model.MaintenanceSchedule
 import com.sarani.carobd.core.model.OwnedVehicle
 import com.sarani.carobd.core.model.VehicleMaintenanceRecord
 import com.sarani.carobd.core.model.VehicleSpecSheet
+import com.sarani.carobd.domain.reminder.SnoozeDuration
 import com.sarani.carobd.ui.theme.DarkBg
 import com.sarani.carobd.ui.theme.DarkCardBg
 import com.sarani.carobd.ui.theme.DarkCardBorder
@@ -186,7 +187,8 @@ fun MaintenanceScreen(
                             onAddSchedule = { viewModel.onIntent(MaintenanceIntent.OpenAddScheduleDialog) },
                             onRecordService = { viewModel.onIntent(MaintenanceIntent.OpenRecordServiceDialog(it)) },
                             onEditSchedule = { viewModel.onIntent(MaintenanceIntent.OpenEditScheduleDialog(it)) },
-                            onDeleteSchedule = { viewModel.onIntent(MaintenanceIntent.RequestDeleteSchedule(it)) }
+                            onDeleteSchedule = { viewModel.onIntent(MaintenanceIntent.RequestDeleteSchedule(it)) },
+                            onSnoozeSchedule = { sched, dur -> viewModel.onIntent(MaintenanceIntent.SnoozeSchedule(sched.id, dur)) }
                         )
                     }
                     MaintenanceTab.HISTORY -> {
@@ -490,7 +492,8 @@ fun SchedulesTabContent(
     onAddSchedule: () -> Unit,
     onRecordService: (MaintenanceSchedule) -> Unit,
     onEditSchedule: (MaintenanceSchedule) -> Unit,
-    onDeleteSchedule: (MaintenanceSchedule) -> Unit
+    onDeleteSchedule: (MaintenanceSchedule) -> Unit,
+    onSnoozeSchedule: (MaintenanceSchedule, SnoozeDuration) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -554,7 +557,8 @@ fun SchedulesTabContent(
                         currentOdometerKm = currentOdometerKm,
                         onRecordService = { onRecordService(schedule) },
                         onEdit = { onEditSchedule(schedule) },
-                        onDelete = { onDeleteSchedule(schedule) }
+                        onDelete = { onDeleteSchedule(schedule) },
+                        onSnooze = { onSnoozeSchedule(schedule, it) }
                     )
                 }
             }
@@ -568,8 +572,10 @@ fun ScheduleCard(
     currentOdometerKm: Long?,
     onRecordService: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onSnooze: (SnoozeDuration) -> Unit = {}
 ) {
+    var showSnoozeMenu by remember { mutableStateOf(false) }
     val unitSystem = LocalUnitSystem.current
     val badgeColor = when (schedule.dueState) {
         DueState.OVERDUE, DueState.DUE -> NeonRed
@@ -664,6 +670,51 @@ fun ScheduleCard(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (schedule.dueState == DueState.OVERDUE || schedule.dueState == DueState.DUE || schedule.dueState == DueState.DUE_SOON) {
+                        Box {
+                            IconButton(
+                                onClick = { showSnoozeMenu = true },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Schedule,
+                                    contentDescription = stringResource(R.string.maintenance_snooze),
+                                    tint = NeonAmber,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showSnoozeMenu,
+                                onDismissRequest = { showSnoozeMenu = false },
+                                modifier = Modifier
+                                    .background(DarkCardBg)
+                                    .border(1.dp, DarkCardBorder, RoundedCornerShape(8.dp))
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.maintenance_snooze_1d), color = TextPrimary, fontSize = 12.sp) },
+                                    onClick = {
+                                        showSnoozeMenu = false
+                                        onSnooze(SnoozeDuration.ONE_DAY)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.maintenance_snooze_3d), color = TextPrimary, fontSize = 12.sp) },
+                                    onClick = {
+                                        showSnoozeMenu = false
+                                        onSnooze(SnoozeDuration.THREE_DAYS)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.maintenance_snooze_1w), color = TextPrimary, fontSize = 12.sp) },
+                                    onClick = {
+                                        showSnoozeMenu = false
+                                        onSnooze(SnoozeDuration.ONE_WEEK)
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     // Mark Completed Button
                     Button(
                         onClick = onRecordService,

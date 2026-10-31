@@ -520,4 +520,8 @@
     <string name="maintenance_service_recorded_success">Service recorded in vehicle history</string>
     <string name="maintenance_error_required">Please enter all required fields</string>
     <string name="maintenance_switch_vehicle">Switch Vehicle</string>
+    <string name="maintenance_snooze">Snooze</string>
+    <string name="maintenance_snooze_1d">1 Day</string>
+    <string name="maintenance_snooze_3d">3 Days</string>
+    <string name="maintenance_snooze_1w">1 Week</string>
 </resources>

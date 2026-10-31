@@ -131,3 +131,40 @@
     - `testUncertainIntervalCannotBeMandatoryOemSchedule`: asserts uncertain intervals cannot be marked safe for automatic mandatory recommendations while physical parts facts (tooth counts) are verified.
   - Total full suite across all 6 modules: 492 JVM tests (app 158, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
 - Next: Maintenance Reminder Engine foundation (WorkManager, per-vehicle schedule isolation, date/mileage triggers).
+
+# 2026-10-31 — Checkpoint I: modern maintenance reminder engine and snooze architecture
+
+- Local timestamp: 2026-10-31 11:35 Asia/Tehran.
+- Goal: Implement modern Android Maintenance Reminder Engine using WorkManager; guarantee per-vehicle and per-schedule isolation; support truthful date and mileage due notifications without phantom background odometer progression; support non-destructive snooze semantics; deliver bilingual UI actions.
+- Changes:
+  - Added `androidx.work:work-runtime-ktx:2.8.1` to `gradle/libs.versions.toml` and `app/build.gradle.kts` (resolved from local Gradle cache, 100% offline).
+  - `MaintenanceReminderModels.kt`:
+    - `SnoozeDuration` enum (`ONE_DAY`, `THREE_DAYS`, `ONE_WEEK`) with English and Persian localization.
+    - `ReminderIdentity`: deterministic unique work name per vehicle and schedule (`schedule_reminder_${vehicleId}_${scheduleId}`), vehicle tag (`vehicle_reminders_${vehicleId}`), and notification IDs.
+    - `MaintenanceNotificationFormatter`: truthful bilingual formatting for English and Persian; avoids synthesizing fake odometer progression or "0 km" when mileage is unrecorded.
+  - `MaintenanceReminderScheduler.kt` & `WorkManagerReminderScheduler.kt`:
+    - Implemented modern scheduling with `ExistingWorkPolicy.REPLACE` preventing duplicate work.
+    - No exact alarm permission needed; schedules standard WorkManager reminders for target dates or immediate due alerts.
+    - Supports per-schedule cancellation, per-vehicle bulk cancellation, and snooze without altering underlying schedule intervals or maintenance history.
+  - `MaintenanceReminderWorker.kt`:
+    - `CoroutineWorker` querying vehicle and schedule facts, re-verifying due state with `MaintenanceDueEngine`.
+    - Explicit `POST_NOTIFICATIONS` runtime permission checks and `SecurityException` protection.
+  - UI & ViewModel Integration:
+    - `MaintenanceMvi.kt`: Wired `MaintenanceReminderScheduler` into `MaintenanceViewModel`. Added `MaintenanceIntent.SnoozeSchedule`. Schedules reminders on due items, cancels on schedule deletion, and reschedules on service completion.
+    - `MaintenanceScreen.kt`: Added Snooze button and dropdown menu to `ScheduleCard` for overdue, due, and due soon items.
+    - `strings.xml` & `values-fa/strings.xml`: Added bilingual snooze strings.
+- Regressions & Tests:
+  - Created `MaintenanceReminderEngineTest.kt` with 10 unit tests:
+    - `testReminderIdentityWorkNameIsIsolatedPerVehicleAndSchedule`
+    - `testNotificationFormatterTruthfulWhenMileageAndDateKnown`
+    - `testNotificationFormatterTruthfulWhenOverdue`
+    - `testNotificationFormatterTruthfulWhenMileageIsUnknown`
+    - `testSnoozeDurations`
+    - `testViewModelSchedulesReminderOnLoadWhenDue`
+    - `testViewModelCancelsReminderWhenScheduleDeleted`
+    - `testViewModelSnoozeIntentDispatchesToScheduler`
+    - `testMultiVehicleSchedulerIsolation`
+    - `testServiceCompletionReschedulesReminderWithUpdatedOdometer`
+  - Total full suite across all 6 modules: 502 JVM tests (app 168, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
+  - Lint: 0 errors. Both APK assemblies (`assembleDebug` and `assembleDebugAndroidTest`): passed.
+- Next: Priority 3 Service Item Imagery Foundation and visual asset integration.

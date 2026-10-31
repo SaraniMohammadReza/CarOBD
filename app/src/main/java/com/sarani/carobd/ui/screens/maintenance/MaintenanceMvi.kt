@@ -16,6 +16,8 @@ import com.sarani.carobd.core.model.VehicleSpecSheet
 import com.sarani.carobd.core.vehicle.catalog.VehicleCatalogRepository
 import com.sarani.carobd.data.repository.MaintenanceRepository
 import com.sarani.carobd.data.repository.OwnedVehicleRepository
+import com.sarani.carobd.domain.reminder.MaintenanceReminderScheduler
+import com.sarani.carobd.domain.reminder.SnoozeDuration
 import com.sarani.carobd.ui.mvi.MviViewModel
 import com.sarani.carobd.ui.mvi.UiEffect
 import com.sarani.carobd.ui.mvi.UiIntent
@@ -103,6 +105,8 @@ sealed interface MaintenanceIntent : UiIntent {
     data class RequestDeleteRecord(val record: VehicleMaintenanceRecord) : MaintenanceIntent
     data object DismissDeleteRecord : MaintenanceIntent
     data class ConfirmDeleteRecord(val recordId: String) : MaintenanceIntent
+
+    data class SnoozeSchedule(val scheduleId: String, val duration: SnoozeDuration) : MaintenanceIntent
 }
 
 sealed interface MaintenanceEffect : UiEffect {
@@ -113,7 +117,8 @@ sealed interface MaintenanceEffect : UiEffect {
 class MaintenanceViewModel(
     private val maintenanceRepository: MaintenanceRepository,
     private val ownedVehicleRepository: OwnedVehicleRepository,
-    private val catalogRepository: VehicleCatalogRepository? = null
+    private val catalogRepository: VehicleCatalogRepository? = null,
+    private val reminderScheduler: MaintenanceReminderScheduler? = null
 ) : MviViewModel<MaintenanceState, MaintenanceIntent, MaintenanceEffect>(MaintenanceState()) {
 
     init {
@@ -183,6 +188,22 @@ class MaintenanceViewModel(
                 unknownCount = unknown,
                 isLoading = false
             )
+        }
+
+        if (reminderScheduler != null) {
+            for (s in schedules) {
+                if (s.dueState == DueState.DUE_SOON || s.dueState == DueState.DUE || s.dueState == DueState.OVERDUE) {
+                    val dueResult = MaintenanceDueEngine.calculateDueState(
+                        currentKm = selected.currentOdometerKm,
+                        currentDateMs = System.currentTimeMillis(),
+                        lastKm = s.lastServiceKm,
+                        lastDateMs = s.lastServiceDateMs,
+                        intervalKm = s.intervalKm,
+                        intervalMonths = s.intervalMonths
+                    )
+                    reminderScheduler.scheduleReminder(selected, s, dueResult)
+                }
+            }
         }
     }
 
@@ -419,6 +440,17 @@ class MaintenanceViewModel(
                 )
 
                 maintenanceRepository.saveSchedule(schedule)
+                if (reminderScheduler != null) {
+                    val dueResult = MaintenanceDueEngine.calculateDueState(
+                        currentKm = vehicle.currentOdometerKm,
+                        currentDateMs = System.currentTimeMillis(),
+                        lastKm = lastServiceKm,
+                        lastDateMs = model.lastServiceDateMs,
+                        intervalKm = intervalKm,
+                        intervalMonths = intervalMonths
+                    )
+                    reminderScheduler.scheduleReminder(vehicle, schedule, dueResult)
+                }
                 setState { copy(editScheduleDialog = null) }
                 loadDataForVehicle(uiState.value.vehicles, vehicle)
             }
@@ -426,6 +458,10 @@ class MaintenanceViewModel(
             is MaintenanceIntent.RequestDeleteSchedule -> setState { copy(deleteScheduleTarget = intent.schedule) }
             is MaintenanceIntent.DismissDeleteSchedule -> setState { copy(deleteScheduleTarget = null) }
             is MaintenanceIntent.ConfirmDeleteSchedule -> viewModelScope.launch {
+                val vehicle = uiState.value.selectedVehicle
+                if (vehicle != null) {
+                    reminderScheduler?.cancelScheduleReminder(vehicle.id, intent.scheduleId)
+                }
                 maintenanceRepository.deleteSchedule(intent.scheduleId)
                 setState { copy(deleteScheduleTarget = null) }
                 loadDataForVehicle(uiState.value.vehicles, uiState.value.selectedVehicle)
@@ -437,6 +473,12 @@ class MaintenanceViewModel(
                 maintenanceRepository.deleteRecord(intent.recordId)
                 setState { copy(deleteRecordTarget = null) }
                 loadDataForVehicle(uiState.value.vehicles, uiState.value.selectedVehicle)
+            }
+
+            is MaintenanceIntent.SnoozeSchedule -> viewModelScope.launch {
+                val vehicle = uiState.value.selectedVehicle ?: return@launch
+                reminderScheduler?.snoozeReminder(vehicle.id, intent.scheduleId, intent.duration)
+                loadDataForVehicle(uiState.value.vehicles, vehicle)
             }
         }
     }

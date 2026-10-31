@@ -520,4 +520,8 @@
     <string name="maintenance_service_recorded_success">سرویس در تاریخچه خودرو ثبت گردید</string>
     <string name="maintenance_error_required">لطفاً موارد ضروری را وارد کنید</string>
     <string name="maintenance_switch_vehicle">تغییر خودرو</string>
+    <string name="maintenance_snooze">یادآوری مجدد</string>
+    <string name="maintenance_snooze_1d">۱ روز</string>
+    <string name="maintenance_snooze_3d">۳ روز</string>
+    <string name="maintenance_snooze_1w">۱ هفته</string>
 </resources>

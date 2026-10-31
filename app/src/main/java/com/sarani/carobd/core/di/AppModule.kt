@@ -45,6 +45,9 @@ val appModule = module {
     single<com.sarani.carobd.data.repository.MaintenanceRepository> {
         com.sarani.carobd.data.repository.SQLiteMaintenanceRepository(get())
     }
+    single<com.sarani.carobd.domain.reminder.MaintenanceReminderScheduler> {
+        com.sarani.carobd.data.reminder.WorkManagerReminderScheduler(androidContext(), get())
+    }
     single { BluetoothDeviceScanner(androidContext()) }
     single { TripLogger() }
     single { AppPreferencesManager(androidContext()) }
@@ -81,7 +84,7 @@ val appModule = module {
     viewModel { VehicleProfileViewModel(get(), get(), get()) }
     viewModel { TerminalViewModel(get()) }
     viewModel { SimulatorSelectorViewModel(get(), get()) }
-    viewModel { MaintenanceViewModel(get(), get(), get()) }
+    viewModel { MaintenanceViewModel(get(), get(), get(), get()) }
     viewModel { OwnedVehiclesViewModel(get(), get()) }
     viewModel { TripViewModel(get(), get(), get()) }
 }
