@@ -86,3 +86,29 @@
   - 10 tests passed in `:core:vehicle:test` (0 failures, 0 errors, 0 skipped).
   - Total full suite across all 6 modules: 483 JVM tests passed, 0 failures, 0 errors, 0 skipped.
 - Next: Inspect AVD emulator availability for runtime testing, then implement Maintenance Center UI.
+
+# 2026-10-31 — Checkpoint G: bilingual Maintenance Center UI, service history, and runtime target investigation
+
+- Local timestamp: 2026-10-31 11:05 Asia/Tehran.
+- Goal: Implement the bilingual Maintenance Center UI wired to `MaintenanceRepository`, `OwnedVehicleRepository`, `MaintenanceDueEngine`; provide schedule management and service completion recording; inspect AVD emulator availability.
+- AVD Target Investigation:
+  - Verified Android SDK tools: `emulator.exe` present; Windows Hypervisor Platform WHPX(10.0.19044) is installed and usable (`emulator -accel-check`).
+  - Command-line tools located at `C:\Users\mohammadreza.sarani\AppData\Local\Android\Sdk\skiaparser\3\bin` (`sdkmanager.bat`, `avdmanager.bat`).
+  - Initiated installation of `system-images;android-34;google_apis;x86_64`.
+  - Machine Policy Blocker: Connection was aborted during the 1.4 GB download by company host software (`Warning: An error occurred while preparing SDK package: An established connection was aborted by the software in your host machine`). Multi-gigabyte image downloads are restricted on this workstation network.
+- Changes:
+  - `MaintenanceMvi.kt`: Connected `MaintenanceViewModel` to `MaintenanceRepository`, `OwnedVehicleRepository`, and `VehicleCatalogRepository`. Added MVI state tracking `vehicles`, `selectedVehicle`, `schedules`, `records`, `specSheet`, KPI counters (`overdueCount`, `dueSoonCount`, `okCount`, `unknownCount`), and dialog states. Added intents for `SelectVehicle`, `InitializeDefaultSchedules`, `SubmitRecordService`, `SubmitSaveSchedule`, `ConfirmDeleteSchedule`, and `ConfirmDeleteRecord`. Recording completed service advances next due and updates vehicle odometer if newer.
+  - `MaintenanceScreen.kt`: Material3 bilingual Compose UI featuring vehicle header with switcher dropdown and odometer formatting, KPI summary counters, three tabs (Upcoming Schedules, Service History, Specifications), schedule cards with dynamic status badges (`OVERDUE`, `DUE`, `DUE_SOON`, `OK`, `UNKNOWN`), progress indicator, remaining/due distance, "Mark Completed" dialog, "Add/Edit Schedule" dialog, and confirmation dialogs.
+  - `AppModule.kt`: Updated `MaintenanceViewModel` injection to provide `MaintenanceRepository`, `OwnedVehicleRepository`, and `VehicleCatalogRepository`.
+  - `strings.xml` & `values-fa/strings.xml`: Added bilingual strings for tabs, badges, KPI stats, actions, dialog fields, and empty states.
+- Regressions & Tests:
+  - Created `MaintenanceViewModelTest.kt` with 6 unit tests:
+    - `initialStateLoadsVehiclesAndSelectedVehicleSchedules`
+    - `emptyGarageShowsNullSelectedVehicleAndZeroCounts`
+    - `initializeDefaultSchedulesCreatesRecommendedItemsForVehicle`
+    - `recordCompletedServiceAdvancesScheduleAndUpdatesVehicleOdometer`
+    - `switchingVehiclesIsolatesMaintenanceSchedulesAndHistory`
+    - `deleteSchedulePreservesExistingServiceHistory`
+  - Total full suite across all 6 modules: 489 JVM tests (app 158, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 10), 0 failures, 0 errors, 0 skipped.
+  - Lint: 0 errors. Duplicate class check: passed. Both APK assemblies (`assembleDebug` and `assembleDebugAndroidTest`): passed.
+- Next: Service item imagery foundation (safe vectors/illustrations) and reminder engine foundation (WorkManager/alarms).
