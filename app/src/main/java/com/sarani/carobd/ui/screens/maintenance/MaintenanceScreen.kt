@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -59,8 +60,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -195,7 +198,9 @@ fun MaintenanceScreen(
                     MaintenanceTab.HISTORY -> {
                         HistoryTabContent(
                             records = state.records,
-                            onDeleteRecord = { viewModel.onIntent(MaintenanceIntent.RequestDeleteRecord(it)) }
+                            onEditRecord = { viewModel.onIntent(MaintenanceIntent.OpenEditRecordDialog(it)) },
+                            onDeleteRecord = { viewModel.onIntent(MaintenanceIntent.RequestDeleteRecord(it)) },
+                            onExportHistory = { viewModel.onIntent(MaintenanceIntent.ExportServiceHistory) }
                         )
                     }
                     MaintenanceTab.SPECS -> {
@@ -270,6 +275,22 @@ fun MaintenanceScreen(
                         Text(stringResource(R.string.ui_cancel), color = TextMuted)
                     }
                 }
+            )
+        }
+
+        state.editRecordDialog?.let { editModel ->
+            EditRecordDialog(
+                model = editModel,
+                onDismiss = { viewModel.onIntent(MaintenanceIntent.DismissEditRecordDialog) },
+                onUpdate = { viewModel.onIntent(MaintenanceIntent.UpdateEditRecordDialog(it)) },
+                onSubmit = { viewModel.onIntent(MaintenanceIntent.SubmitSaveRecord(it)) }
+            )
+        }
+
+        state.exportText?.let { text ->
+            ExportHistoryDialog(
+                exportText = text,
+                onDismiss = { viewModel.onIntent(MaintenanceIntent.DismissExportDialog) }
             )
         }
     }
@@ -814,45 +835,76 @@ fun ScheduleCard(
 @Composable
 fun HistoryTabContent(
     records: List<VehicleMaintenanceRecord>,
-    onDeleteRecord: (VehicleMaintenanceRecord) -> Unit
+    onEditRecord: (VehicleMaintenanceRecord) -> Unit,
+    onDeleteRecord: (VehicleMaintenanceRecord) -> Unit,
+    onExportHistory: () -> Unit
 ) {
-    if (records.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    imageVector = Icons.Default.History,
-                    contentDescription = null,
-                    tint = TextMuted,
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (records.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = stringResource(R.string.maintenance_history_empty),
+                    text = "${records.size} records",
                     color = TextMuted,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center
+                    fontSize = 12.sp
                 )
+                OutlinedButton(
+                    onClick = onExportHistory,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonCyan),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, NeonCyan.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(stringResource(R.string.maintenance_export_history), fontSize = 12.sp)
+                }
             }
         }
-    } else {
-        val dateFormat = remember { SimpleDateFormat("yyyy/MM/dd", Locale.US) }
-        val unitSystem = LocalUnitSystem.current
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(records, key = { it.id }) { record ->
-                HistoryRecordCard(
-                    record = record,
-                    dateFormat = dateFormat,
-                    onDelete = { onDeleteRecord(record) }
-                )
+        if (records.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.History,
+                        contentDescription = null,
+                        tint = TextMuted,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(R.string.maintenance_history_empty),
+                        color = TextMuted,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            val dateFormat = remember { SimpleDateFormat("yyyy/MM/dd", Locale.US) }
+            val unitSystem = LocalUnitSystem.current
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(records, key = { it.id }) { record ->
+                    HistoryRecordCard(
+                        record = record,
+                        dateFormat = dateFormat,
+                        onEdit = { onEditRecord(record) },
+                        onDelete = { onDeleteRecord(record) }
+                    )
+                }
             }
         }
     }
@@ -862,6 +914,7 @@ fun HistoryTabContent(
 fun HistoryRecordCard(
     record: VehicleMaintenanceRecord,
     dateFormat: SimpleDateFormat,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val unitSystem = LocalUnitSystem.current
@@ -913,7 +966,10 @@ fun HistoryRecordCard(
                         fontFamily = FontFamily.Monospace
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    IconButton(onClick = onDelete, modifier = Modifier.size(24.dp)) {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Default.Delete, contentDescription = null, tint = TextMuted, modifier = Modifier.size(14.dp))
                     }
                 }
@@ -1259,4 +1315,212 @@ fun SpecRowCard(title: String, mainValue: String, subNotes: String) {
             Text(text = subNotes, color = TextPrimary.copy(alpha = 0.85f), fontSize = 11.sp, lineHeight = 16.sp)
         }
     }
+}
+
+@Composable
+fun EditRecordDialog(
+    model: EditRecordDialogModel,
+    onDismiss: () -> Unit,
+    onUpdate: (EditRecordDialogModel) -> Unit,
+    onSubmit: (EditRecordDialogModel) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkCardBg,
+        title = {
+            Text(
+                stringResource(R.string.maintenance_edit_record),
+                color = TextPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                model.errorMessage?.let { err ->
+                    Text(err, color = NeonRed, fontSize = 12.sp)
+                }
+
+                OutlinedTextField(
+                    value = model.performedKm,
+                    onValueChange = { onUpdate(model.copy(performedKm = it)) },
+                    label = { Text(stringResource(R.string.maintenance_performed_km)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = DarkCardBorder,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = model.costTomans,
+                    onValueChange = { onUpdate(model.copy(costTomans = it)) },
+                    label = { Text(stringResource(R.string.maintenance_cost_tomans)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = DarkCardBorder,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = model.serviceCenter,
+                    onValueChange = { onUpdate(model.copy(serviceCenter = it)) },
+                    label = { Text(stringResource(R.string.maintenance_service_center)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = DarkCardBorder,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = model.partsBrand,
+                    onValueChange = { onUpdate(model.copy(partsBrand = it)) },
+                    label = { Text(stringResource(R.string.maintenance_parts_brand)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = DarkCardBorder,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = model.partNumber,
+                    onValueChange = { onUpdate(model.copy(partNumber = it)) },
+                    label = { Text(stringResource(R.string.maintenance_part_number)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = DarkCardBorder,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = model.notes,
+                    onValueChange = { onUpdate(model.copy(notes = it)) },
+                    label = { Text(stringResource(R.string.maintenance_notes)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = DarkCardBorder,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(model) },
+                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan)
+            ) {
+                Text(stringResource(R.string.ui_save), color = DarkBg, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.ui_cancel), color = TextMuted)
+            }
+        }
+    )
+}
+
+@Composable
+fun ExportHistoryDialog(
+    exportText: String,
+    onDismiss: () -> Unit
+) {
+    val clipboardManager = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = DarkCardBg,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.maintenance_export_title),
+                    color = TextPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(exportText))
+                        copied = true
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = stringResource(R.string.maintenance_export_copy),
+                        tint = NeonCyan
+                    )
+                }
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (copied) {
+                    Text(
+                        stringResource(R.string.maintenance_export_copied),
+                        color = NeonGreen,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(DarkBg, RoundedCornerShape(8.dp))
+                        .border(1.dp, DarkCardBorder, RoundedCornerShape(8.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = exportText,
+                        color = TextPrimary,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    clipboardManager.setText(AnnotatedString(exportText))
+                    copied = true
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan)
+            ) {
+                Text(stringResource(R.string.maintenance_export_copy), color = DarkBg, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.ui_cancel), color = TextMuted)
+            }
+        }
+    )
 }

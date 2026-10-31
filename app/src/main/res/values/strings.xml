@@ -524,4 +524,9 @@
     <string name="maintenance_snooze_1d">1 Day</string>
     <string name="maintenance_snooze_3d">3 Days</string>
     <string name="maintenance_snooze_1w">1 Week</string>
+    <string name="maintenance_edit_record">Edit Service Record</string>
+    <string name="maintenance_export_history">Export History</string>
+    <string name="maintenance_export_title">Service History Export</string>
+    <string name="maintenance_export_copy">Copy to Clipboard</string>
+    <string name="maintenance_export_copied">Service history copied to clipboard</string>
 </resources>

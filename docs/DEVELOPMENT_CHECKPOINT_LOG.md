@@ -201,3 +201,28 @@
   - Total full suite across all 6 modules: 505 JVM tests (app 171, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
   - Lint: 0 errors. Both APK assemblies: passed.
 - Next: Priority 4 Service History UX improvements (edit/delete records, audit timestamps, export) followed by Priority 5 Ownership Home integration & catalog recommendations.
+
+# 2026-10-31 — Checkpoint K: service history UX improvements, editing flow, and truthful export
+
+- Local timestamp: 2026-10-31 11:55 Asia/Tehran.
+- Goal: Implement complete service history editing flow preserving identity and creation timestamps; implement truthful service history export dialog with clipboard copying; deliver bilingual UI dialogs.
+- Changes:
+  - `MaintenanceMvi.kt`:
+    - Added `EditRecordDialogModel` tracking `recordId`, `vehicleId`, `itemKey`, `performedKm`, `performedDateMs`, `costTomans`, `serviceCenter`, `partsBrand`, `partNumber`, `notes`, `provenance`, `createdAtMs`.
+    - Added `editRecordDialog` and `exportText` state properties.
+    - Added `OpenEditRecordDialog`, `DismissEditRecordDialog`, `UpdateEditRecordDialog`, `SubmitSaveRecord`, `ExportServiceHistory`, `DismissExportDialog` intents.
+    - `SubmitSaveRecord`: validates mileage, constructs updated `VehicleMaintenanceRecord` preserving creation timestamp, calls `maintenanceRepository.saveRecord()`, updates vehicle odometer if newer, and refreshes UI.
+    - `ExportServiceHistory`: formats truthful summary including vehicle name, current odometer, export date, record count, and per-record item, date, mileage, cost, parts brand/number, and notes.
+  - `MaintenanceScreen.kt`:
+    - Added Edit button on each `HistoryRecordCard` next to Delete.
+    - Added "Export History" outlined action button to `HistoryTabContent` header.
+    - Implemented `EditRecordDialog` with bilingual fields and validation.
+    - Implemented `ExportHistoryDialog` displaying monospace formatted export with one-tap clipboard copy and confirmation toast.
+  - `strings.xml` & `values-fa/strings.xml`: Added bilingual strings for edit record, export history, and clipboard confirmation.
+- Regressions & Tests:
+  - Added 2 new unit tests in `MaintenanceViewModelTest.kt`:
+    - `editExistingRecordUpdatesFieldsAndPreservesIdentity`: verifies dialog population, field editing, persistence update, and identity/createdAtMs preservation.
+    - `exportServiceHistoryFormatsTruthfulSummary`: verifies truthful formatting of vehicle identity, odometer, record facts, and dismiss behavior.
+  - Total full suite across all 6 modules: 507 JVM tests (app 173, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
+  - Lint: 0 errors. Both APK assemblies: passed.
+- Next: Priority 5 Ownership Home integration & catalog recommendations.

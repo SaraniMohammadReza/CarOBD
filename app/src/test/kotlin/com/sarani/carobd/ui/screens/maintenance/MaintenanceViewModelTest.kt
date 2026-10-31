@@ -267,6 +267,103 @@ class MaintenanceViewModelTest {
         assertEquals("custom_additive", vm.uiState.value.records.first().itemKey)
     }
 
+    @Test
+    fun editExistingRecordUpdatesFieldsAndPreservesIdentity() = runWithMain {
+        val v1 = vehicle("v1", "Samand", odo = 80_000L)
+        val ownedRepo = FakeOwnedVehicles(listOf(v1), activeId = "v1")
+        val maintRepo = FakeMaintenanceRepository()
+
+        val record = VehicleMaintenanceRecord(
+            id = "rec_oil_1",
+            vehicleId = "v1",
+            itemKey = "engine_oil",
+            performedKm = 80_000L,
+            performedDateMs = 1700000000000L,
+            costTomans = 500_000L,
+            serviceCenter = "Workshop Alpha",
+            partsBrand = "Total",
+            partNumber = "7000-10W40",
+            notes = "Replaced oil and filter",
+            createdAtMs = 12345L
+        )
+        maintRepo.saveRecord(record)
+
+        val vm = MaintenanceViewModel(maintRepo, ownedRepo)
+        backgroundScope.launch { vm.uiState.collect {} }
+        advanceUntilIdle()
+
+        assertEquals(1, vm.uiState.value.records.size)
+
+        // Open edit dialog
+        vm.onIntent(MaintenanceIntent.OpenEditRecordDialog(record))
+        val dialog = vm.uiState.value.editRecordDialog
+        assertNotNull(dialog)
+        assertEquals("rec_oil_1", dialog?.recordId)
+        assertEquals("80000", dialog?.performedKm)
+        assertEquals("500000", dialog?.costTomans)
+        assertEquals("Workshop Alpha", dialog?.serviceCenter)
+
+        // Submit updated record with new cost, mileage, and notes
+        vm.onIntent(
+            MaintenanceIntent.SubmitSaveRecord(
+                dialog!!.copy(
+                    performedKm = "81000",
+                    costTomans = "550000",
+                    notes = "Updated note: included washer"
+                )
+            )
+        )
+        advanceUntilIdle()
+
+        assertNull(vm.uiState.value.editRecordDialog)
+        val updatedRecords = maintRepo.getRecords("v1")
+        assertEquals(1, updatedRecords.size)
+        val updated = updatedRecords.first()
+        assertEquals("rec_oil_1", updated.id)
+        assertEquals(12345L, updated.createdAtMs)
+        assertEquals(81000L, updated.performedKm)
+        assertEquals(550000L, updated.costTomans)
+        assertEquals("Updated note: included washer", updated.notes)
+    }
+
+    @Test
+    fun exportServiceHistoryFormatsTruthfulSummary() = runWithMain {
+        val v1 = vehicle("v1", "Peugeot 207i", odo = 45_000L)
+        val ownedRepo = FakeOwnedVehicles(listOf(v1), activeId = "v1")
+        val maintRepo = FakeMaintenanceRepository()
+
+        val record = VehicleMaintenanceRecord(
+            id = "rec_spark",
+            vehicleId = "v1",
+            itemKey = "spark_plugs",
+            performedKm = 40_000L,
+            performedDateMs = 1710000000000L,
+            costTomans = 400_000L,
+            serviceCenter = "IKCO Central",
+            partsBrand = "Denso",
+            partNumber = "K16PR-U11",
+            notes = "Torqued to spec"
+        )
+        maintRepo.saveRecord(record)
+
+        val vm = MaintenanceViewModel(maintRepo, ownedRepo)
+        backgroundScope.launch { vm.uiState.collect {} }
+        advanceUntilIdle()
+
+        vm.onIntent(MaintenanceIntent.ExportServiceHistory)
+        val export = vm.uiState.value.exportText
+        assertNotNull(export)
+        assertTrue(export!!.contains("Peugeot 207i"))
+        assertTrue(export.contains("45000 km"))
+        assertTrue(export.contains("SPARK PLUGS"))
+        assertTrue(export.contains("40000 km"))
+        assertTrue(export.contains("IKCO Central"))
+        assertTrue(export.contains("Denso"))
+
+        vm.onIntent(MaintenanceIntent.DismissExportDialog)
+        assertNull(vm.uiState.value.exportText)
+    }
+
     private fun vehicle(id: String, name: String, odo: Long? = null) = OwnedVehicle(
         id = id,
         displayName = name,

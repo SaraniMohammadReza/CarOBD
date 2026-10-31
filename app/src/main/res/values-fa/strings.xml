@@ -524,4 +524,9 @@
     <string name="maintenance_snooze_1d">۱ روز</string>
     <string name="maintenance_snooze_3d">۳ روز</string>
     <string name="maintenance_snooze_1w">۱ هفته</string>
+    <string name="maintenance_edit_record">ویرایش سابقه سرویس</string>
+    <string name="maintenance_export_history">خروجی سوابق</string>
+    <string name="maintenance_export_title">خروجی سوابق سرویس</string>
+    <string name="maintenance_export_copy">کپی در حافظه</string>
+    <string name="maintenance_export_copied">سوابق سرویس در حافظه کپی شد</string>
 </resources>

@@ -25,6 +25,9 @@ import com.sarani.carobd.ui.mvi.UiState
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 enum class MaintenanceTab {
@@ -44,6 +47,22 @@ data class RecordServiceDialogModel(
     val partsBrand: String = "",
     val partNumber: String = "",
     val notes: String = "",
+    val errorMessage: String? = null
+)
+
+data class EditRecordDialogModel(
+    val recordId: String,
+    val vehicleId: String,
+    val itemKey: String,
+    val performedKm: String,
+    val performedDateMs: Long,
+    val costTomans: String = "",
+    val serviceCenter: String = "",
+    val partsBrand: String = "",
+    val partNumber: String = "",
+    val notes: String = "",
+    val provenance: MaintenanceIntervalProvenance = MaintenanceIntervalProvenance.USER_CUSTOM,
+    val createdAtMs: Long = System.currentTimeMillis(),
     val errorMessage: String? = null
 )
 
@@ -76,6 +95,8 @@ data class MaintenanceState(
     val editScheduleDialog: EditScheduleDialogModel? = null,
     val deleteScheduleTarget: MaintenanceSchedule? = null,
     val deleteRecordTarget: VehicleMaintenanceRecord? = null,
+    val editRecordDialog: EditRecordDialogModel? = null,
+    val exportText: String? = null,
     val showVehicleSelector: Boolean = false,
     val isLoading: Boolean = false
 ) : UiState
@@ -105,6 +126,14 @@ sealed interface MaintenanceIntent : UiIntent {
     data class RequestDeleteRecord(val record: VehicleMaintenanceRecord) : MaintenanceIntent
     data object DismissDeleteRecord : MaintenanceIntent
     data class ConfirmDeleteRecord(val recordId: String) : MaintenanceIntent
+
+    data class OpenEditRecordDialog(val record: VehicleMaintenanceRecord) : MaintenanceIntent
+    data object DismissEditRecordDialog : MaintenanceIntent
+    data class UpdateEditRecordDialog(val model: EditRecordDialogModel) : MaintenanceIntent
+    data class SubmitSaveRecord(val model: EditRecordDialogModel) : MaintenanceIntent
+
+    data object ExportServiceHistory : MaintenanceIntent
+    data object DismissExportDialog : MaintenanceIntent
 
     data class SnoozeSchedule(val scheduleId: String, val duration: SnoozeDuration) : MaintenanceIntent
 }
@@ -475,10 +504,115 @@ class MaintenanceViewModel(
                 loadDataForVehicle(uiState.value.vehicles, uiState.value.selectedVehicle)
             }
 
+            is MaintenanceIntent.OpenEditRecordDialog -> {
+                val r = intent.record
+                setState {
+                    copy(
+                        editRecordDialog = EditRecordDialogModel(
+                            recordId = r.id,
+                            vehicleId = r.vehicleId,
+                            itemKey = r.itemKey,
+                            performedKm = r.performedKm.toString(),
+                            performedDateMs = r.performedDateMs,
+                            costTomans = if (r.costTomans > 0) r.costTomans.toString() else "",
+                            serviceCenter = r.serviceCenter.orEmpty(),
+                            partsBrand = r.partsBrand.orEmpty(),
+                            partNumber = r.partNumber.orEmpty(),
+                            notes = r.notes.orEmpty(),
+                            provenance = r.provenance,
+                            createdAtMs = r.createdAtMs
+                        )
+                    )
+                }
+            }
+
+            is MaintenanceIntent.DismissEditRecordDialog -> setState { copy(editRecordDialog = null) }
+
+            is MaintenanceIntent.UpdateEditRecordDialog -> setState { copy(editRecordDialog = intent.model) }
+
+            is MaintenanceIntent.SubmitSaveRecord -> viewModelScope.launch {
+                val vehicle = uiState.value.selectedVehicle ?: return@launch
+                val model = intent.model
+                val km = model.performedKm.trim().toLongOrNull()
+                if (km == null || km < 0L) {
+                    setState {
+                        copy(editRecordDialog = model.copy(errorMessage = "Invalid mileage"))
+                    }
+                    return@launch
+                }
+                val cost = model.costTomans.trim().toLongOrNull() ?: 0L
+
+                val updatedRecord = VehicleMaintenanceRecord(
+                    id = model.recordId,
+                    vehicleId = model.vehicleId,
+                    itemKey = model.itemKey,
+                    performedKm = km,
+                    performedDateMs = model.performedDateMs,
+                    costTomans = cost,
+                    serviceCenter = model.serviceCenter.trim().ifEmpty { null },
+                    partsBrand = model.partsBrand.trim().ifEmpty { null },
+                    partNumber = model.partNumber.trim().ifEmpty { null },
+                    notes = model.notes.trim().ifEmpty { null },
+                    provenance = model.provenance,
+                    createdAtMs = model.createdAtMs
+                )
+
+                val result = maintenanceRepository.saveRecord(updatedRecord)
+                if (result.isSuccess) {
+                    val currentKm = vehicle.currentOdometerKm
+                    if (currentKm == null || km > currentKm) {
+                        ownedVehicleRepository.save(vehicle.copy(currentOdometerKm = km))
+                    }
+                    setState { copy(editRecordDialog = null) }
+                    loadDataForVehicle(uiState.value.vehicles, vehicle)
+                } else {
+                    setState {
+                        copy(editRecordDialog = model.copy(errorMessage = result.exceptionOrNull()?.message ?: "Failed to save record"))
+                    }
+                }
+            }
+
+            is MaintenanceIntent.ExportServiceHistory -> {
+                val vehicle = uiState.value.selectedVehicle
+                val records = uiState.value.records
+                val exportText = buildExportSummary(vehicle, records)
+                setState { copy(exportText = exportText) }
+            }
+
+            is MaintenanceIntent.DismissExportDialog -> setState { copy(exportText = null) }
+
             is MaintenanceIntent.SnoozeSchedule -> viewModelScope.launch {
                 val vehicle = uiState.value.selectedVehicle ?: return@launch
                 reminderScheduler?.snoozeReminder(vehicle.id, intent.scheduleId, intent.duration)
                 loadDataForVehicle(uiState.value.vehicles, vehicle)
+            }
+        }
+    }
+
+    private fun buildExportSummary(vehicle: OwnedVehicle?, records: List<VehicleMaintenanceRecord>): String {
+        val name = vehicle?.displayName ?: "Vehicle"
+        val df = SimpleDateFormat("yyyy/MM/dd", Locale.US)
+        return buildString {
+            appendLine("=== $name — Service History ===")
+            if (vehicle?.currentOdometerKm != null) {
+                appendLine("Current Odometer: ${vehicle.currentOdometerKm} km")
+            }
+            appendLine("Export Date: ${df.format(Date())}")
+            appendLine("Total Records: ${records.size}")
+            appendLine()
+            if (records.isEmpty()) {
+                appendLine("No service history recorded.")
+            } else {
+                records.forEachIndexed { i, r ->
+                    appendLine("[${i + 1}] ${r.itemKey.replace('_', ' ').uppercase()}")
+                    appendLine("  Date: ${df.format(Date(r.performedDateMs))}")
+                    appendLine("  Mileage: ${r.performedKm} km")
+                    if (r.costTomans > 0) appendLine("  Cost: ${r.costTomans} Tomans")
+                    if (!r.serviceCenter.isNullOrBlank()) appendLine("  Center: ${r.serviceCenter}")
+                    if (!r.partsBrand.isNullOrBlank()) appendLine("  Parts: ${r.partsBrand} ${r.partNumber.orEmpty()}".trim())
+                    if (!r.notes.isNullOrBlank()) appendLine("  Notes: ${r.notes}")
+                    appendLine()
+                }
             }
         }
     }
