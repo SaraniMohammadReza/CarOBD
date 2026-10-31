@@ -66,6 +66,8 @@ Checkpoint M implements the Parts & Fitment domain foundation, verified parts ca
 
 Checkpoint UI-0 fixes the runtime `NoSuchMethodError` for `VehicleSpecSheet.<init>(...)` constructor by adding `@JvmOverloads constructor` in `MaintenanceModels.kt`, explicitly supplying parameters in `IranianCarSpecsDatabase.kt`, adding `IranianCarSpecsDatabaseTest.kt` regression, wrapping Compose root in `org.koin.compose.KoinContext` in `MainActivity.kt` to clean up Koin context warnings, and executing a clean APK rebuild. Ready for UI/UX reconstruction.
 
+Checkpoint UI-1 & UI-2 establishes the canonical CarOBD design system (`CarObdDesignSystem.kt`), reusable shared automotive components (`SharedCarObdComponents.kt`), ownership-focused Home experience (`HomeMvi.kt`, `HomeScreen.kt`), automotive knowledge guide (`GuideScreen.kt`, `DefaultGuideRepository.kt`), bilingual English and Persian localization, and wires Home as the primary product surface in `MainActivity.kt` and `AppModule.kt`. 525+ JVM unit tests passing across all 6 modules, lint 0 errors, assembleDebug clean, interactive device smoke test verified on Android 9 Pie (360dp RTL) with 0 crashes. Pushed to `feat/car-obd-development`. Ready for UI-3 (My Vehicle & Details).
+
 New mission supersedes prior suspend instruction: final full native poweroff only after all completed work/reports pushed, fetched remote equality, clean tracked tree, unchanged report.md and no active builds/tests. Never shut down with unpushed important work. Do not claim mission/product completion while major scope remains incomplete.
 
 ## 4. Previous Verified Checkpoint

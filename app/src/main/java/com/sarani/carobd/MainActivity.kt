@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Engineering
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
@@ -80,6 +81,7 @@ import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 
 sealed class AppDestination(val route: String, val titleRes: Int, val icon: ImageVector) {
+    data object Home : AppDestination("home", R.string.nav_home, Icons.Default.Home)
     data object Dashboard : AppDestination("dashboard", R.string.nav_dashboard, Icons.Default.Speed)
     data object ConnectionCenter : AppDestination("connect", R.string.nav_connection_center, Icons.Default.Wifi)
     data object MyVehicle : AppDestination("my_vehicle", R.string.nav_my_vehicle, Icons.Default.DirectionsCar)
@@ -131,6 +133,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
     val scope = rememberCoroutineScope()
 
     val destinations = listOf(
+        AppDestination.Home,
         AppDestination.Dashboard,
         AppDestination.ConnectionCenter,
         AppDestination.MyVehicle,
@@ -146,7 +149,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
 
     val sessionState by org.koin.compose.koinInject<com.sarani.carobd.domain.repository.ObdRepository>().connectionState.collectAsState()
     var moreOpen by remember { mutableStateOf(false) }
-    val primaryDestinations = listOf(AppDestination.Dashboard, AppDestination.MyVehicle, AppDestination.ConnectionCenter, AppDestination.Diagnostics)
+    val primaryDestinations = listOf(AppDestination.Home, AppDestination.MyVehicle, AppDestination.Maintenance, AppDestination.Diagnostics)
     fun navigate(route: String) {
         if (currentRoute != route) navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -217,9 +220,31 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = AppDestination.Dashboard.route,
+            startDestination = AppDestination.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable(AppDestination.Home.route) {
+                val vm: com.sarani.carobd.ui.screens.home.HomeViewModel = koinViewModel()
+                com.sarani.carobd.ui.screens.home.HomeScreen(
+                    viewModel = vm,
+                    onNavigateToMyVehicle = { navigate(AppDestination.MyVehicle.route) },
+                    onNavigateToMaintenance = { navigate(AppDestination.Maintenance.route) },
+                    onNavigateToParts = { navigate(AppDestination.Parts.route) },
+                    onNavigateToDiagnostics = { navigate(AppDestination.Diagnostics.route) },
+                    onNavigateToLiveDashboard = { navigate(AppDestination.Dashboard.route) },
+                    onNavigateToConnect = { navigate(AppDestination.ConnectionCenter.route) },
+                    onNavigateToReports = { navigate("evidence") },
+                    onNavigateToGuide = { navigate("guide") },
+                    onNavigateToSettings = { navigate(AppDestination.Settings.route) }
+                )
+            }
+            composable("guide") {
+                val repo: com.sarani.carobd.core.vehicle.guide.GuideRepository = org.koin.compose.koinInject()
+                com.sarani.carobd.ui.screens.guide.GuideScreen(
+                    guideRepository = repo,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
             composable(AppDestination.Dashboard.route) {
                 val vm: DashboardViewModel = koinViewModel()
                 DashboardScreen(

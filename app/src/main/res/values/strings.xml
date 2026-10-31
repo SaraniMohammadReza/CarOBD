@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">CarOBD Pro</string>
-    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_live_data">Live Data</string>
+    <string name="nav_dashboard">Live Gauges</string>
     <string name="nav_connection_center">Connect</string>
     <string name="nav_diagnostics">Diagnostics</string>
     <string name="nav_maintenance">Maintenance</string>
@@ -552,4 +554,31 @@
     <string name="nav_user_guide">User Guide</string>
     <string name="guide_title">Automotive Guide &amp; Knowledge</string>
     <string name="guide_search_hint">Search guide topics…</string>
+
+    <!-- Design System & Home Screen Additions -->
+    <string name="evidence_title">Diagnostic Reports</string>
+    <string name="ui_dismiss">Dismiss</string>
+    <string name="home_section_ownership">Vehicle Ownership &amp; Care</string>
+    <string name="home_section_diagnostics">Diagnostics &amp; Live Data</string>
+    <string name="home_section_resources">Resources &amp; Settings</string>
+    <string name="home_my_vehicle_subtitle">Specifications, technical details &amp; profile</string>
+    <string name="home_maintenance_no_schedules">No maintenance schedules configured yet</string>
+    <string name="home_maintenance_up_to_date">All registered services are up to date</string>
+    <string name="home_maintenance_next_service">Next: %1$s in %2$s km</string>
+    <string name="home_parts_subtitle">%1$d verified compatible parts for this engine</string>
+    <string name="home_parts_empty_subtitle">Explore compatible filters, plugs, fluids &amp; belts</string>
+    <string name="home_diagnostics_subtitle">Scan &amp; view DTCs</string>
+    <string name="home_live_gauges_subtitle">Live gauges &amp; telemetry</string>
+    <string name="home_connect_subtitle">Adapter pairing &amp; setup</string>
+    <string name="home_reports_subtitle">Saved scan reports</string>
+    <string name="home_guide_subtitle">Automotive knowledge base</string>
+    <string name="home_settings_subtitle">Language, units &amp; preferences</string>
+    <string name="status_unscheduled">UNSCHEDULED</string>
+    <string name="status_up_to_date">UP TO DATE</string>
+    <string name="status_overdue_badge">%1$d OVERDUE</string>
+    <string name="status_due_soon_badge">%1$d DUE SOON</string>
+    <string name="status_parts_badge">%1$d PARTS</string>
+    <string name="status_degraded">Degraded</string>
+    <string name="status_connected_sim">Connected (Sim)</string>
+    <string name="ui_retry">Retry</string>
 </resources>

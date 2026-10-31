@@ -1,6 +1,8 @@
 <resources>
     <string name="app_name">کار او‌بی‌دی پرو (CarOBD Pro)</string>
-    <string name="nav_dashboard">داشبورد</string>
+    <string name="nav_home">خانه</string>
+    <string name="nav_live_data">داده‌های زنده</string>
+    <string name="nav_dashboard">داشبورد زنده</string>
     <string name="nav_connection_center">اتصال</string>
     <string name="nav_diagnostics">عیب‌یابی</string>
     <string name="nav_maintenance">سرویس‌ها</string>
@@ -552,4 +554,31 @@
     <string name="nav_user_guide">راهنما</string>
     <string name="guide_title">راهنما و دانشنامه فنی خودرو</string>
     <string name="guide_search_hint">جستجو در سرفصل‌های راهنما…</string>
+
+    <!-- Design System & Home Screen Additions -->
+    <string name="evidence_title">گزارش‌های عیب‌یابی</string>
+    <string name="ui_dismiss">بستن</string>
+    <string name="home_section_ownership">مالکیت و نگهداری خودرو</string>
+    <string name="home_section_diagnostics">عیب‌یابی و داده‌های زنده</string>
+    <string name="home_section_resources">منابع و تنظیمات</string>
+    <string name="home_my_vehicle_subtitle">مشخصات فنی و پرونده خودرو</string>
+    <string name="home_maintenance_no_schedules">هنوز برنامه سرویسی ثبت نشده است</string>
+    <string name="home_maintenance_up_to_date">تمامی سرویس‌های ثبت‌شده به‌موقع هستند</string>
+    <string name="home_maintenance_next_service">سرویس بعدی: %1$s در %2$s کیلومتر دیگر</string>
+    <string name="home_parts_subtitle">%1$d قطعه سازگار تأییدشده برای این موتور</string>
+    <string name="home_parts_empty_subtitle">مشاهده قطعات سازگار، فیلترها، شمع و روانکارها</string>
+    <string name="home_diagnostics_subtitle">اسکن و مشاهده کدهای خطا</string>
+    <string name="home_live_gauges_subtitle">گیج‌ها و داده‌های زنده سنسورها</string>
+    <string name="home_connect_subtitle">اتصال و تنظیم دانگل دیاگ</string>
+    <string name="home_reports_subtitle">گزارش‌ها و سوابق عیب‌یابی</string>
+    <string name="home_guide_subtitle">دانشنامه و راهنمای فنی خودرو</string>
+    <string name="home_settings_subtitle">زبان، واحدها و تنظیمات برنامه</string>
+    <string name="status_unscheduled">ثبت‌نشده</string>
+    <string name="status_up_to_date">به‌روز</string>
+    <string name="status_overdue_badge">%1$d معوق</string>
+    <string name="status_due_soon_badge">%1$d نزدیک</string>
+    <string name="status_parts_badge">%1$d قطعه</string>
+    <string name="status_degraded">افت کیفیت اتصال</string>
+    <string name="status_connected_sim">متصل (شبیه‌ساز)</string>
+    <string name="ui_retry">تلاش مجدد</string>
 </resources>
