@@ -631,4 +631,5 @@
     <string name="onboarding_btn_get_started">شروع استفاده</string>
     <string name="onboarding_btn_skip">رد کردن</string>
     <string name="splash_app_tagline">هوشمندی و نگهداری تخصصی خودرو</string>
+    <string name="vehicle_exact_match_required">برای پیشنهادهای کاتالوگ، موتور و تیپ مشخص را در خودروی من انتخاب کنید. ساخت برنامهٔ دستی همچنان ممکن است.</string>
 </resources>

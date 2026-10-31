@@ -115,16 +115,8 @@ class MaintenanceViewModelTest {
         advanceUntilIdle()
 
         val schedules = vm.uiState.value.schedules
-        assertTrue("Must create at least 8 standard service items", schedules.size >= 8)
-        assertTrue(schedules.any { it.itemKey == "engine_oil" })
-        assertTrue(schedules.any { it.itemKey == "timing_belt" })
-        assertTrue(schedules.any { it.itemKey == "brake_pads" })
-
-        // When initialized with no previous service mileage, state defaults safely to UNKNOWN
-        assertTrue(schedules.all { it.dueState == DueState.UNKNOWN })
-        // Dena Plus is community-confirmed data, so provenance must not claim OEM_RECOMMENDED
-        val timingBelt = schedules.first { it.itemKey == "timing_belt" }
-        assertEquals(MaintenanceIntervalProvenance.VERIFIED_SECONDARY, timingBelt.provenance)
+        assertTrue("Unknown engine must not create engine-specific recommendations", schedules.isEmpty())
+        assertNull(vm.uiState.value.specSheet)
     }
 
     @Test
@@ -161,6 +153,9 @@ class MaintenanceViewModelTest {
         // Tondar 90 K4M timing belt interval is verified OEM at 60,000 km
         assertEquals(60_000, timingBelt.intervalKm)
         assertEquals(MaintenanceIntervalProvenance.OEM_RECOMMENDED, timingBelt.provenance)
+        assertTrue(schedules.filter { it.itemKey != "timing_belt" }.all {
+            it.provenance == MaintenanceIntervalProvenance.UNVERIFIED && it.intervalKm == null && it.intervalMonths == null
+        })
     }
 
     @Test
@@ -403,6 +398,20 @@ class MaintenanceViewModelTest {
 
         vm.onIntent(MaintenanceIntent.DismissExportDialog)
         assertNull(vm.uiState.value.exportText)
+    }
+
+
+    @Test fun unsafeFieldCannotFallBackToSameIntervalOrGainOemLabel() = runWithMain {
+        val owner = OwnedVehicle(createdAtMs=1L, updatedAtMs=1L, id="v", displayName= "Tondar", manufacturer="Renault", model="Tondar 90", engineCode="K4M")
+        val base = DefaultVehicleCatalogRepository().getVariantById("var_tondar90_e2")!!
+        val unsafe = base.copy(specifications=base.specifications!!.copy(fieldProvenance=emptyMap()))
+        val repo = FakeMaintenanceRepository()
+        val vm = MaintenanceViewModel(repo, FakeOwnedVehicles(listOf(owner), "v"), DefaultVehicleCatalogRepository(initialVariants=listOf(unsafe)))
+        advanceUntilIdle()
+        vm.onIntent(MaintenanceIntent.InitializeDefaultSchedules)
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.schedules.isNotEmpty())
+        assertTrue(vm.uiState.value.schedules.all { it.intervalKm == null && it.intervalMonths == null && it.provenance == MaintenanceIntervalProvenance.UNVERIFIED })
     }
 
     private fun vehicle(id: String, name: String, odo: Long? = null) = OwnedVehicle(

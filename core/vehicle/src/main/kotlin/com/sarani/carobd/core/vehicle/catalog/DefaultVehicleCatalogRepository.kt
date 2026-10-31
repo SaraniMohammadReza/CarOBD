@@ -82,6 +82,7 @@ class DefaultVehicleCatalogRepository(
         modelYear: Int?,
         engineQuery: String?
     ): List<ResolvedVehicleMatch> {
+        if (makeQuery.isBlank() || modelQuery.isBlank()) return emptyList()
         val normMake = normalize(makeQuery)
         val normModel = normalize(modelQuery)
         val normEngine = engineQuery?.let(::normalize)

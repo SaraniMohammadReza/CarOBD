@@ -100,18 +100,7 @@ class PartsCenterViewModel(
             return
         }
 
-        val makeQuery = selected.manufacturer ?: ""
-        val modelQuery = selected.model ?: ""
-        val catalogMatch = if (catalogRepository != null && makeQuery.isNotBlank() && modelQuery.isNotBlank()) {
-            catalogRepository.findMatchingVariants(
-                makeQuery = makeQuery,
-                modelQuery = modelQuery,
-                modelYear = selected.year,
-                engineQuery = selected.engineCode
-            ).firstOrNull()
-        } else {
-            null
-        }
+        val catalogMatch = catalogRepository?.resolveOwnedVehicle(selected)?.exactMatch
 
         setState {
             copy(
@@ -128,18 +117,7 @@ class PartsCenterViewModel(
         val vehicle = s.activeVehicle
         val match = s.resolvedMatch
 
-        if (s.searchQuery.isNotBlank()) {
-            val searchResults = partsRepository.searchParts(s.searchQuery)
-            val filtered = if (s.selectedCategory != null) {
-                searchResults.filter { it.definition.category == s.selectedCategory }
-            } else {
-                searchResults
-            }
-            setState { copy(compatibleParts = filtered) }
-            return
-        }
-
-        if (vehicle == null) {
+        if (vehicle == null || match == null) {
             setState { copy(compatibleParts = emptyList()) }
             return
         }
@@ -158,6 +136,10 @@ class PartsCenterViewModel(
             category = s.selectedCategory
         )
 
-        setState { copy(compatibleParts = parts) }
+        val matches = if (s.searchQuery.isBlank()) parts else {
+            val searchIds = partsRepository.searchParts(s.searchQuery).map { it.fitment.id }.toSet()
+            parts.filter { it.fitment.id in searchIds }
+        }
+        setState { copy(compatibleParts = matches) }
     }
 }

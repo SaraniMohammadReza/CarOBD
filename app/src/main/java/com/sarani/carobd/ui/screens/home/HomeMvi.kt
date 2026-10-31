@@ -127,16 +127,9 @@ class HomeViewModel(
         // 2. Parts Compatibility Calculation
         val make = selected.manufacturer
         val model = selected.model
-        val match = if (catalogRepository != null && !make.isNullOrBlank() && !model.isNullOrBlank()) {
-            catalogRepository.findMatchingVariants(
-                makeQuery = make,
-                modelQuery = model,
-                modelYear = selected.year,
-                engineQuery = selected.engineCode
-            ).firstOrNull()
-        } else null
+        val match = catalogRepository?.resolveOwnedVehicle(selected)?.exactMatch
 
-        val parts = partsRepository.findCompatibleParts(
+        val parts = if (match == null) emptyList() else partsRepository.findCompatibleParts(
             vehicleMakeId = match?.make?.id ?: (make?.lowercase()?.trim() ?: ""),
             vehicleModelId = match?.model?.id ?: (model?.lowercase()?.trim() ?: ""),
             generationId = match?.generation?.id,

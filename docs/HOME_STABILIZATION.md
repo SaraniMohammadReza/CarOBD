@@ -33,3 +33,7 @@ Development worktree `/home/mohammad/Desktop/CarOBD/CarOBD-home-dev` starts exac
 No duplicate home architecture is ported. Home integration-test concepts will be adapted during stabilization. Source fixes begin after this reconciliation checkpoint. Physical diagnostic core is outside scope.
 
 R1 validation: localization checker PASS (618 resources); offline lintDebug PASS, exit0, 1m13s. git diff --check PASS. No runtime verification claimed.
+
+## HOME-R2 — explicit catalog identity and fitment
+
+Owned-vehicle resolution now distinguishes UNKNOWN, ENGINE_REQUIRED, AMBIGUOUS and EXACT. Blank identity never discovers a default vehicle. Maintenance/Home/Parts consume only exact resolution; no legacy name-based fallback. Default schedules only take numeric intervals from safe field evidence; generic fields remain UNVERIFIED with null intervals. User schedule edits are USER_CUSTOM. Parts search intersects vehicle-compatible fitments. Targeted maintenance/parts JVM and core vehicle tests PASS (exit0); localization and diff checks run before publication. No runtime claim.

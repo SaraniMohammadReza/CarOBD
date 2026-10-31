@@ -697,4 +697,3 @@ fun ErrorState(
         }
     }
 }
-

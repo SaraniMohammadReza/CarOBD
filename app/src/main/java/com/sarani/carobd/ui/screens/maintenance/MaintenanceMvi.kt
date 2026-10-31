@@ -239,13 +239,7 @@ class MaintenanceViewModel(
 
     private fun resolveSpecSheet(vehicle: OwnedVehicle): VehicleSpecSheet? {
         if (catalogRepository != null) {
-            val matches = catalogRepository.findMatchingVariants(
-                makeQuery = vehicle.manufacturer.orEmpty(),
-                modelQuery = vehicle.model.orEmpty(),
-                modelYear = vehicle.year,
-                engineQuery = vehicle.engine ?: vehicle.engineCode
-            )
-            val match = matches.firstOrNull()
+            val match = catalogRepository.resolveOwnedVehicle(vehicle).exactMatch
             val specs = match?.variant?.specifications
             val engine = match?.engine
             if (specs != null && engine != null) {
@@ -270,20 +264,7 @@ class MaintenanceViewModel(
             }
         }
 
-        // Fallback to IranianCarSpecsDatabase if name/model matches
-        val query = "${vehicle.manufacturer.orEmpty()} ${vehicle.model.orEmpty()} ${vehicle.displayName}".trim()
-        val matchId = when {
-            query.contains("206", ignoreCase = true) -> "ikco_206_tu5"
-            query.contains("207", ignoreCase = true) -> "ikco_207_tu5"
-            query.contains("دنا", ignoreCase = true) || query.contains("dena", ignoreCase = true) -> "ikco_dena_plus_turbo"
-            query.contains("تارا", ignoreCase = true) || query.contains("tara", ignoreCase = true) -> "ikco_tara"
-            query.contains("شاهین", ignoreCase = true) || query.contains("shahin", ignoreCase = true) -> "saipa_shahin"
-            query.contains("کوئیک", ignoreCase = true) || query.contains("quick", ignoreCase = true) -> "saipa_quick"
-            query.contains("ساینا", ignoreCase = true) || query.contains("saina", ignoreCase = true) -> "saipa_saina"
-            query.contains("ال 90", ignoreCase = true) || query.contains("l90", ignoreCase = true) || query.contains("تندر", ignoreCase = true) -> "renault_tondar90"
-            else -> null
-        }
-        return matchId?.let { IranianCarSpecsDatabase.getSpecSheet(it) }
+        return null
     }
 
     override fun onIntent(intent: MaintenanceIntent) {
@@ -314,33 +295,23 @@ class MaintenanceViewModel(
                     ServiceType.BRAKE_FLUID
                 )
 
-                val catalogMatch = if (catalogRepository != null) {
-                    catalogRepository.findMatchingVariants(
-                        makeQuery = vehicle.manufacturer.orEmpty(),
-                        modelQuery = vehicle.model.orEmpty(),
-                        modelYear = vehicle.year,
-                        engineQuery = vehicle.engine ?: vehicle.engineCode
-                    ).firstOrNull()
-                } else null
-
-                val variantSpecs = catalogMatch?.variant?.specifications
-                val isTimingBeltSafe = variantSpecs?.isFieldSafeForRecommendation("timingBeltIntervalKm") == true
-                val isOemMatch = catalogMatch?.confidence == ConfidenceLevel.VERIFIED_OEM
-
+                val match = catalogRepository?.resolveOwnedVehicle(vehicle)?.exactMatch
+                if (match == null) {
+                    setEffect { MaintenanceEffect.ShowMessage(com.sarani.carobd.R.string.vehicle_exact_match_required) }
+                    return@launch
+                }
                 for (type in defaultTypes) {
-                    val (intervalKm, provenance) = when {
-                        type == ServiceType.TIMING_BELT && variantSpecs?.timingBeltIntervalKm != null && isTimingBeltSafe -> {
-                            variantSpecs.timingBeltIntervalKm to MaintenanceIntervalProvenance.OEM_RECOMMENDED
-                        }
-                        type == ServiceType.TIMING_BELT && specSheet?.timingBeltIntervalKm != null && specSheet.timingBeltIntervalKm > 0 -> {
-                            specSheet.timingBeltIntervalKm to (if (isOemMatch) MaintenanceIntervalProvenance.OEM_RECOMMENDED else MaintenanceIntervalProvenance.VERIFIED_SECONDARY)
-                        }
-                        isOemMatch -> {
-                            type.defaultIntervalKm to MaintenanceIntervalProvenance.OEM_RECOMMENDED
-                        }
-                        else -> {
-                            type.defaultIntervalKm to MaintenanceIntervalProvenance.VERIFIED_SECONDARY
-                        }
+                    // Only the exact field's source may authorize a numeric recommendation.
+                    val field = if (type == ServiceType.TIMING_BELT) match.variant.specifications
+                        ?.getFieldProvenance<Int>("timingBeltIntervalKm") else null
+                    val authorized = field?.isSafeForAutomaticRecommendation == true &&
+                        (field.isOemVerified() || (field.source != null &&
+                            field.sourceType == com.sarani.carobd.core.model.ProvenanceSourceType.RELIABLE_WORKSHOP_SECONDARY))
+                    val intervalKm = field?.value?.takeIf { authorized && it > 0 }
+                    val provenance = when {
+                        intervalKm == null -> MaintenanceIntervalProvenance.UNVERIFIED
+                        field?.isOemVerified() == true -> MaintenanceIntervalProvenance.OEM_RECOMMENDED
+                        else -> MaintenanceIntervalProvenance.VERIFIED_SECONDARY
                     }
 
                     val schedule = MaintenanceSchedule(
@@ -351,7 +322,7 @@ class MaintenanceViewModel(
                         titleFa = type.titleFa,
                         actionType = MaintenanceActionType.REPLACE,
                         intervalKm = intervalKm,
-                        intervalMonths = type.defaultIntervalMonths,
+                        intervalMonths = null,
                         lastServiceKm = null,
                         lastServiceDateMs = null,
                         provenance = provenance,
@@ -486,7 +457,7 @@ class MaintenanceViewModel(
                     intervalMonths = intervalMonths,
                     lastServiceKm = lastServiceKm,
                     lastServiceDateMs = model.lastServiceDateMs,
-                    provenance = if (model.isCustom) MaintenanceIntervalProvenance.USER_CUSTOM else MaintenanceIntervalProvenance.OEM_RECOMMENDED,
+                    provenance = MaintenanceIntervalProvenance.USER_CUSTOM,
                     isCustom = model.isCustom,
                     updatedAtMs = System.currentTimeMillis()
                 )

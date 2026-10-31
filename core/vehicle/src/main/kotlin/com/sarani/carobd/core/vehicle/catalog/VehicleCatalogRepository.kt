@@ -14,7 +14,29 @@ import com.sarani.carobd.core.model.VehicleVariant
  * Distinguishes makes, models, generations, engine families, transmissions, and variants
  * without relying on unstructured string guessing or hardcoded UI assumptions.
  */
+enum class VehicleResolutionStatus { UNKNOWN, ENGINE_REQUIRED, AMBIGUOUS, EXACT }
+
+data class VehicleResolution(val status: VehicleResolutionStatus, val candidates: List<ResolvedVehicleMatch>) {
+    val exactMatch: ResolvedVehicleMatch? get() = candidates.singleOrNull().takeIf { status == VehicleResolutionStatus.EXACT }
+}
+
 interface VehicleCatalogRepository {
+    /** Candidate discovery is not identity. Missing engine and ambiguous variants require owner input. */
+    fun resolveOwnedVehicle(vehicle: com.sarani.carobd.core.model.OwnedVehicle): VehicleResolution {
+        val make = vehicle.manufacturer.orEmpty()
+        val model = vehicle.model.orEmpty()
+        if (make.isBlank() || model.isBlank()) return VehicleResolution(VehicleResolutionStatus.UNKNOWN, emptyList())
+        val engine = vehicle.engineCode?.takeIf { it.isNotBlank() } ?: vehicle.engine?.takeIf { it.isNotBlank() }
+        val candidates = findMatchingVariants(make, model, vehicle.year, engine)
+        val status = when {
+            candidates.isEmpty() -> VehicleResolutionStatus.UNKNOWN
+            engine == null -> VehicleResolutionStatus.ENGINE_REQUIRED
+            candidates.size != 1 -> VehicleResolutionStatus.AMBIGUOUS
+            else -> VehicleResolutionStatus.EXACT
+        }
+        return VehicleResolution(status, candidates)
+    }
+
     fun getAllMakes(): List<VehicleMake>
     fun getMakeById(id: String): VehicleMake?
 

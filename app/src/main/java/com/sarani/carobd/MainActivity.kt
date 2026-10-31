@@ -356,6 +356,3 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
         }
     }
 }
-
-
-

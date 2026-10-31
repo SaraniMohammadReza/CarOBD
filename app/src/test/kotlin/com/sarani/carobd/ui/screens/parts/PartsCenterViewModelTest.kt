@@ -212,5 +212,24 @@ class PartsCenterViewModelTest {
         advanceUntilIdle()
         assertEquals(null, viewModel.uiState.value.toastMessage)
     }
-}
 
+    @Test fun searchNeverEscapesSelectedEngineOrManufacturer() = runWithMain {
+        val tu3 = testVehicle(make="IKCO", model="206", year=2012, engineCode="TU3")
+        val vm = PartsCenterViewModel(FakeOwnedVehicles(listOf(tu3), "v1"), DefaultPartsRepository(), DefaultVehicleCatalogRepository())
+        advanceUntilIdle()
+        vm.onIntent(PartsCenterIntent.UpdateSearchQuery("timing"))
+        assertTrue(vm.uiState.value.compatibleParts.isNotEmpty())
+        assertTrue(vm.uiState.value.compatibleParts.all { it.fitment.engineCode?.contains("TU3") == true })
+        val k4m = PartsCenterViewModel(FakeOwnedVehicles(listOf(testVehicle()), "v1"), DefaultPartsRepository(), DefaultVehicleCatalogRepository())
+        advanceUntilIdle()
+        k4m.onIntent(PartsCenterIntent.UpdateSearchQuery("5960 F3"))
+        assertTrue(k4m.uiState.value.compatibleParts.isEmpty())
+    }
+    @Test fun unknownEngineCannotAcquireCompatibilityBySearching() = runWithMain {
+        val unknown = testVehicle(make="IKCO", model="206", year=2012, engineCode="")
+        val vm = PartsCenterViewModel(FakeOwnedVehicles(listOf(unknown), "v1"), DefaultPartsRepository(), DefaultVehicleCatalogRepository())
+        advanceUntilIdle()
+        vm.onIntent(PartsCenterIntent.UpdateSearchQuery("timing"))
+        assertTrue(vm.uiState.value.compatibleParts.isEmpty())
+    }
+}

@@ -96,4 +96,3 @@ val appModule = module {
     viewModel { TripViewModel(get(), get(), get()) }
     viewModel { com.sarani.carobd.ui.screens.home.HomeViewModel(get(), get(), get(), get(), get()) }
 }
-
