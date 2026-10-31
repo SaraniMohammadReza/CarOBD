@@ -40,6 +40,8 @@ Actual recovered starting local/remote HEAD: `14f924ea60d3ff350537fae143faf334ec
 
 Checkpoint A reassessment: see [implementation report](SPRINT_4_IMPLEMENTATION_REPORT.md), [append-only log](DEVELOPMENT_CHECKPOINT_LOG.md), [new test evidence](SPRINT_4_TEST_EVIDENCE.md), [current final handoff](SPRINT_4_FINAL_HANDOFF.md). Current task is additive ownership persistence and real offline vehicle management. Existing ECU routing profile is not a uniquely owned vehicle; do not change physical routing on owner-vehicle selection. Preserve old garage/preferences/diagnostic rows; unassigned historical data must not be guessed into a new vehicle.
 
+Checkpoint B ownership persistence is now implemented in the isolated company-machine worktree based on remote `5ed1d92`: nullable `OwnedVehicle`, additive SQLite v5 tables/selection, repository state and DI. It deliberately does not copy legacy garage rows and does not touch ECU routing selection. Targeted verification passed: `:core:model:test :app:testDebugUnitTest :app:assembleDebugAndroidTest`, exit 0. The new Android SQLite lifecycle test compiled but was not executed because no emulator/device run was authorized in this checkpoint. Exact next task: ownership UI for list/create/edit/select/delete using `OwnedVehicleRepository`, bilingual resources, and navigation clearly separate from ECU Profiles.
+
 New mission supersedes prior suspend instruction: final full native poweroff only after all completed work/reports pushed, fetched remote equality, clean tracked tree, unchanged report.md and no active builds/tests. Never shut down with unpushed important work. Do not claim mission/product completion while major scope remains incomplete.
 
 ## 4. Previous Verified Checkpoint

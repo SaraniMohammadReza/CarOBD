@@ -6,6 +6,7 @@ import com.sarani.carobd.core.storage.AppPreferencesManager
 import com.sarani.carobd.data.db.CarObdDatabaseHelper
 import com.sarani.carobd.data.repository.ActiveVehicleRepository
 import com.sarani.carobd.data.repository.ObdRepositoryImpl
+import com.sarani.carobd.data.repository.OwnedVehicleRepository
 import com.sarani.carobd.domain.repository.ObdRepository
 import com.sarani.carobd.domain.usecase.ClearDtcUseCase
 import com.sarani.carobd.domain.usecase.ConnectUseCase
@@ -35,6 +36,7 @@ val appModule = module {
         com.sarani.carobd.data.repository.DataStoreConnectionProfileRepository(androidContext())
     }
     single { CarObdDatabaseHelper(androidContext()) }
+    single { OwnedVehicleRepository(get()) }
     single { BluetoothDeviceScanner(androidContext()) }
     single { TripLogger() }
     single { AppPreferencesManager(androidContext()) }

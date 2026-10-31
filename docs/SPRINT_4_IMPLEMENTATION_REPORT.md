@@ -17,4 +17,8 @@ All physical read-only restrictions remain mandatory. Software verification cann
 5. Offline bilingual searchable guide, ownership-first navigation and skippable/reduced-motion branded intro.
 6. Complete integration/emulator RTL/offline/lint/gates and truthful final GitHub handoff.
 
+## B — additive ownership persistence
+
+Implemented a separate nullable owner identity rather than reusing ECU routing profiles or the legacy `garage_vehicles` defaults. `OwnedVehicle` retains unknown year/model/engine/odometer/tank values as null. SQLite v5 adds `owned_vehicles` and a nullable singleton selection without migrating or assigning any historical row. `OwnedVehicleRepository` exposes observable list/selection state and is registered in DI; it never reads or writes diagnostic routing selection. The next checkpoint is the bilingual ownership management UI.
+
 These are remaining requirements, not implemented features. Update status with actual checkpoints; do not label foundation as complete product.

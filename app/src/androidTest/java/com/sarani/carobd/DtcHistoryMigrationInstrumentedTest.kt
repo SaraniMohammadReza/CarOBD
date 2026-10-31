@@ -8,7 +8,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Device execution required: actual SQLiteOpenHelper v1→v4 upgrade and domain history reader. */
+/** Device execution required: actual SQLiteOpenHelper v1→current upgrade and domain history reader. */
 @RunWith(AndroidJUnit4::class)
 class DtcHistoryMigrationInstrumentedTest {
     @Test fun versionOneRowsSurviveWithUnknownObservationFields() {
@@ -37,8 +37,10 @@ class DtcHistoryMigrationInstrumentedTest {
                 assertTrue(trip.evidence.all { it.provenance == MetricProvenance.LEGACY_UNVERIFIED })
             }
             CarObdDatabaseHelper(context, name).use { helper ->
-                assertEquals(4, helper.readableDatabase.version)
+                assertEquals(CarObdDatabaseHelper.DATABASE_VERSION, helper.readableDatabase.version)
                 assertEquals(3, helper.diagnosticHistory().single().codes.size)
+                assertTrue(helper.ownedVehicles().isEmpty())
+                assertNull(helper.activeOwnedVehicleId())
             }
         } finally { context.deleteDatabase(name) }
     }

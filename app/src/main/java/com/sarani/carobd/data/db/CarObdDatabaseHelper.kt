@@ -24,7 +24,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
 
     companion object {
         const val DATABASE_NAME = "car_obd_automotive.db"
-        const val DATABASE_VERSION = 4
+        const val DATABASE_VERSION = 5
 
         // Tables
         const val TABLE_GARAGE = "garage_vehicles"
@@ -134,13 +134,80 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
             DtcHistoryMigration.version2.forEach(db::execSQL)
         TripEvidenceMigration.version3.forEach(db::execSQL)
         DiagnosticReportMigration.version4.forEach(db::execSQL)
+        OwnedVehicleMigration.version5.forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2 && newVersion >= 2) DtcHistoryMigration.version2.forEach(db::execSQL)
         if (oldVersion < 3 && newVersion >= 3) TripEvidenceMigration.version3.forEach(db::execSQL)
         if (oldVersion < 4 && newVersion >= 4) DiagnosticReportMigration.version4.forEach(db::execSQL)
+        if (oldVersion < 5 && newVersion >= 5) OwnedVehicleMigration.version5.forEach(db::execSQL)
     }
+
+    fun saveOwnedVehicle(vehicle: OwnedVehicle) {
+        val normalized = vehicle.normalized()
+        require(normalized.validationErrors().isEmpty()) { normalized.validationErrors().joinToString() }
+        val values = ContentValues().apply {
+            put("id", normalized.id); put("display_name", normalized.displayName)
+            putNullable("manufacturer", normalized.manufacturer); putNullable("model", normalized.model)
+            putNullable("generation", normalized.generation); putNullable("year", normalized.year)
+            putNullable("variant", normalized.variant); putNullable("engine", normalized.engine)
+            putNullable("engine_code", normalized.engineCode); putNullable("transmission", normalized.transmission)
+            putNullable("market", normalized.market); putNullable("vin", normalized.vin)
+            putNullable("license_plate", normalized.licensePlate)
+            putNullable("current_odometer_km", normalized.currentOdometerKm)
+            putNullable("tank_capacity_liters", normalized.tankCapacityLiters)
+            put("created_at", normalized.createdAtMs); put("updated_at", normalized.updatedAtMs)
+        }
+        check(writableDatabase.insertWithOnConflict("owned_vehicles", null, values, SQLiteDatabase.CONFLICT_REPLACE) != -1L)
+    }
+
+    fun ownedVehicles(): List<OwnedVehicle> = buildList {
+        readableDatabase.query("owned_vehicles", null, null, null, null, null, "updated_at DESC").use { c ->
+            while (c.moveToNext()) add(c.toOwnedVehicle())
+        }
+    }
+
+    fun activeOwnedVehicleId(): String? = readableDatabase.query(
+        "owned_vehicle_selection", arrayOf("vehicle_id"), "singleton_id=1", null, null, null, null
+    ).use { c -> if (c.moveToFirst() && !c.isNull(0)) c.getString(0) else null }
+
+    fun selectOwnedVehicle(id: String?): Boolean {
+        if (id != null && !readableDatabase.query("owned_vehicles", arrayOf("id"), "id=?", arrayOf(id), null, null, null).use { it.moveToFirst() }) return false
+        val values = ContentValues().apply { put("singleton_id", 1); putNullable("vehicle_id", id) }
+        return writableDatabase.insertWithOnConflict("owned_vehicle_selection", null, values, SQLiteDatabase.CONFLICT_REPLACE) != -1L
+    }
+
+    fun deleteOwnedVehicle(id: String): Boolean {
+        val db = writableDatabase
+        db.beginTransaction()
+        return try {
+            val deleted = db.delete("owned_vehicles", "id=?", arrayOf(id)) > 0
+            db.execSQL("UPDATE owned_vehicle_selection SET vehicle_id=NULL WHERE singleton_id=1 AND vehicle_id=?", arrayOf(id))
+            db.setTransactionSuccessful()
+            deleted
+        } finally { db.endTransaction() }
+    }
+
+    private fun Cursor.toOwnedVehicle() = OwnedVehicle(
+        id = getString(getColumnIndexOrThrow("id")), displayName = getString(getColumnIndexOrThrow("display_name")),
+        manufacturer = nullableString("manufacturer"), model = nullableString("model"), generation = nullableString("generation"),
+        year = nullableInt("year"), variant = nullableString("variant"), engine = nullableString("engine"),
+        engineCode = nullableString("engine_code"), transmission = nullableString("transmission"), market = nullableString("market"),
+        vin = nullableString("vin"), licensePlate = nullableString("license_plate"),
+        currentOdometerKm = nullableLong("current_odometer_km"), tankCapacityLiters = nullableDouble("tank_capacity_liters"),
+        createdAtMs = getLong(getColumnIndexOrThrow("created_at")), updatedAtMs = getLong(getColumnIndexOrThrow("updated_at")),
+    )
+
+    private fun Cursor.nullableString(name: String) = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getString(it) }
+    private fun Cursor.nullableInt(name: String) = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getInt(it) }
+    private fun Cursor.nullableLong(name: String) = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getLong(it) }
+    private fun Cursor.nullableDouble(name: String) = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getDouble(it) }
+
+    private fun ContentValues.putNullable(key: String, value: String?) { if (value == null) putNull(key) else put(key, value) }
+    private fun ContentValues.putNullable(key: String, value: Int?) { if (value == null) putNull(key) else put(key, value) }
+    private fun ContentValues.putNullable(key: String, value: Long?) { if (value == null) putNull(key) else put(key, value) }
+    private fun ContentValues.putNullable(key: String, value: Double?) { if (value == null) putNull(key) else put(key, value) }
 
     // -------------------------------------------------------------
     // GARAGE VEHICLE OPERATIONS

@@ -11,3 +11,11 @@
 - Verification: actual branch/status/log and git fetch/head comparison; source inspection; git diff --check before commit. No fresh JVM/build/Android/lint pass claimed. Historical464/10/10 baseline is not a fresh result.
 - P0: preserve physical04/08/write denial, generation/cancellation/quarantine/transport invariants. Physical device/vehicle validation outstanding. P1: ownership isolation, service provenance, combined report/lazy archive. P2: fitment/catalog/guide/reminders/intro integration. P3: deferred HUD/parking; no physical writes.
 - Next: additive ownership model/store migration, active vehicle repository, integrated manual vehicle add/edit/switch, SQLite recreation/upgrade/isolation tests; verify then push immediately.
+# 2026-10-31 — Checkpoint B: additive owned-vehicle persistence
+
+- Recovered remote `5ed1d92` in an isolated worktree because the original company checkout contained four preserved, superseded uncommitted edits.
+- Added nullable `OwnedVehicle`; unknown owner facts remain null and validation rejects invalid year/odometer/tank/timestamps.
+- Added additive SQLite v5 `owned_vehicles` and nullable active selection. No legacy `garage_vehicles`, history or diagnostic row is copied or reassigned.
+- Added persistence CRUD/selection and `OwnedVehicleRepository`; ECU-routing `ActiveVehicleRepository` remains untouched.
+- Verification: model tests, app JVM tests and Android-test APK assembly passed. Android SQLite test compiled but was not executed.
+- Next: bilingual ownership management UI and navigation.
