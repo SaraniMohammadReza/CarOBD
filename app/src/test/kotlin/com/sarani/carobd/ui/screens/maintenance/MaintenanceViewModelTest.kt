@@ -2,9 +2,11 @@ package com.sarani.carobd.ui.screens.maintenance
 
 import com.sarani.carobd.core.model.DueState
 import com.sarani.carobd.core.model.MaintenanceActionType
+import com.sarani.carobd.core.model.MaintenanceIntervalProvenance
 import com.sarani.carobd.core.model.MaintenanceSchedule
 import com.sarani.carobd.core.model.OwnedVehicle
 import com.sarani.carobd.core.model.VehicleMaintenanceRecord
+import com.sarani.carobd.core.vehicle.catalog.DefaultVehicleCatalogRepository
 import com.sarani.carobd.data.repository.MaintenanceRepository
 import com.sarani.carobd.data.repository.OwnedVehicleRepository
 import kotlinx.coroutines.Dispatchers
@@ -120,6 +122,45 @@ class MaintenanceViewModelTest {
 
         // When initialized with no previous service mileage, state defaults safely to UNKNOWN
         assertTrue(schedules.all { it.dueState == DueState.UNKNOWN })
+        // Dena Plus is community-confirmed data, so provenance must not claim OEM_RECOMMENDED
+        val timingBelt = schedules.first { it.itemKey == "timing_belt" }
+        assertEquals(MaintenanceIntervalProvenance.VERIFIED_SECONDARY, timingBelt.provenance)
+    }
+
+    @Test
+    fun initializeDefaultSchedulesForOemVehicleAssignsOemProvenance() = runWithMain {
+        // Tondar 90 K4M has genuine OEM manual provenance
+        val v1 = OwnedVehicle(
+            id = "v_tondar",
+            displayName = "Tondar 90",
+            manufacturer = "Renault",
+            model = "Tondar 90",
+            year = 2016,
+            engine = "K4M",
+            currentOdometerKm = 50_000L,
+            createdAtMs = 1L,
+            updatedAtMs = 1L
+        )
+        val ownedRepo = FakeOwnedVehicles(listOf(v1), activeId = "v_tondar")
+        val maintRepo = FakeMaintenanceRepository()
+        val catalogRepo = DefaultVehicleCatalogRepository()
+
+        val vm = MaintenanceViewModel(
+            maintenanceRepository = maintRepo,
+            ownedVehicleRepository = ownedRepo,
+            catalogRepository = catalogRepo
+        )
+        backgroundScope.launch { vm.uiState.collect {} }
+        advanceUntilIdle()
+
+        vm.onIntent(MaintenanceIntent.InitializeDefaultSchedules)
+        advanceUntilIdle()
+
+        val schedules = vm.uiState.value.schedules
+        val timingBelt = schedules.first { it.itemKey == "timing_belt" }
+        // Tondar 90 K4M timing belt interval is verified OEM at 60,000 km
+        assertEquals(60_000, timingBelt.intervalKm)
+        assertEquals(MaintenanceIntervalProvenance.OEM_RECOMMENDED, timingBelt.provenance)
     }
 
     @Test

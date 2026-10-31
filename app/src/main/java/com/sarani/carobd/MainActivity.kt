@@ -236,7 +236,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
             }
             composable(AppDestination.MyVehicle.route) {
                 val vm: OwnedVehiclesViewModel = koinViewModel()
-                OwnedVehiclesScreen(vm)
+                OwnedVehiclesScreen(vm, onNavigateToMaintenance = { navController.navigate(AppDestination.Maintenance.route) })
             }
             composable(AppDestination.Diagnostics.route) {
                 val vm: DiagnosticsViewModel = koinViewModel()

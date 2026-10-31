@@ -2,6 +2,7 @@ package com.sarani.carobd.ui.screens.maintenance
 
 import androidx.lifecycle.viewModelScope
 import com.sarani.carobd.core.database.IranianCarSpecsDatabase
+import com.sarani.carobd.core.model.ConfidenceLevel
 import com.sarani.carobd.core.model.DueCalculationResult
 import com.sarani.carobd.core.model.DueState
 import com.sarani.carobd.core.model.MaintenanceActionType
@@ -313,11 +314,33 @@ class MaintenanceViewModel(
                     ServiceType.BRAKE_FLUID
                 )
 
+                val catalogMatch = if (catalogRepository != null) {
+                    catalogRepository.findMatchingVariants(
+                        makeQuery = vehicle.manufacturer.orEmpty(),
+                        modelQuery = vehicle.model.orEmpty(),
+                        modelYear = vehicle.year,
+                        engineQuery = vehicle.engine ?: vehicle.engineCode
+                    ).firstOrNull()
+                } else null
+
+                val variantSpecs = catalogMatch?.variant?.specifications
+                val isTimingBeltSafe = variantSpecs?.isFieldSafeForRecommendation("timingBeltIntervalKm") == true
+                val isOemMatch = catalogMatch?.confidence == ConfidenceLevel.VERIFIED_OEM
+
                 for (type in defaultTypes) {
-                    val intervalKm = if (type == ServiceType.TIMING_BELT && specSheet?.timingBeltIntervalKm != null && specSheet.timingBeltIntervalKm > 0) {
-                        specSheet.timingBeltIntervalKm
-                    } else {
-                        type.defaultIntervalKm
+                    val (intervalKm, provenance) = when {
+                        type == ServiceType.TIMING_BELT && variantSpecs?.timingBeltIntervalKm != null && isTimingBeltSafe -> {
+                            variantSpecs.timingBeltIntervalKm to MaintenanceIntervalProvenance.OEM_RECOMMENDED
+                        }
+                        type == ServiceType.TIMING_BELT && specSheet?.timingBeltIntervalKm != null && specSheet.timingBeltIntervalKm > 0 -> {
+                            specSheet.timingBeltIntervalKm to (if (isOemMatch) MaintenanceIntervalProvenance.OEM_RECOMMENDED else MaintenanceIntervalProvenance.VERIFIED_SECONDARY)
+                        }
+                        isOemMatch -> {
+                            type.defaultIntervalKm to MaintenanceIntervalProvenance.OEM_RECOMMENDED
+                        }
+                        else -> {
+                            type.defaultIntervalKm to MaintenanceIntervalProvenance.VERIFIED_SECONDARY
+                        }
                     }
 
                     val schedule = MaintenanceSchedule(
@@ -331,7 +354,7 @@ class MaintenanceViewModel(
                         intervalMonths = type.defaultIntervalMonths,
                         lastServiceKm = null,
                         lastServiceDateMs = null,
-                        provenance = MaintenanceIntervalProvenance.OEM_RECOMMENDED,
+                        provenance = provenance,
                         dueState = DueState.UNKNOWN,
                         isCustom = false
                     )

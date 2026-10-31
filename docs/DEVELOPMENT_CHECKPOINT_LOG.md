@@ -226,3 +226,25 @@
   - Total full suite across all 6 modules: 507 JVM tests (app 173, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
   - Lint: 0 errors. Both APK assemblies: passed.
 - Next: Priority 5 Ownership Home integration & catalog recommendations.
+
+# 2026-10-31 — Checkpoint L: vehicle-specific maintenance recommendations and ownership home integration
+
+- Local timestamp: 2026-10-31 12:05 Asia/Tehran.
+- Goal: Connect vehicle catalog recommendations directly to maintenance schedules gated strictly by `isFieldSafeForRecommendation`; integrate ownership management directly with the Maintenance Center.
+- Changes:
+  - `MaintenanceMvi.kt`:
+    - Updated `InitializeDefaultSchedules` to query `catalogRepository.findMatchingVariants()` for the active vehicle.
+    - Gated timing belt interval and replacement schedules with `isFieldSafeForRecommendation("timingBeltIntervalKm")`:
+      - For verified OEM vehicles with verified intervals (e.g. Tondar 90 K4M at 60,000 km), assigns `MaintenanceIntervalProvenance.OEM_RECOMMENDED`.
+      - For community-confirmed vehicles (e.g. Dena Plus, Peugeot 206, Samand, Quick), preserves truthful `MaintenanceIntervalProvenance.VERIFIED_SECONDARY` without falsely claiming OEM verification.
+  - `OwnedVehiclesScreen.kt`:
+    - Displayed current odometer km in vehicle row when recorded.
+    - Added direct "Maintenance Center" shortcut action button to navigate directly from the owned vehicle card to the Maintenance Center for that selected vehicle.
+  - `MainActivity.kt`:
+    - Connected `OwnedVehiclesScreen`'s `onNavigateToMaintenance` lambda to `navController.navigate(AppDestination.Maintenance.route)`.
+- Regressions & Tests:
+  - Added unit test in `MaintenanceViewModelTest.kt`:
+    - `initializeDefaultSchedulesForOemVehicleAssignsOemProvenance`: verifies that OEM-verified vehicle (Tondar 90 K4M) receives OEM-gated timing belt interval and `OEM_RECOMMENDED` provenance, while community vehicles strictly receive `VERIFIED_SECONDARY`.
+  - Total full suite across all 6 modules: 508 JVM tests (app 174, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
+  - Lint: 0 errors. Both APK assemblies: passed.
+- Next: Complete master prompt priorities and final continuation verification.

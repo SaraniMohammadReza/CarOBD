@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -21,7 +22,7 @@ import com.sarani.carobd.R
 import com.sarani.carobd.core.model.OwnedVehicle
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun OwnedVehiclesScreen(viewModel: OwnedVehiclesViewModel) {
+@Composable fun OwnedVehiclesScreen(viewModel: OwnedVehiclesViewModel, onNavigateToMaintenance: () -> Unit = {}) {
     val state by viewModel.state.collectAsState()
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.my_vehicle_title)) }) },
         floatingActionButton = { FloatingActionButton(modifier = Modifier.testTag("owned_vehicle_add"), onClick = viewModel::add) { Icon(Icons.Default.Add, null) } }) { padding ->
@@ -29,7 +30,8 @@ import com.sarani.carobd.core.model.OwnedVehicle
             Text(stringResource(R.string.my_vehicle_empty))
         } else LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.vehicles, key = { it.id }) { vehicle -> VehicleRow(vehicle, vehicle.id == state.selectedId,
-                { viewModel.select(vehicle.id) }, { viewModel.edit(vehicle) }, { viewModel.requestDelete(vehicle) }) }
+                { viewModel.select(vehicle.id) }, { viewModel.edit(vehicle) }, { viewModel.requestDelete(vehicle) },
+                { viewModel.select(vehicle.id); onNavigateToMaintenance() }) }
         }
     }
     state.editor?.let { VehicleEditorDialog(it, state.error, viewModel::update, viewModel::save, viewModel::cancelEdit) }
@@ -40,16 +42,25 @@ import com.sarani.carobd.core.model.OwnedVehicle
         dismissButton = { TextButton(onClick = viewModel::cancelDelete) { Text(stringResource(R.string.ui_cancel)) } }) }
 }
 
-@Composable private fun VehicleRow(v: OwnedVehicle, selected: Boolean, onSelect: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+@Composable private fun VehicleRow(v: OwnedVehicle, selected: Boolean, onSelect: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onMaintenance: () -> Unit = {}) {
     ElevatedCard(Modifier.fillMaxWidth().testTag("owned_vehicle_${v.id}").clickable(onClick = onSelect)) {
         Column(Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) { Text(v.displayName, style = MaterialTheme.typography.titleMedium)
-                    Text(listOfNotNull(v.manufacturer, v.model, v.year?.toString()).joinToString(" · ").ifBlank { stringResource(R.string.my_vehicle_unknown_details) }) }
+                Column(Modifier.weight(1f)) {
+                    Text(v.displayName, style = MaterialTheme.typography.titleMedium)
+                    val details = listOfNotNull(v.manufacturer, v.model, v.year?.toString()).joinToString(" · ")
+                    Text(details.ifBlank { stringResource(R.string.my_vehicle_unknown_details) })
+                    if (v.currentOdometerKm != null) {
+                        Text("${v.currentOdometerKm} km", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
                 if (selected) AssistChip(onClick = {}, label = { Text(stringResource(R.string.my_vehicle_selected)) })
             }
-            Row { TextButton(onClick = onEdit) { Icon(Icons.Default.Edit, null); Text(stringResource(R.string.ui_edit)) }
-                TextButton(onClick = onDelete) { Icon(Icons.Default.Delete, null); Text(stringResource(R.string.ui_delete)) } }
+            Row {
+                TextButton(onClick = onMaintenance) { Icon(Icons.Default.Engineering, null); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.nav_maintenance)) }
+                TextButton(onClick = onEdit) { Icon(Icons.Default.Edit, null); Text(stringResource(R.string.ui_edit)) }
+                TextButton(onClick = onDelete) { Icon(Icons.Default.Delete, null); Text(stringResource(R.string.ui_delete)) }
+            }
         }
     }
 }
