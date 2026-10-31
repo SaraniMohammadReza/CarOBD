@@ -21,4 +21,11 @@ class OwnedVehicleResolutionTest {
         assertNotNull(match)
         assertEquals("var_206_type5", match!!.variant.id)
     }
+
+    @Test fun familyPrefixCannotInventTurboVariantEvenWhenModelHasOneEntry() {
+        val owner = OwnedVehicle("v","Shahin",manufacturer="Saipa",model="Shahin",engineCode="M15",createdAtMs=1L,updatedAtMs=1L)
+        assertNull(catalog.resolveOwnedVehicle(owner).exactMatch)
+        assertNotNull(catalog.resolveOwnedVehicle(owner.copy(engineCode="M15 TC")).exactMatch)
+        assertEquals(VehicleResolutionStatus.AMBIGUOUS,catalog.resolveOwnedVehicle(owner.copy(manufacturer="IKCO",model="206",engineCode="TU")).status)
+    }
 }

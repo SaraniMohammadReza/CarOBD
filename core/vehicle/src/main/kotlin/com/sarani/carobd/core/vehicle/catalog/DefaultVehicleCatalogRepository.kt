@@ -198,6 +198,7 @@ class DefaultVehicleCatalogRepository(
         val DEFAULT_ENGINES = listOf(
             EngineVariant(
                 id = "eng_tu5",
+                identificationAliases = listOf("TU5"),
                 code = "TU5 JP4",
                 family = "TU",
                 displacementCc = 1587,
@@ -218,6 +219,7 @@ class DefaultVehicleCatalogRepository(
             ),
             EngineVariant(
                 id = "eng_tu3",
+                identificationAliases = listOf("TU3"),
                 code = "TU3 A/JP",
                 family = "TU",
                 displacementCc = 1360,
@@ -318,6 +320,7 @@ class DefaultVehicleCatalogRepository(
             ),
             EngineVariant(
                 id = "eng_k4m",
+                identificationAliases = listOf("K4M"),
                 code = "K4M 690",
                 family = "K-Type",
                 displacementCc = 1598,

@@ -28,13 +28,18 @@ interface VehicleCatalogRepository {
         if (make.isBlank() || model.isBlank()) return VehicleResolution(VehicleResolutionStatus.UNKNOWN, emptyList())
         val engine = vehicle.engineCode?.takeIf { it.isNotBlank() } ?: vehicle.engine?.takeIf { it.isNotBlank() }
         val candidates = findMatchingVariants(make, model, vehicle.year, engine)
+        fun identity(value: String) = DefaultVehicleCatalogRepository.normalize(value).filter { it.isLetterOrDigit() }
+        val exact = if (engine == null) emptyList() else candidates.filter { match ->
+            identity(match.engine.code) == identity(engine) || match.engine.identificationAliases.any { identity(it) == identity(engine) }
+        }
         val status = when {
             candidates.isEmpty() -> VehicleResolutionStatus.UNKNOWN
             engine == null -> VehicleResolutionStatus.ENGINE_REQUIRED
-            candidates.size != 1 -> VehicleResolutionStatus.AMBIGUOUS
-            else -> VehicleResolutionStatus.EXACT
+            exact.size == 1 -> VehicleResolutionStatus.EXACT
+            candidates.size > 1 -> VehicleResolutionStatus.AMBIGUOUS
+            else -> VehicleResolutionStatus.ENGINE_REQUIRED
         }
-        return VehicleResolution(status, candidates)
+        return VehicleResolution(status, if (status == VehicleResolutionStatus.EXACT) exact else candidates)
     }
 
     fun getAllMakes(): List<VehicleMake>

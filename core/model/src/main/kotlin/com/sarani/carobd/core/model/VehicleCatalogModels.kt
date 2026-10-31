@@ -84,7 +84,8 @@ data class EngineVariant(
     val powerHp: Int? = null,
     val torqueNm: Int? = null,
     val sources: List<DataSourceReference> = emptyList(),
-    val confidence: ConfidenceLevel = ConfidenceLevel.VERIFIED_OEM
+    val confidence: ConfidenceLevel = ConfidenceLevel.VERIFIED_OEM,
+    val identificationAliases: List<String> = emptyList()
 )
 
 data class TransmissionVariant(

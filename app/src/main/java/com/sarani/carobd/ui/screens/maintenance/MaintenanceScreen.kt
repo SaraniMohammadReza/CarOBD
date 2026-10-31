@@ -100,10 +100,11 @@ fun MaintenanceScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val effectContext = androidx.compose.ui.platform.LocalContext.current
-    androidx.compose.runtime.LaunchedEffect(viewModel) {
+    val effectResources = androidx.compose.ui.platform.LocalResources.current
+    androidx.compose.runtime.LaunchedEffect(viewModel, effectResources) {
         viewModel.effect.collect { effect ->
             val text = when (effect) {
-                is MaintenanceEffect.ShowMessage -> effectContext.getString(effect.messageResId)
+                is MaintenanceEffect.ShowMessage -> effectResources.getString(effect.messageResId)
                 is MaintenanceEffect.ShowError -> effect.message
             }
             android.widget.Toast.makeText(effectContext, text, android.widget.Toast.LENGTH_LONG).show()
