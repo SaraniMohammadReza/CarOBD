@@ -10,30 +10,39 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /** Owner-garage persistence. This repository never reads or writes ECU routing selection. */
-class OwnedVehicleRepository(
+interface OwnedVehicleRepository {
+    val vehicles: StateFlow<List<OwnedVehicle>>
+    val activeVehicleId: StateFlow<String?>
+    suspend fun refresh()
+    suspend fun save(vehicle: OwnedVehicle): Result<Unit>
+    suspend fun select(id: String?): Boolean
+    suspend fun delete(id: String): Boolean
+}
+
+class SQLiteOwnedVehicleRepository(
     private val database: CarObdDatabaseHelper,
     private val io: CoroutineDispatcher = Dispatchers.IO,
-) {
+) : OwnedVehicleRepository {
     private val _vehicles = MutableStateFlow<List<OwnedVehicle>>(emptyList())
-    val vehicles: StateFlow<List<OwnedVehicle>> = _vehicles.asStateFlow()
+    override val vehicles: StateFlow<List<OwnedVehicle>> = _vehicles.asStateFlow()
     private val _activeVehicleId = MutableStateFlow<String?>(null)
-    val activeVehicleId: StateFlow<String?> = _activeVehicleId.asStateFlow()
+    override val activeVehicleId: StateFlow<String?> = _activeVehicleId.asStateFlow()
 
-    suspend fun refresh() = withContext(io) {
+    override suspend fun refresh() = withContext(io) {
         _vehicles.value = database.ownedVehicles()
         _activeVehicleId.value = database.activeOwnedVehicleId()
     }
 
-    suspend fun save(vehicle: OwnedVehicle): Result<Unit> = runCatching {
+    override suspend fun save(vehicle: OwnedVehicle): Result<Unit> = runCatching {
         withContext(io) { database.saveOwnedVehicle(vehicle) }
         refresh()
     }
 
-    suspend fun select(id: String?): Boolean = withContext(io) { database.selectOwnedVehicle(id) }.also {
+    override suspend fun select(id: String?): Boolean = withContext(io) { database.selectOwnedVehicle(id) }.also {
         if (it) refresh()
     }
 
-    suspend fun delete(id: String): Boolean = withContext(io) { database.deleteOwnedVehicle(id) }.also {
+    override suspend fun delete(id: String): Boolean = withContext(io) { database.deleteOwnedVehicle(id) }.also {
         if (it) refresh()
     }
 }

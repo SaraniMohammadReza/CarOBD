@@ -22,3 +22,11 @@ All physical read-only restrictions remain mandatory. Software verification cann
 Implemented a separate nullable owner identity rather than reusing ECU routing profiles or the legacy `garage_vehicles` defaults. `OwnedVehicle` retains unknown year/model/engine/odometer/tank values as null. SQLite v5 adds `owned_vehicles` and a nullable singleton selection without migrating or assigning any historical row. `OwnedVehicleRepository` exposes observable list/selection state and is registered in DI; it never reads or writes diagnostic routing selection. The next checkpoint is the bilingual ownership management UI.
 
 These are remaining requirements, not implemented features. Update status with actual checkpoints; do not label foundation as complete product.
+
+## C — bilingual My Vehicle management
+
+Implemented the ownership-facing checkpoint on top of the additive store. My Vehicle is now a first-class navigation destination with offline empty/list/create/edit/select/delete behavior. The editor supports a required display name and nullable manufacturer, model, generation, year, variant, engine, engine code, transmission, fuel type, market, VIN, plate, odometer, tank capacity and notes. Numeric input uses the existing localized parser boundary, invalid values remain in the editor with localized errors, and blank optional values normalize to null.
+
+SQLite v6 additively appends `fuel_type` and `notes`; the already-published v5 migration is unchanged. Selection remains owner identity only and does not select an ECU profile, connect a transport or dispatch a command. Edit preserves vehicle id/creation time, delete affects only the requested vehicle, and deleting the selected vehicle clears the owner selection.
+
+The software/build checkpoint is complete. Android runtime execution remains unverified because the local BlueStacks instance went offline before instrumentation. Stable-emulator execution is required before claiming runtime UI or SQLite lifecycle verification.

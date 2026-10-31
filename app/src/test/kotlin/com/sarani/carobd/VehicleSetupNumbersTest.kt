@@ -21,4 +21,9 @@ class VehicleSetupNumbersTest {
     @Test fun ambiguousFractionalOrOverflowOdometerIsRejectedWithoutRounding() {
         for (input in listOf("", "-1", "1.0", "۱٫۵", "۱٬۰۰۰", "1,000", "2147483648", "1e3")) assertNull(input, VehicleSetupNumbers.odometerKm(input))
     }
+    @Test fun localizedModelYearIsOptionalAndStrict() {
+        assertEquals(2024, VehicleSetupNumbers.modelYear("۲۰۲۴"))
+        assertEquals(1999, VehicleSetupNumbers.modelYear("١٩٩٩"))
+        for (input in listOf("", "24", "۲۰۲۴٫۰", "۱۸۰۰", "2101")) assertNull(VehicleSetupNumbers.modelYear(input))
+    }
 }

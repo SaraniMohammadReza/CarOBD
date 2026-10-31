@@ -21,4 +21,7 @@ internal object VehicleSetupNumbers {
 
     fun odometerKm(input: String): Int? = normalize(input)?.takeIf { it.all { char -> char in '0'..'9' } }
         ?.toIntOrNull()?.takeIf { it >= 0 }
+
+    fun modelYear(input: String): Int? = normalize(input)?.takeIf { it.length == 4 && it.all(Char::isDigit) }
+        ?.toIntOrNull()?.takeIf { it in 1886..2100 }
 }

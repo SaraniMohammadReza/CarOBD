@@ -24,7 +24,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
 
     companion object {
         const val DATABASE_NAME = "car_obd_automotive.db"
-        const val DATABASE_VERSION = 5
+        const val DATABASE_VERSION = 6
 
         // Tables
         const val TABLE_GARAGE = "garage_vehicles"
@@ -135,6 +135,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         TripEvidenceMigration.version3.forEach(db::execSQL)
         DiagnosticReportMigration.version4.forEach(db::execSQL)
         OwnedVehicleMigration.version5.forEach(db::execSQL)
+        OwnedVehicleDetailsMigration.version6.forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -142,6 +143,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         if (oldVersion < 3 && newVersion >= 3) TripEvidenceMigration.version3.forEach(db::execSQL)
         if (oldVersion < 4 && newVersion >= 4) DiagnosticReportMigration.version4.forEach(db::execSQL)
         if (oldVersion < 5 && newVersion >= 5) OwnedVehicleMigration.version5.forEach(db::execSQL)
+        if (oldVersion < 6 && newVersion >= 6) OwnedVehicleDetailsMigration.version6.forEach(db::execSQL)
     }
 
     fun saveOwnedVehicle(vehicle: OwnedVehicle) {
@@ -153,10 +155,12 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
             putNullable("generation", normalized.generation); putNullable("year", normalized.year)
             putNullable("variant", normalized.variant); putNullable("engine", normalized.engine)
             putNullable("engine_code", normalized.engineCode); putNullable("transmission", normalized.transmission)
+            putNullable("fuel_type", normalized.fuelType)
             putNullable("market", normalized.market); putNullable("vin", normalized.vin)
             putNullable("license_plate", normalized.licensePlate)
             putNullable("current_odometer_km", normalized.currentOdometerKm)
             putNullable("tank_capacity_liters", normalized.tankCapacityLiters)
+            putNullable("notes", normalized.notes)
             put("created_at", normalized.createdAtMs); put("updated_at", normalized.updatedAtMs)
         }
         check(writableDatabase.insertWithOnConflict("owned_vehicles", null, values, SQLiteDatabase.CONFLICT_REPLACE) != -1L)
@@ -194,8 +198,10 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         manufacturer = nullableString("manufacturer"), model = nullableString("model"), generation = nullableString("generation"),
         year = nullableInt("year"), variant = nullableString("variant"), engine = nullableString("engine"),
         engineCode = nullableString("engine_code"), transmission = nullableString("transmission"), market = nullableString("market"),
+        fuelType = nullableString("fuel_type"),
         vin = nullableString("vin"), licensePlate = nullableString("license_plate"),
         currentOdometerKm = nullableLong("current_odometer_km"), tankCapacityLiters = nullableDouble("tank_capacity_liters"),
+        notes = nullableString("notes"),
         createdAtMs = getLong(getColumnIndexOrThrow("created_at")), updatedAtMs = getLong(getColumnIndexOrThrow("updated_at")),
     )
 

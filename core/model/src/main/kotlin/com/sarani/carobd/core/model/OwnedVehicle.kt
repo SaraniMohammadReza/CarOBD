@@ -18,11 +18,13 @@ data class OwnedVehicle(
     val engine: String? = null,
     val engineCode: String? = null,
     val transmission: String? = null,
+    val fuelType: String? = null,
     val market: String? = null,
     val vin: String? = null,
     val licensePlate: String? = null,
     val currentOdometerKm: Long? = null,
     val tankCapacityLiters: Double? = null,
+    val notes: String? = null,
     val createdAtMs: Long,
     val updatedAtMs: Long,
 ) {
@@ -46,9 +48,11 @@ data class OwnedVehicle(
         engine = engine.nullIfBlank(),
         engineCode = engineCode.nullIfBlank(),
         transmission = transmission.nullIfBlank(),
+        fuelType = fuelType.nullIfBlank(),
         market = market.nullIfBlank(),
         vin = vin.nullIfBlank()?.uppercase(),
         licensePlate = licensePlate.nullIfBlank(),
+        notes = notes.nullIfBlank(),
     )
 }
 

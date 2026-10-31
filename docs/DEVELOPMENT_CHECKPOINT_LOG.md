@@ -20,3 +20,15 @@
 - Verification: model tests, app JVM tests and Android-test APK assembly passed. Android SQLite test compiled but was not executed.
 - Source checkpoint pushed: `5753ec848738e1ce1974941949e1ba9771d023ae`.
 - Next: bilingual ownership management UI and navigation.
+
+# 2026-10-31 — Checkpoint C: bilingual My Vehicle management
+
+- Added a dedicated My Vehicle destination and offline Compose flow for empty/list/create/edit/select/delete, separate from ECU routing profiles.
+- Added English and Persian resources for every new user-facing label, validation message and confirmation.
+- Extended the published ownership schema additively to SQLite v6 for nullable fuel type and notes; v5 SQL remains immutable and no legacy row is assigned.
+- Added an interface-backed ownership repository and MVI state/editor validation. English, Persian and Arabic digits are accepted for model year; optional blanks persist as null; edits preserve identity and creation time.
+- Added JVM regressions for localized save/edit, validation, selection and deletion isolation. Expanded the Android SQLite lifecycle test for edit, multiple vehicles, reopen persistence and selected-vehicle deletion.
+- Final software gate passed: `:core:model:test :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug :app:checkDebugDuplicateClasses`, exit 0; 210 JVM tests, zero failures/errors/skips.
+- Android runtime status: `NOT_VERIFIABLE_ON_BLUESTACKS`. The local Pie64 API 28 instance accepted app and test APK installation but became offline before instrumentation. Gradle connected testing was additionally unable to resolve the UTP additional-test-output artifact. This is infrastructure evidence, not a product failure or pass.
+- No Bluetooth, BLE, USB, Wi-Fi adapter or vehicle validation was performed.
+- Next: execute the compiled persistence/UI instrumentation on a stable supported emulator before treating Android runtime behavior as verified; then begin provenance-aware vehicle catalog/fitment foundation.

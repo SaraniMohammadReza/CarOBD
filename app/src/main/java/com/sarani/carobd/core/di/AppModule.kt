@@ -7,6 +7,7 @@ import com.sarani.carobd.data.db.CarObdDatabaseHelper
 import com.sarani.carobd.data.repository.ActiveVehicleRepository
 import com.sarani.carobd.data.repository.ObdRepositoryImpl
 import com.sarani.carobd.data.repository.OwnedVehicleRepository
+import com.sarani.carobd.data.repository.SQLiteOwnedVehicleRepository
 import com.sarani.carobd.domain.repository.ObdRepository
 import com.sarani.carobd.domain.usecase.ClearDtcUseCase
 import com.sarani.carobd.domain.usecase.ConnectUseCase
@@ -19,6 +20,7 @@ import com.sarani.carobd.ui.screens.connection.ConnectionCenterViewModel
 import com.sarani.carobd.ui.screens.dashboard.DashboardViewModel
 import com.sarani.carobd.ui.screens.diagnostics.DiagnosticsViewModel
 import com.sarani.carobd.ui.screens.maintenance.MaintenanceViewModel
+import com.sarani.carobd.ui.screens.owned.OwnedVehiclesViewModel
 import com.sarani.carobd.ui.screens.terminal.TerminalViewModel
 import com.sarani.carobd.ui.screens.simulator.SimulatorSelectorViewModel
 import com.sarani.carobd.ui.screens.trip.TripViewModel
@@ -36,7 +38,7 @@ val appModule = module {
         com.sarani.carobd.data.repository.DataStoreConnectionProfileRepository(androidContext())
     }
     single { CarObdDatabaseHelper(androidContext()) }
-    single { OwnedVehicleRepository(get()) }
+    single<OwnedVehicleRepository> { SQLiteOwnedVehicleRepository(get()) }
     single { BluetoothDeviceScanner(androidContext()) }
     single { TripLogger() }
     single { AppPreferencesManager(androidContext()) }
@@ -74,5 +76,6 @@ val appModule = module {
     viewModel { TerminalViewModel(get()) }
     viewModel { SimulatorSelectorViewModel(get(), get()) }
     viewModel { MaintenanceViewModel(get(), get()) }
+    viewModel { OwnedVehiclesViewModel(get()) }
     viewModel { TripViewModel(get(), get(), get()) }
 }

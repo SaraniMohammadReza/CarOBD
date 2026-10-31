@@ -54,6 +54,8 @@ import com.sarani.carobd.ui.screens.diagnostics.DiagnosticsScreen
 import com.sarani.carobd.ui.screens.diagnostics.DiagnosticsViewModel
 import com.sarani.carobd.ui.screens.maintenance.MaintenanceScreen
 import com.sarani.carobd.ui.screens.maintenance.MaintenanceViewModel
+import com.sarani.carobd.ui.screens.owned.OwnedVehiclesScreen
+import com.sarani.carobd.ui.screens.owned.OwnedVehiclesViewModel
 import com.sarani.carobd.ui.screens.simulator.SimulatorSelectorScreen
 import com.sarani.carobd.ui.screens.simulator.SimulatorSelectorViewModel
 import com.sarani.carobd.ui.screens.settings.SettingsScreen
@@ -79,6 +81,7 @@ import org.koin.androidx.compose.koinViewModel
 sealed class AppDestination(val route: String, val titleRes: Int, val icon: ImageVector) {
     data object Dashboard : AppDestination("dashboard", R.string.nav_dashboard, Icons.Default.Speed)
     data object ConnectionCenter : AppDestination("connect", R.string.nav_connection_center, Icons.Default.Wifi)
+    data object MyVehicle : AppDestination("my_vehicle", R.string.nav_my_vehicle, Icons.Default.DirectionsCar)
     data object Diagnostics : AppDestination("diagnostics", R.string.nav_diagnostics, Icons.Default.Build)
     data object Maintenance : AppDestination("maintenance", R.string.nav_maintenance, Icons.Default.Engineering)
     data object Trip : AppDestination("trip", R.string.nav_trip, Icons.Default.Navigation)
@@ -126,6 +129,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
     val destinations = listOf(
         AppDestination.Dashboard,
         AppDestination.ConnectionCenter,
+        AppDestination.MyVehicle,
         AppDestination.Diagnostics,
         AppDestination.Maintenance,
         AppDestination.Trip,
@@ -137,7 +141,7 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
 
     val sessionState by org.koin.compose.koinInject<com.sarani.carobd.domain.repository.ObdRepository>().connectionState.collectAsState()
     var moreOpen by remember { mutableStateOf(false) }
-    val primaryDestinations = listOf(AppDestination.Dashboard, AppDestination.ConnectionCenter, AppDestination.Diagnostics, AppDestination.Settings)
+    val primaryDestinations = listOf(AppDestination.Dashboard, AppDestination.MyVehicle, AppDestination.ConnectionCenter, AppDestination.Diagnostics)
     fun navigate(route: String) {
         if (currentRoute != route) navController.navigate(route) {
             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -229,6 +233,10 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
             composable(AppDestination.ConnectionCenter.route) {
                 val vm: ConnectionCenterViewModel = koinViewModel()
                 ConnectionCenterScreen(viewModel = vm)
+            }
+            composable(AppDestination.MyVehicle.route) {
+                val vm: OwnedVehiclesViewModel = koinViewModel()
+                OwnedVehiclesScreen(vm)
             }
             composable(AppDestination.Diagnostics.route) {
                 val vm: DiagnosticsViewModel = koinViewModel()

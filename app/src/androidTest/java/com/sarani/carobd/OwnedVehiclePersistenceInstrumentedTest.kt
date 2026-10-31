@@ -35,12 +35,18 @@ class OwnedVehiclePersistenceInstrumentedTest {
                 assertEquals(vehicle, db.ownedVehicles().single())
                 assertEquals(vehicle.id, db.activeOwnedVehicleId())
                 assertEquals(0L, db.readableDatabase.compileStatement("SELECT COUNT(*) FROM garage_vehicles").simpleQueryForLong())
+                db.saveOwnedVehicle(vehicle.copy(displayName = "Edited", notes = "owner note", updatedAtMs = 20))
+                db.saveOwnedVehicle(vehicle.copy(id = "owner-2", displayName = "Second", createdAtMs = 30, updatedAtMs = 30))
+                assertEquals(listOf("owner-2", "owner-1"), db.ownedVehicles().map { it.id })
+                assertEquals("Edited", db.ownedVehicles().first { it.id == vehicle.id }.displayName)
+                assertEquals(vehicle.id, db.activeOwnedVehicleId())
             }
             CarObdDatabaseHelper(context, name).use { db ->
-                assertEquals(vehicle, db.ownedVehicles().single())
+                assertEquals(2, db.ownedVehicles().size)
+                assertEquals("Edited", db.ownedVehicles().first { it.id == vehicle.id }.displayName)
                 assertEquals(vehicle.id, db.activeOwnedVehicleId())
                 assertTrue(db.deleteOwnedVehicle(vehicle.id))
-                assertTrue(db.ownedVehicles().isEmpty())
+                assertEquals(listOf("owner-2"), db.ownedVehicles().map { it.id })
                 assertNull(db.activeOwnedVehicleId())
             }
         } finally {
