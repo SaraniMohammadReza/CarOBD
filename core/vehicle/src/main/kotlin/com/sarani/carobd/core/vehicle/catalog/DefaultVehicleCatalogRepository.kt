@@ -205,9 +205,13 @@ class DefaultVehicleCatalogRepository(
                 powerHp = 105,
                 torqueNm = 142,
                 sources = listOf(
-                    DataSourceReference("PSA TU5 Workshop Manual", "PSA-ENG-TU5JP4", "PSA Automobiles")
+                    DataSourceReference(
+                        title = "PSA TU5JP4 Workshop Manual",
+                        urlOrDocument = "",
+                        manufacturer = "PSA Automobiles"
+                    )
                 ),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             EngineVariant(
                 id = "eng_tu3",
@@ -221,9 +225,13 @@ class DefaultVehicleCatalogRepository(
                 powerHp = 75,
                 torqueNm = 118,
                 sources = listOf(
-                    DataSourceReference("PSA TU3 Workshop Manual", "PSA-ENG-TU3A", "PSA Automobiles")
+                    DataSourceReference(
+                        title = "PSA TU3 Workshop Documentation",
+                        urlOrDocument = "",
+                        manufacturer = "PSA Automobiles"
+                    )
                 ),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             EngineVariant(
                 id = "eng_tu5p",
@@ -237,9 +245,13 @@ class DefaultVehicleCatalogRepository(
                 powerHp = 113,
                 torqueNm = 144,
                 sources = listOf(
-                    DataSourceReference("IKCO TU5P Technical Specification", "IKCO-ENG-TU5P", "Iran Khodro")
+                    DataSourceReference(
+                        title = "Iran Khodro TU5P Engine Technical Specification",
+                        urlOrDocument = "",
+                        manufacturer = "Iran Khodro"
+                    )
                 ),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             EngineVariant(
                 id = "eng_ef7_na",
@@ -253,9 +265,13 @@ class DefaultVehicleCatalogRepository(
                 powerHp = 113,
                 torqueNm = 155,
                 sources = listOf(
-                    DataSourceReference("IPCO / FEV EF7 Specification Document", "IPCO-EF7-NA-2015", "IPCO")
+                    DataSourceReference(
+                        title = "IPCO / FEV EF7 Base Engine Overview",
+                        urlOrDocument = "",
+                        manufacturer = "IPCO"
+                    )
                 ),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             EngineVariant(
                 id = "eng_ef7_tc",
@@ -269,9 +285,13 @@ class DefaultVehicleCatalogRepository(
                 powerHp = 150,
                 torqueNm = 215,
                 sources = listOf(
-                    DataSourceReference("IKCO Dena+ Turbo Engine Service Guide", "IKCO-TG-EF7TC-2020", "Iran Khodro")
+                    DataSourceReference(
+                        title = "IKCO Dena+ Turbo Engine Service Guide",
+                        urlOrDocument = "",
+                        manufacturer = "Iran Khodro"
+                    )
                 ),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             EngineVariant(
                 id = "eng_m15tc",
@@ -285,9 +305,13 @@ class DefaultVehicleCatalogRepository(
                 powerHp = 110,
                 torqueNm = 178,
                 sources = listOf(
-                    DataSourceReference("SAIPA Mega Motor M15TC Service Sheet", "MEGA-ENG-M15TC", "Mega Motor")
+                    DataSourceReference(
+                        title = "SAIPA Mega Motor M15TC Service Sheet",
+                        urlOrDocument = "",
+                        manufacturer = "Mega Motor"
+                    )
                 ),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             EngineVariant(
                 id = "eng_k4m",
@@ -301,9 +325,13 @@ class DefaultVehicleCatalogRepository(
                 powerHp = 105,
                 torqueNm = 148,
                 sources = listOf(
-                    DataSourceReference("Renault Logan/Tondar Workshop Manual", "RN-LOGAN-MR388", "Renault")
+                    DataSourceReference(
+                        title = "Renault Logan/Tondar MR388 Workshop Manual",
+                        urlOrDocument = "MR388",
+                        manufacturer = "Renault"
+                    )
                 ),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             )
         )
 
@@ -339,7 +367,7 @@ class DefaultVehicleCatalogRepository(
                     fuelTankCapacityLiters = 50.0f
                 ),
                 aliases = listOf("تیپ ۲", "تیپ 2", "Type 2", "TU3"),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             // 206 Type 5 (TU5, Manual)
             VehicleVariant(
@@ -360,10 +388,11 @@ class DefaultVehicleCatalogRepository(
                     timingBeltIntervalKm = 60000,
                     timingBeltTeeth = 134,
                     coolantCapacityLiters = 6.0f,
-                    fuelTankCapacityLiters = 50.0f
+                    fuelTankCapacityLiters = 50.0f,
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
                 ),
                 aliases = listOf("تیپ ۵", "تیپ 5", "Type 5", "TU5"),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             // Dena (EF7 NA, Manual)
             VehicleVariant(
@@ -384,10 +413,11 @@ class DefaultVehicleCatalogRepository(
                     timingBeltIntervalKm = 60000,
                     timingBeltTeeth = 127,
                     coolantCapacityLiters = 7.5f,
-                    fuelTankCapacityLiters = 60.0f
+                    fuelTankCapacityLiters = 60.0f,
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
                 ),
                 aliases = listOf("دنا معمولی", "دنا EF7", "Dena EF7"),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             // Dena+ Turbo Auto (EF7 TC, 6-speed Auto)
             VehicleVariant(
@@ -408,10 +438,11 @@ class DefaultVehicleCatalogRepository(
                     timingBeltIntervalKm = 50000,
                     timingBeltTeeth = 127,
                     coolantCapacityLiters = 7.8f,
-                    fuelTankCapacityLiters = 60.0f
+                    fuelTankCapacityLiters = 60.0f,
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
                 ),
                 aliases = listOf("دنا پلاس توربو اتوماتیک", "دنا پلاس اتومات", "Dena Turbo Auto"),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             // Shahin G (M15TC, 5M)
             VehicleVariant(
@@ -432,10 +463,11 @@ class DefaultVehicleCatalogRepository(
                     timingBeltIntervalKm = 60000,
                     timingBeltTeeth = 114,
                     coolantCapacityLiters = 6.5f,
-                    fuelTankCapacityLiters = 47.0f
+                    fuelTankCapacityLiters = 47.0f,
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
                 ),
                 aliases = listOf("شاهین G", "شاهین دنده‌ای", "Shahin G"),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             ),
             // Tondar 90 E2 (K4M, 5M)
             VehicleVariant(
@@ -456,10 +488,11 @@ class DefaultVehicleCatalogRepository(
                     timingBeltIntervalKm = 60000,
                     timingBeltTeeth = 132,
                     coolantCapacityLiters = 5.5f,
-                    fuelTankCapacityLiters = 50.0f
+                    fuelTankCapacityLiters = 50.0f,
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
                 ),
                 aliases = listOf("تندر ۹۰ E2", "تندر E2", "ال۹۰ E2", "L90 E2"),
-                confidence = ConfidenceLevel.VERIFIED_OEM
+                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
             )
         )
     }

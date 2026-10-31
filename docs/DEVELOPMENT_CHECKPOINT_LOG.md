@@ -66,3 +66,23 @@
   - Total full suite across all 6 modules: 480 JVM tests (app 152, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 7), 0 failures, 0 errors, 0 skipped.
   - Lint: 0 errors, 99 warnings. Duplicate class check: passed. Both APK assemblies: passed.
 - Next: Maintenance Center UI and per-vehicle service reminder management.
+
+# 2026-10-31 — Checkpoint F: forensic review and hardening of vehicle catalog provenance
+
+- Local timestamp: 2026-10-31 10:41 Asia/Tehran.
+- Goal: Perform a forensic review of the vehicle catalog provenance; downgrade unsubstantiated `VERIFIED_OEM` claims to honest `ConfidenceLevel.COMMUNITY_CONFIRMED`; purge synthesized document IDs; verify technical data isolation; add regression coverage.
+- Findings:
+  - Catalog records contained synthesized/fake document IDs (e.g. `PSA-ENG-TU5JP4`, `IKCO-TG-EF7TC-2020`) and were marked `ConfidenceLevel.VERIFIED_OEM` without bundled verified OEM-signed source documentation in the repository.
+- Changes:
+  - Replaced fake document identifiers with genuine document titles or empty `urlOrDocument` (e.g. real Renault Logan MR388 manual).
+  - Downgraded all community-derived engines and variant specifications to honest `ConfidenceLevel.COMMUNITY_CONFIRMED`.
+  - Verified technical values: TU3 (108 belt teeth, 3.25L oil), TU5 (134 belt teeth, 3.75L oil), EF7 NA (127 teeth, 0.75mm plug gap), EF7 TC (127 teeth, 0.70mm turbo plug gap, 50,000 km belt), Shahin M15TC (114 teeth, 4.0L oil), Tondar K4M (132 teeth, 4.8L oil).
+  - Ensured unverified specifications (tire sizes, battery spec, brake fluid) remain strictly null rather than fabricated.
+- Regressions Added:
+  - `testUnverifiedRecordsCannotBeSilentlyPromotedToVerifiedOem`: asserts that community data cannot be marked `VERIFIED_OEM` and source documents do not contain synthesized fake IDs.
+  - `testMissingSpecificationsRemainStrictlyNull`: asserts missing fields remain null.
+  - `testEngineVariantDataCannotLeakAcrossVariants`: verifies strict isolation between engine variants (e.g. TU3 vs TU5 belt teeth and oil capacities; EF7 NA vs EF7 TC aspiration and plug gaps).
+- Tests & Verification:
+  - 10 tests passed in `:core:vehicle:test` (0 failures, 0 errors, 0 skipped).
+  - Total full suite across all 6 modules: 483 JVM tests passed, 0 failures, 0 errors, 0 skipped.
+- Next: Inspect AVD emulator availability for runtime testing, then implement Maintenance Center UI.
