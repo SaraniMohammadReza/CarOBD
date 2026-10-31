@@ -291,3 +291,17 @@
   - Total full suite across all 6 modules: **520 JVM tests** (app 179, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 20), **0 failures, 0 errors, 0 skipped**.
   - Lint: **0 errors**. Duplicate class check: **passed**.
   - Both APK assemblies: \ssembleDebug\ and \ssembleDebugAndroidTest\ **passed**.
+
+# 2026-10-31 — Checkpoint UI-0: VehicleSpecSheet runtime crash repair and Koin Compose context cleanup
+
+- Local timestamp: 2026-10-31 14:15 Asia/Tehran.
+- Goal: Fix confirmed runtime \NoSuchMethodError\ on \VehicleSpecSheet.<init>(...)\ constructor from \IranianCarSpecsDatabase.<clinit>\ and \MaintenanceViewModel\; clean up Koin Compose context warnings.
+- Root Cause Analysis:
+  - In \:core:model\ \MaintenanceModels.kt\, \VehicleSpecSheet\ was declared without \@JvmOverloads\. When default parameters \sources = emptyList()\ and \confidence = ConfidenceLevel.VERIFIED_OEM\ were introduced, callers expecting the 14-parameter constructor (such as \IranianCarSpecsDatabase\ when compiled against earlier signatures or in default call sites) failed with \java.lang.NoSuchMethodError\.
+  - In addition, Compose tree in \MainActivity.kt\ lacked a top-level \KoinContext\ wrapper, emitting repeated \No Compose Koin context setup, taking default\ warnings.
+- Fix:
+  - Added \@JvmOverloads constructor\ to \VehicleSpecSheet\ in \MaintenanceModels.kt\, guaranteeing generation of the exact 14-parameter bytecode signature \<init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;FLjava/util/List;Ljava/lang/String;FLjava/lang/String;FIILjava/lang/String;FLjava/util/List;)V\.
+  - Updated \IranianCarSpecsDatabase.kt\ to explicitly supply \sources\ and \confidence\ on all entries.
+  - Wrapped \MainActivity.kt\'s Compose root in \org.koin.compose.KoinContext { ... }\.
+  - Added \IranianCarSpecsDatabaseTest.kt\ verifying that \IranianCarSpecsDatabase.<clinit>\ loads cleanly and that all constructor overloads instantiate without errors.
+  - Executed \:app:clean :core:model:clean :app:assembleDebug\ to completely purge stale DEX/class artifacts.

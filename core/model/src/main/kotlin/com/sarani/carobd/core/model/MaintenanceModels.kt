@@ -25,7 +25,7 @@ data class ServiceRecord(
     val notes: String = ""
 )
 
-data class VehicleSpecSheet(
+data class VehicleSpecSheet @JvmOverloads constructor(
     val vehicleId: String,
     val engineCode: String,
     val engineOilGrade: String,

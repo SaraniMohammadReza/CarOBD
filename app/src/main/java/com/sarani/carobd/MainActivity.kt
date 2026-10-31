@@ -114,8 +114,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            CarObdTheme(appPreferencesManager = appPreferencesManager) {
-                MainAppScaffold(appPreferencesManager = appPreferencesManager)
+            org.koin.compose.KoinContext {
+                CarObdTheme(appPreferencesManager = appPreferencesManager) {
+                    MainAppScaffold(appPreferencesManager = appPreferencesManager)
+                }
             }
         }
     }
@@ -300,5 +302,6 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
         }
     }
 }
+
 
 
