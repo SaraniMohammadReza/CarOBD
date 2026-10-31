@@ -581,4 +581,54 @@
     <string name="status_degraded">افت کیفیت اتصال</string>
     <string name="status_connected_sim">متصل (شبیه‌ساز)</string>
     <string name="ui_retry">تلاش مجدد</string>
+
+    <!-- Connection Center & Safety -->
+    <string name="connection_safety_title">تضمین ایمنی ۱۰۰٪ فقط-خواندنی</string>
+    <string name="connection_safety_desc">کار‌او‌بی‌دی صرفاً در حالت‌های تشخیصی استاندارد فقط-خواندنی کار می‌کند. هرگونه تغییر در حافظه یا نرم‌افزار ECU و تحریک عملگرها مسدود است. سامانه برق و کامپیوتر خودرو کاملاً ایمن است.</string>
+    <string name="connection_add_adapter_btn">+ افزودن آداپتور تشخیصی</string>
+    <string name="connection_transport_hint_bt">بلوتوث استاندارد ELM327 (پیشنهادی برای خودروهای داخلی مانند ۲۰۶، سمند، پارس، پراید)</string>
+    <string name="connection_transport_hint_ble">بلوتوث کم‌مصرف BLE ۴.۰+ (مانند وی‌گیت iCar Pro BLE)</string>
+    <string name="connection_transport_hint_wifi">وای‌فای OBD (ابتدا به شبکه وای‌فای آداپتور وصل شوید؛ پیش‌فرض: ۱۹۲.۱۶۸.۰.۱۰:۳۵۰۰۰)</string>
+    <string name="connection_transport_hint_sim">شبیه‌ساز مجازی: آزمایش ایمن تمام امکانات برنامه بدون نیاز به خودرو یا آداپتور</string>
+    <string name="connection_transport_hint_usb">اتصال مستقیم با کابل USB-OTG (تراشه‌های FTDI یا CH340)</string>
+    <string name="connection_quick_sim">راه‌اندازی شبیه‌ساز تشخیصی</string>
+    <string name="connection_stage_transport">برقراری ارتباط فیزیکی</string>
+    <string name="connection_stage_probe">شناسایی و راه‌اندازی اولیه آداپتور ELM327</string>
+    <string name="connection_stage_protocol">تشخیص خودکار پروتکل ارتباطی OBD-II</string>
+    <string name="connection_stage_ecu">بررسی پاسخ کامپیوتر خودرو (ECU)</string>
+    <string name="connection_profile_details">آداپتور: %1$s · پروتکل: %2$s</string>
+    <string name="connection_profiles_header">نمایه‌های اتصال ذخیره‌شده</string>
+
+    <!-- Diagnostic Disconnected Guided Recovery -->
+    <string name="diag_disconnected_title">آداپتور OBD-II متصل نیست</string>
+    <string name="diag_disconnected_desc">برای اسکن کدهای خطای موتور (DTC)، آداپتور OBD-II را به درگاه دیاگ خودرو وصل کرده و متصل شوید، یا از شبیه‌ساز برای آزمایش با داده‌های شبیه‌سازی‌شده استفاده کنید.</string>
+    <string name="diag_connect_adapter_btn">اتصال به آداپتور</string>
+    <string name="diag_use_simulator_btn">استفاده از شبیه‌ساز</string>
+    <string name="diag_learn_guide_btn">راهنمای OBD-II و کدهای خطا</string>
+    <string name="diag_scan_no_adapter_alert">لطفاً ابتدا به یک آداپتور متصل شوید یا شبیه‌ساز را فعال کنید.</string>
+
+    <!-- Simulator Explanation -->
+    <string name="simulator_banner_title">شبیه‌ساز تشخیصی مجازی</string>
+    <string name="simulator_banner_desc">آزمایش گیج‌های زنده، کدهای خطا، داده‌های فریز فریم و ثبت سفرها بدون نیاز به اتصال به خودروی واقعی.</string>
+
+    <!-- Onboarding & Splash -->
+    <string name="onboarding_welcome_title">به کار‌او‌بی‌دی خوش آمدید</string>
+    <string name="onboarding_welcome_subtitle">همراه جامع نگهداری، مشخصات فنی، قطعات و عیب‌یابی ایمن خودرو</string>
+    <string name="onboarding_feature_garage_title">پرونده فنی و مشخصات خودرو</string>
+    <string name="onboarding_feature_garage_desc">مشخصات دقیق پیشرانه، حجم روغن‌ها، ضدیخ و گشتاور بستن پیچ‌ها برای خودروهای بازار ایران.</string>
+    <string name="onboarding_feature_maint_title">برنامه سرویس و یادآور نگهداری</string>
+    <string name="onboarding_feature_maint_desc">پیگیری زمان تعویض روغن، تسمه تایم، فیلترها و شمع‌ها بر اساس کیلومتر واقعی خودرو.</string>
+    <string name="onboarding_feature_parts_title">بانک قطعات و دانشنامه فنی</string>
+    <string name="onboarding_feature_parts_desc">قطعات سازگار تأییدشده با شماره فنی OEM و دانشنامه آموزشی نگهداری و عیب‌یابی خودرو.</string>
+    <string name="onboarding_feature_diag_title">عیب‌یابی ۱۰۰٪ ایمن و فقط-خواندنی</string>
+    <string name="onboarding_feature_diag_desc">اتصال به آداپتور بلوتوث/وای‌فای ELM327 یا شبیه‌ساز مجازی. کاملاً ایمن و بدون دستکاری ECU.</string>
+    <string name="onboarding_step_intro">معرفی</string>
+    <string name="onboarding_step_vehicle">انتخاب خودرو</string>
+    <string name="onboarding_step_safety">ایمنی و دیاگ</string>
+    <string name="onboarding_vehicle_select_prompt">برای تنظیم خودکار برنامه‌های سرویس و مشخصات فنی، خودروی خود را انتخاب کنید:</string>
+    <string name="onboarding_safety_note">دانگل دیاگ ندارید؟ مشکلی نیست! می‌توانید از تمام امکانات سرویس، قطعات و راهنما بدون نیاز به هیچ دانگلی استفاده کنید.</string>
+    <string name="onboarding_btn_next">مرحله بعد</string>
+    <string name="onboarding_btn_get_started">شروع استفاده</string>
+    <string name="onboarding_btn_skip">رد کردن</string>
+    <string name="splash_app_tagline">هوشمندی و نگهداری تخصصی خودرو</string>
 </resources>

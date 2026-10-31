@@ -201,9 +201,28 @@ fun TripScreen(
                 )
             }
 
-            if (state.summary.coverageLimited || state.summary.limitReached) Text(stringResource(R.string.trip_partial), color = NeonAmber)
-            Text(stringResource(R.string.trip_fuel_unknown), color = TextMuted)
-            Text(stringResource(R.string.s5_trip_limits), color = TextMuted)
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (state.summary.coverageLimited || state.summary.limitReached || state.summary.estimatedFuelUsedLiters == null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(DarkCardBg, RoundedCornerShape(12.dp))
+                        .border(1.dp, DarkCardBorder, RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        if (state.summary.coverageLimited || state.summary.limitReached) {
+                            Text(stringResource(R.string.trip_partial), color = NeonAmber, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                        }
+                        if (state.summary.estimatedFuelUsedLiters == null) {
+                            Text(stringResource(R.string.trip_fuel_unknown), color = TextMuted, fontSize = 11.sp)
+                        }
+                        Text(stringResource(R.string.s5_trip_limits), color = TextMuted, fontSize = 10.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
             com.sarani.carobd.ui.components.TripEvidenceSummary(state.summary.evidence)
             Spacer(modifier = Modifier.height(14.dp))
 
@@ -274,6 +293,8 @@ fun TripScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }

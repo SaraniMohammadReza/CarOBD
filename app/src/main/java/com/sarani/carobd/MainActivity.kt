@@ -131,6 +131,29 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val scope = rememberCoroutineScope()
+    val isOnboardingDone by appPreferencesManager.isOnboardingDone.collectAsState(initial = null)
+    var showSplash by remember { mutableStateOf(true) }
+
+    if (showSplash) {
+        com.sarani.carobd.ui.screens.splash.AutomotiveSplashScreen(
+            onFinished = { showSplash = false }
+        )
+        return
+    }
+
+    if (isOnboardingDone == false) {
+        com.sarani.carobd.ui.screens.onboarding.OnboardingScreen(
+            onFinish = { setup ->
+                scope.launch {
+                    if (setup != null) {
+                        appPreferencesManager.saveVehicleSetup(setup)
+                    }
+                    appPreferencesManager.setOnboardingDone(true)
+                }
+            }
+        )
+        return
+    }
 
     val destinations = listOf(
         AppDestination.Home,
@@ -270,7 +293,13 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
             }
             composable(AppDestination.Diagnostics.route) {
                 val vm: DiagnosticsViewModel = koinViewModel()
-                DiagnosticsScreen(viewModel = vm, onEvidence = { navController.navigate("evidence") })
+                DiagnosticsScreen(
+                    viewModel = vm,
+                    onEvidence = { navController.navigate("evidence") },
+                    onNavigateToConnect = { navController.navigate(AppDestination.ConnectionCenter.route) },
+                    onNavigateToSimulator = { navController.navigate(AppDestination.Simulator.route) },
+                    onNavigateToGuide = { navController.navigate("guide") }
+                )
             }
             composable("monitor_tests") { com.sarani.carobd.ui.screens.evidence.MonitorTestsScreen(koinViewModel()) }
             composable("dtc_history") { com.sarani.carobd.ui.screens.evidence.DtcHistoryScreen(koinViewModel()) }

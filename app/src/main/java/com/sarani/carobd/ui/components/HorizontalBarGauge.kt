@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sarani.carobd.ui.theme.DarkBg
@@ -57,16 +58,31 @@ fun HorizontalBarGauge(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = title, color = TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    text = title,
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                )
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         text = String.format(java.util.Locale.US, "%.1f", value),
                         color = TextPrimary,
-                        fontSize = 18.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1
                     )
-                    Text(text = " $unit", color = accentColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = " $unit",
+                        color = accentColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
                 }
             }
 
@@ -76,7 +92,7 @@ fun HorizontalBarGauge(
                 progress = { animatedProgress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(8.dp),
+                    .height(6.dp),
                 color = accentColor,
                 trackColor = DarkBg,
             )

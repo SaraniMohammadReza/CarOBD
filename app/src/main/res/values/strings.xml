@@ -581,4 +581,54 @@
     <string name="status_degraded">Degraded</string>
     <string name="status_connected_sim">Connected (Sim)</string>
     <string name="ui_retry">Retry</string>
+
+    <!-- Connection Center & Safety -->
+    <string name="connection_safety_title">100% Read-Only Safety Guarantee</string>
+    <string name="connection_safety_desc">CarOBD operates strictly in read-only diagnostic modes. ECU firmware flashing, ROM writing, and actuator actuation are physically blocked. Your vehicle electrical system is safe.</string>
+    <string name="connection_add_adapter_btn">+ Add Diagnostic Adapter</string>
+    <string name="connection_transport_hint_bt">Standard ELM327 Bluetooth (Recommended for Iranian vehicles like 206, Samand, Pars, Pride)</string>
+    <string name="connection_transport_hint_ble">Bluetooth Low Energy 4.0+ (e.g. Vgate iCar Pro BLE)</string>
+    <string name="connection_transport_hint_wifi">Wi-Fi OBD adapter (Connect phone to adapter Wi-Fi first; default 192.168.0.10:35000)</string>
+    <string name="connection_transport_hint_sim">Virtual Simulator: Safe bench diagnostic testing without any vehicle</string>
+    <string name="connection_transport_hint_usb">Direct USB-OTG connection (FTDI / CH340)</string>
+    <string name="connection_quick_sim">Launch Diagnostic Simulator</string>
+    <string name="connection_stage_transport">Hardware link</string>
+    <string name="connection_stage_probe">ELM327 adapter handshake</string>
+    <string name="connection_stage_protocol">OBD-II protocol auto-detect</string>
+    <string name="connection_stage_ecu">ECU response verification</string>
+    <string name="connection_profile_details">Adapter: %1$s · Protocol: %2$s</string>
+    <string name="connection_profiles_header">Saved Connection Profiles</string>
+
+    <!-- Diagnostic Disconnected Guided Recovery -->
+    <string name="diag_disconnected_title">OBD-II Adapter Not Connected</string>
+    <string name="diag_disconnected_desc">To scan for fault codes (DTCs), connect an OBD-II adapter to your car diagnostic port, or use the Simulator to explore with synthetic diagnostic data.</string>
+    <string name="diag_connect_adapter_btn">Connect Adapter</string>
+    <string name="diag_use_simulator_btn">Use Simulator</string>
+    <string name="diag_learn_guide_btn">Learn OBD-II &amp; DTC</string>
+    <string name="diag_scan_no_adapter_alert">Please connect an adapter or start the Simulator before scanning.</string>
+
+    <!-- Simulator Explanation -->
+    <string name="simulator_banner_title">Synthetic Diagnostic Simulation</string>
+    <string name="simulator_banner_desc">Explore live gauges, fault codes, freeze frames, and trip recording safely without connecting to a physical vehicle.</string>
+
+    <!-- Onboarding & Splash -->
+    <string name="onboarding_welcome_title">Welcome to CarOBD</string>
+    <string name="onboarding_welcome_subtitle">Your complete automotive ownership, maintenance &amp; safe diagnostic companion</string>
+    <string name="onboarding_feature_garage_title">Vehicle Garage &amp; Tech Specs</string>
+    <string name="onboarding_feature_garage_desc">Preloaded specifications, engine codes, fluid capacities &amp; torque values for Iranian market vehicles.</string>
+    <string name="onboarding_feature_maint_title">Maintenance &amp; Service Schedules</string>
+    <string name="onboarding_feature_maint_desc">Track engine oil, timing belts, filters, and spark plug intervals. Never miss critical services.</string>
+    <string name="onboarding_feature_parts_title">Parts &amp; Automotive Guide</string>
+    <string name="onboarding_feature_parts_desc">Verified compatible parts with OEM part numbers and comprehensive automotive engineering encyclopedia.</string>
+    <string name="onboarding_feature_diag_title">100% Safe Read-Only Diagnostics</string>
+    <string name="onboarding_feature_diag_desc">Connect an ELM327 Bluetooth/Wi-Fi adapter or explore with the simulator. Completely read-only with zero vehicle risk.</string>
+    <string name="onboarding_step_intro">Overview</string>
+    <string name="onboarding_step_vehicle">My Car</string>
+    <string name="onboarding_step_safety">Safety &amp; OBD</string>
+    <string name="onboarding_vehicle_select_prompt">Select your vehicle to set up recommended maintenance and specifications:</string>
+    <string name="onboarding_safety_note">No OBD-II adapter? No problem! You can use CarOBD for maintenance tracking, parts research, and specs completely without any adapter.</string>
+    <string name="onboarding_btn_next">Next</string>
+    <string name="onboarding_btn_get_started">Get Started</string>
+    <string name="onboarding_btn_skip">Skip Setup</string>
+    <string name="splash_app_tagline">Smart Automotive Intelligence</string>
 </resources>

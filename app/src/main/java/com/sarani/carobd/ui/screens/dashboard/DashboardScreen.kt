@@ -95,6 +95,29 @@ fun DashboardScreen(
     val currentTime by telemetryClock()
     val recording by viewModel.recordingState.collectAsState()
 
+    // Group widgets into paired 2-column rows when MEDIUM/SMALL; full width when LARGE.
+    val widgetRows = remember(state.widgets) {
+        val rows = mutableListOf<List<DashboardWidgetConfig>>()
+        var idx = 0
+        while (idx < state.widgets.size) {
+            val curr = state.widgets[idx]
+            if (curr.widgetSize == WidgetSize.LARGE || curr.widgetType == WidgetType.OSCILLOSCOPE_GRAPH) {
+                rows.add(listOf(curr))
+                idx++
+            } else if (idx + 1 < state.widgets.size &&
+                state.widgets[idx + 1].widgetSize != WidgetSize.LARGE &&
+                state.widgets[idx + 1].widgetType != WidgetType.OSCILLOSCOPE_GRAPH
+            ) {
+                rows.add(listOf(curr, state.widgets[idx + 1]))
+                idx += 2
+            } else {
+                rows.add(listOf(curr))
+                idx++
+            }
+        }
+        rows
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -112,7 +135,6 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // 1. Status Header
-            item { Text(com.sarani.carobd.ui.components.recordingLabel(recording)); Text(state.activeConnectionName ?: state.connectingName ?: "—") }
             item {
                 StatusHeader(
                     connectionState = state.connectionState,
@@ -294,24 +316,47 @@ fun DashboardScreen(
             }
 
             if (state.layoutSaveFailed) item { Text(stringResource(R.string.widget_save_failed), color = NeonAmber) }
-            // 5. Dynamically Rendered Customized Widgets
-            items(state.widgets, key = { it.id }) { widgetConfig ->
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    RenderCustomWidget(
-                        config = widgetConfig,
-                        telemetry = state.telemetry,
-                        graphHistory = state.graphHistory,
-                        modifier = Modifier.fillMaxWidth(if (widgetConfig.widgetSize == WidgetSize.LARGE) 1f else 0.5f)
-                    )
 
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { viewModel.onIntent(DashboardIntent.MoveWidget(widgetConfig.id, -1)) }) { Text("↑", modifier = Modifier.semantics { contentDescription = moveUpLabel }) }
-                        TextButton(onClick = { viewModel.onIntent(DashboardIntent.MoveWidget(widgetConfig.id, 1)) }) { Text("↓", modifier = Modifier.semantics { contentDescription = moveDownLabel }) }
-                        IconButton(onClick = { viewModel.onIntent(DashboardIntent.ResizeWidget(widgetConfig.id)) }) {
-                            Icon(Icons.Default.OpenInFull, contentDescription = resizeLabel)
-                        }
-                        IconButton(onClick = { viewModel.onIntent(DashboardIntent.RemoveWidget(widgetConfig.id)) }) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove_widget))
+            // 5. Dynamically Rendered Customized Widgets
+            items(widgetRows, key = { row -> row.joinToString("-") { it.id } }) { row ->
+                if (row.size == 1) {
+                    val widgetConfig = row[0]
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        RenderCustomWidget(
+                            config = widgetConfig,
+                            telemetry = state.telemetry,
+                            graphHistory = state.graphHistory,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        WidgetControlsRow(
+                            config = widgetConfig,
+                            viewModel = viewModel,
+                            moveUpLabel = moveUpLabel,
+                            moveDownLabel = moveDownLabel,
+                            resizeLabel = resizeLabel
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        row.forEach { widgetConfig ->
+                            Column(modifier = Modifier.weight(1f)) {
+                                RenderCustomWidget(
+                                    config = widgetConfig,
+                                    telemetry = state.telemetry,
+                                    graphHistory = state.graphHistory,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                WidgetControlsRow(
+                                    config = widgetConfig,
+                                    viewModel = viewModel,
+                                    moveUpLabel = moveUpLabel,
+                                    moveDownLabel = moveDownLabel,
+                                    resizeLabel = resizeLabel
+                                )
+                            }
                         }
                     }
                 }
@@ -519,20 +564,105 @@ fun PrimaryMetricsRow(
     )
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items.chunked(2).forEach { pair ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 pair.forEach { item ->
                     val signal = telemetry.signal(item.pid, now)
                     val converted = signal.value?.let { com.sarani.carobd.ui.theme.displayMeasurement(it.toDouble(), item.unit, com.sarani.carobd.ui.theme.LocalUnitSystem.current) }
                     val display = converted?.value?.let { String.format(java.util.Locale.US, if (item.pid in listOf("010D", "010C", "0105")) "%.0f" else "%.1f", it) } ?: "—"
-                    androidx.compose.material3.Card(Modifier.weight(1f)) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(item.label, color = TextMuted, style = androidx.compose.material3.MaterialTheme.typography.labelMedium)
-                            com.sarani.carobd.ui.components.DiagnosticIdentifier(display + " " + (converted?.unit ?: item.unit))
-                            if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) Text(stringResource(R.string.signal_stale), color = NeonAmber)
+                    val displayUnit = converted?.unit ?: item.unit
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(DarkCardBg, RoundedCornerShape(12.dp))
+                            .border(1.dp, DarkCardBorder, RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = item.label,
+                                color = TextMuted,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Text(
+                                    text = display,
+                                    color = TextPrimary,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1
+                                )
+                                Text(
+                                    text = displayUnit,
+                                    color = NeonCyan,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(bottom = 2.dp),
+                                    maxLines = 1
+                                )
+                            }
+                            if (signal.quality == com.sarani.carobd.core.model.SignalQuality.STALE) {
+                                Text(
+                                    text = stringResource(R.string.signal_stale),
+                                    color = NeonAmber,
+                                    fontSize = 10.sp,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WidgetControlsRow(
+    config: DashboardWidgetConfig,
+    viewModel: DashboardViewModel,
+    moveUpLabel: String,
+    moveDownLabel: String,
+    resizeLabel: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        horizontalArrangement = Arrangement.End,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = { viewModel.onIntent(DashboardIntent.MoveWidget(config.id, -1)) },
+            modifier = Modifier.size(24.dp)
+        ) {
+            Text("↑", color = TextMuted, fontSize = 12.sp, modifier = Modifier.semantics { contentDescription = moveUpLabel })
+        }
+        IconButton(
+            onClick = { viewModel.onIntent(DashboardIntent.MoveWidget(config.id, 1)) },
+            modifier = Modifier.size(24.dp)
+        ) {
+            Text("↓", color = TextMuted, fontSize = 12.sp, modifier = Modifier.semantics { contentDescription = moveDownLabel })
+        }
+        IconButton(
+            onClick = { viewModel.onIntent(DashboardIntent.ResizeWidget(config.id)) },
+            modifier = Modifier.size(24.dp)
+        ) {
+            Icon(Icons.Default.OpenInFull, contentDescription = resizeLabel, tint = TextMuted, modifier = Modifier.size(13.dp))
+        }
+        IconButton(
+            onClick = { viewModel.onIntent(DashboardIntent.RemoveWidget(config.id)) },
+            modifier = Modifier.size(24.dp)
+        ) {
+            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cd_remove_widget), tint = TextMuted, modifier = Modifier.size(13.dp))
         }
     }
 }

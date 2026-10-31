@@ -83,3 +83,14 @@ Prior to this UI/UX reconstruction sprint, CarOBD suffered from several structur
 - **UI-8**: Connection Center (redesign adapter scanner, transport cards, and stage visualizer).
 - **UI-9**: Settings / User Guide / History / Reports (complete knowledge base expansion, SAF report viewer).
 - **UI-10**: Global Responsive + RTL + Accessibility Audit Pass.
+
+## UI-2 Checkpoint Update (2026-10-31)
+- **Status:** COMPLETED and LIVE-DEVICE VERIFIED
+- **Key Deliverables:**
+  1. Dashboard text collapse & layout defects repaired: CircularGauge, DigitalMetricCard, and HorizontalBarGauge now enforce maxLines = 1 with TextOverflow.Ellipsis and display titles cleanly outside needle pivots; custom widgets pair into clean 2-column rows on 360dp phone; raw unstyled text removed from top of Dashboard.
+  2. Trip Screen layout repaired: Unstyled raw texts encapsulated in structured warning/info card; bottom clearance spacer added to prevent bottom navigation bar overlap.
+  3. Connection Center reconstructed: Prominent 100% Read-Only Safety Guarantee banner added; multi-step connection progress visualizer; explicit '+ Add Diagnostic Adapter' wizard with transport type hints and Wi-Fi default configuration (192.168.0.10:35000).
+  4. Diagnostics Disconnected Recovery: Tapping scan while disconnected presents an actionable alert dialog; disconnected empty state offers 3 direct recovery paths (Connect Adapter, Use Simulator, Learn OBD-II).
+  5. Simulator Polish: Prominent synthetic simulation explanation banner added; connection button integrated directly into status card.
+  6. Automotive Splash & First-Run 3-Step Onboarding: Headlights illumination reveal animation; 3-step progressive onboarding (Overview, Iranian Vehicle Selection, Safety & Diagnostic Options) with persistence via AppPreferencesManager.
+- **Device Verification:** Live on Samsung Galaxy (9889db474842494948) running Android 9 Pie in Persian RTL. 0 crashes, 0 NoSuchMethodError, responsive layouts across all 360dp screens.

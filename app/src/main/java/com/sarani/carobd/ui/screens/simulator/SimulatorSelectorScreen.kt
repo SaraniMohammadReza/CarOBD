@@ -1,8 +1,10 @@
 package com.sarani.carobd.ui.screens.simulator
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +19,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -47,8 +51,12 @@ import com.sarani.carobd.data.transport.SimulatorScenario
 import kotlinx.coroutines.launch
 import com.sarani.carobd.ui.theme.DarkBg
 import com.sarani.carobd.ui.theme.DarkCardBg
+import com.sarani.carobd.ui.theme.DarkCardBorder
+import com.sarani.carobd.ui.theme.NeonAmber
 import com.sarani.carobd.ui.theme.NeonCyan
+import com.sarani.carobd.ui.theme.NeonGreen
 import com.sarani.carobd.ui.theme.TextMuted
+import com.sarani.carobd.ui.theme.TextPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +86,7 @@ fun SimulatorSelectorScreen(
         containerColor = DarkBg,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.nav_simulator), color = NeonCyan) },
+                title = { Text(stringResource(R.string.nav_simulator), color = TextPrimary, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     onBack?.let {
                         IconButton(onClick = it) {
@@ -89,19 +97,7 @@ fun SimulatorSelectorScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkCardBg),
             )
         },
-        snackbarHost = { SnackbarHost(snackBar) },
-        floatingActionButton = {
-            if (canConnect) FloatingActionButton(
-                onClick = { viewModel.onIntent(SimulatorSelectorIntent.Connect) },
-                containerColor = NeonCyan,
-            ) {
-                Text(
-                    stringResource(R.string.action_connect),
-                    fontWeight = FontWeight.Bold,
-                    color = DarkBg,
-                )
-            }
-        },
+        snackbarHost = { SnackbarHost(snackBar) }
     ) { inner: PaddingValues ->
         Column(
             modifier = Modifier
@@ -109,39 +105,112 @@ fun SimulatorSelectorScreen(
                 .background(DarkBg)
                 .verticalScroll(rememberScrollState())
                 .padding(inner)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                stringResource(R.string.simulator_scenario_picker_hint),
-                color = TextMuted,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-            androidx.compose.material3.Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.simulator_warning), fontWeight = FontWeight.Bold)
+            // Prominent Educational Explanation Banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DarkCardBg, RoundedCornerShape(14.dp))
+                    .border(1.dp, NeonAmber.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                    .padding(14.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = stringResource(R.string.simulator_banner_title),
+                        color = NeonAmber,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(R.string.simulator_banner_desc),
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            // Connection Status Box
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DarkCardBg, RoundedCornerShape(14.dp))
+                    .border(1.dp, DarkCardBorder, RoundedCornerShape(14.dp))
+                    .padding(14.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = stringResource(R.string.ui_connection_state),
+                        color = TextMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                     when (val connection = state.connectionState) {
                         is com.sarani.carobd.core.model.ConnectionState.Connected -> {
-                            Text(stringResource(if (connection.isSimulator) R.string.s5_connected_sim else R.string.ui_connection_state))
-                            androidx.compose.material3.OutlinedButton(onClick = { viewModel.onIntent(SimulatorSelectorIntent.Disconnect) }) { Text(stringResource(R.string.btn_disconnect)) }
+                            Text(
+                                text = stringResource(if (connection.isSimulator) R.string.s5_connected_sim else R.string.ui_connection_state),
+                                color = NeonGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                            Button(
+                                onClick = { viewModel.onIntent(SimulatorSelectorIntent.Disconnect) },
+                                colors = ButtonDefaults.buttonColors(containerColor = com.sarani.carobd.ui.theme.NeonRed.copy(alpha = 0.2f), contentColor = com.sarani.carobd.ui.theme.NeonRed),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(stringResource(R.string.btn_disconnect), fontWeight = FontWeight.Bold)
+                            }
                         }
                         is com.sarani.carobd.core.model.ConnectionState.Failure -> {
-                            Text(com.sarani.carobd.ui.components.connectionIssueLabel(connection.issue))
+                            Text(com.sarani.carobd.ui.components.connectionIssueLabel(connection.issue), color = com.sarani.carobd.ui.theme.NeonRed)
                             com.sarani.carobd.ui.components.DeveloperEvidence(connection.technicalMessage)
                         }
-                        com.sarani.carobd.core.model.ConnectionState.Idle, com.sarani.carobd.core.model.ConnectionState.Disconnected -> Text(stringResource(R.string.s5_disconnected))
+                        com.sarani.carobd.core.model.ConnectionState.Idle, com.sarani.carobd.core.model.ConnectionState.Disconnected -> {
+                            Text(stringResource(R.string.s5_disconnected), color = TextMuted, fontSize = 12.sp)
+                            Button(
+                                onClick = { viewModel.onIntent(SimulatorSelectorIntent.Connect) },
+                                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(stringResource(R.string.action_connect), color = DarkBg, fontWeight = FontWeight.Bold)
+                            }
+                        }
                         else -> {
-                            androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
-                            Text(stringResource(R.string.s5_connection_progress))
-                            androidx.compose.material3.TextButton(onClick = { viewModel.onIntent(SimulatorSelectorIntent.Disconnect) }) { Text(stringResource(R.string.ui_cancel)) }
+                            androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth(), color = NeonAmber)
+                            Text(stringResource(R.string.s5_connection_progress), color = NeonAmber, fontSize = 11.sp)
+                            androidx.compose.material3.TextButton(onClick = { viewModel.onIntent(SimulatorSelectorIntent.Disconnect) }) {
+                                Text(stringResource(R.string.ui_cancel), color = com.sarani.carobd.ui.theme.NeonRed)
+                            }
                         }
                     }
                 }
             }
-            com.sarani.carobd.ui.components.RuntimeAccessControls(setOf(com.sarani.carobd.core.model.RuntimeAccess.Notifications))
+
+            Text(
+                stringResource(R.string.simulator_scenario_picker_hint),
+                color = TextPrimary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+            )
+
             state.scenarios.forEach { scenario ->
                 val selected = scenario.id == state.selectedScenarioId
-                ScenarioRow(scenario, selected) {
-                    viewModel.onIntent(SimulatorSelectorIntent.SelectScenario(scenario.id))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(DarkCardBg, RoundedCornerShape(12.dp))
+                        .border(
+                            1.dp,
+                            if (selected) NeonCyan.copy(alpha = 0.6f) else DarkCardBorder,
+                            RoundedCornerShape(12.dp)
+                        )
+                ) {
+                    ScenarioRow(scenario, selected) {
+                        viewModel.onIntent(SimulatorSelectorIntent.SelectScenario(scenario.id))
+                    }
                 }
             }
             Spacer(Modifier.height(72.dp))

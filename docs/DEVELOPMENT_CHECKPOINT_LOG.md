@@ -1,6 +1,6 @@
-# Development checkpoint log — append only
+# Development checkpoint log â append only
 
-## A — Architecture and safety reassessment
+## A â Architecture and safety reassessment
 
 - Time: 2026-10-31 06:07 Asia/Tehran. Starting local and fetched remote:14f924ea60d3ff350537fae143faf334ecf79691. Ending commit is the publication containing this entry; its exact Git identity is appended in the next verified checkpoint.
 - Objective: recover actual architecture/safety before product expansion. No source changes or deletions.
@@ -11,7 +11,7 @@
 - Verification: actual branch/status/log and git fetch/head comparison; source inspection; git diff --check before commit. No fresh JVM/build/Android/lint pass claimed. Historical464/10/10 baseline is not a fresh result.
 - P0: preserve physical04/08/write denial, generation/cancellation/quarantine/transport invariants. Physical device/vehicle validation outstanding. P1: ownership isolation, service provenance, combined report/lazy archive. P2: fitment/catalog/guide/reminders/intro integration. P3: deferred HUD/parking; no physical writes.
 - Next: additive ownership model/store migration, active vehicle repository, integrated manual vehicle add/edit/switch, SQLite recreation/upgrade/isolation tests; verify then push immediately.
-# 2026-10-31 — Checkpoint B: additive owned-vehicle persistence
+# 2026-10-31 â Checkpoint B: additive owned-vehicle persistence
 
 - Recovered remote `5ed1d92` in an isolated worktree because the original company checkout contained four preserved, superseded uncommitted edits.
 - Added nullable `OwnedVehicle`; unknown owner facts remain null and validation rejects invalid year/odometer/tank/timestamps.
@@ -21,7 +21,7 @@
 - Source checkpoint pushed: `5753ec848738e1ce1974941949e1ba9771d023ae`.
 - Next: bilingual ownership management UI and navigation.
 
-# 2026-10-31 — Checkpoint C: bilingual My Vehicle management
+# 2026-10-31 â Checkpoint C: bilingual My Vehicle management
 
 - Added a dedicated My Vehicle destination and offline Compose flow for empty/list/create/edit/select/delete, separate from ECU routing profiles.
 - Added English and Persian resources for every new user-facing label, validation message and confirmation.
@@ -33,7 +33,7 @@
 - No Bluetooth, BLE, USB, Wi-Fi adapter or vehicle validation was performed.
 - Next: execute the compiled persistence/UI instrumentation on a stable supported emulator before treating Android runtime behavior as verified; then begin provenance-aware vehicle catalog/fitment foundation.
 
-# 2026-10-31 — Checkpoint D: provenance-aware normalized vehicle catalog foundation
+# 2026-10-31 â Checkpoint D: provenance-aware normalized vehicle catalog foundation
 
 - Local timestamp: 2026-10-31 10:20 Asia/Tehran.
 - Goal: Establish normalized, expandable, provenance-aware vehicle catalog foundation (makes, models, generations, engine families, transmissions, variants, specifications) without hardcoding or unverified guesses.
@@ -49,7 +49,7 @@
   - Lint: 0 errors, 99 warnings. Duplicate class check: passed. Both APK assemblies: passed.
 - Next: Maintenance Center data model, per-vehicle service schedules, and provenance-backed intervals.
 
-# 2026-10-31 — Checkpoint E: maintenance foundation, due engine, and additive SQLite v7
+# 2026-10-31 â Checkpoint E: maintenance foundation, due engine, and additive SQLite v7
 
 - Local timestamp: 2026-10-31 10:28 Asia/Tehran.
 - Goal: Implement normalized maintenance foundation, time/mileage due calculation engine, per-vehicle schedule/history isolation, and additive SQLite v7 persistence.
@@ -67,7 +67,7 @@
   - Lint: 0 errors, 99 warnings. Duplicate class check: passed. Both APK assemblies: passed.
 - Next: Maintenance Center UI and per-vehicle service reminder management.
 
-# 2026-10-31 — Checkpoint F: forensic review and hardening of vehicle catalog provenance
+# 2026-10-31 â Checkpoint F: forensic review and hardening of vehicle catalog provenance
 
 - Local timestamp: 2026-10-31 10:41 Asia/Tehran.
 - Goal: Perform a forensic review of the vehicle catalog provenance; downgrade unsubstantiated `VERIFIED_OEM` claims to honest `ConfidenceLevel.COMMUNITY_CONFIRMED`; purge synthesized document IDs; verify technical data isolation; add regression coverage.
@@ -87,7 +87,7 @@
   - Total full suite across all 6 modules: 483 JVM tests passed, 0 failures, 0 errors, 0 skipped.
 - Next: Inspect AVD emulator availability for runtime testing, then implement Maintenance Center UI.
 
-# 2026-10-31 — Checkpoint G: bilingual Maintenance Center UI, service history, and runtime target investigation
+# 2026-10-31 â Checkpoint G: bilingual Maintenance Center UI, service history, and runtime target investigation
 
 - Local timestamp: 2026-10-31 11:05 Asia/Tehran.
 - Goal: Implement the bilingual Maintenance Center UI wired to `MaintenanceRepository`, `OwnedVehicleRepository`, `MaintenanceDueEngine`; provide schedule management and service completion recording; inspect AVD emulator availability.
@@ -113,7 +113,7 @@
   - Lint: 0 errors. Duplicate class check: passed. Both APK assemblies (`assembleDebug` and `assembleDebugAndroidTest`): passed.
 - Next: Field-level vehicle catalog provenance hardening (Checkpoint H) followed by Maintenance Reminder Engine (Checkpoint I).
 
-# 2026-10-31 — Checkpoint H: field-level and auditable vehicle data provenance
+# 2026-10-31 â Checkpoint H: field-level and auditable vehicle data provenance
 
 - Local timestamp: 2026-10-31 11:15 Asia/Tehran.
 - Goal: Make vehicle catalog data provenance field-level and auditable; ensure each technical value independently tracks its source, confidence, inference status, verification date, and safety for automatic recommendations.
@@ -132,7 +132,7 @@
   - Total full suite across all 6 modules: 492 JVM tests (app 158, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
 - Next: Maintenance Reminder Engine foundation (WorkManager, per-vehicle schedule isolation, date/mileage triggers).
 
-# 2026-10-31 — Checkpoint I: modern maintenance reminder engine and snooze architecture
+# 2026-10-31 â Checkpoint I: modern maintenance reminder engine and snooze architecture
 
 - Local timestamp: 2026-10-31 11:35 Asia/Tehran.
 - Goal: Implement modern Android Maintenance Reminder Engine using WorkManager; guarantee per-vehicle and per-schedule isolation; support truthful date and mileage due notifications without phantom background odometer progression; support non-destructive snooze semantics; deliver bilingual UI actions.
@@ -169,7 +169,7 @@
   - Lint: 0 errors. Both APK assemblies (`assembleDebug` and `assembleDebugAndroidTest`): passed.
 - Next: Priority 3 Service Item Imagery Foundation and visual asset integration.
 
-# 2026-10-31 — Checkpoint J: service item imagery foundation and automotive vector assets
+# 2026-10-31 â Checkpoint J: service item imagery foundation and automotive vector assets
 
 - Local timestamp: 2026-10-31 11:45 Asia/Tehran.
 - Goal: Implement dedicated service item imagery foundation with safe original vector illustrations for automotive parts and categories, wire into Maintenance UI schedule and history views.
@@ -202,7 +202,7 @@
   - Lint: 0 errors. Both APK assemblies: passed.
 - Next: Priority 4 Service History UX improvements (edit/delete records, audit timestamps, export) followed by Priority 5 Ownership Home integration & catalog recommendations.
 
-# 2026-10-31 — Checkpoint K: service history UX improvements, editing flow, and truthful export
+# 2026-10-31 â Checkpoint K: service history UX improvements, editing flow, and truthful export
 
 - Local timestamp: 2026-10-31 11:55 Asia/Tehran.
 - Goal: Implement complete service history editing flow preserving identity and creation timestamps; implement truthful service history export dialog with clipboard copying; deliver bilingual UI dialogs.
@@ -227,7 +227,7 @@
   - Lint: 0 errors. Both APK assemblies: passed.
 - Next: Priority 5 Ownership Home integration & catalog recommendations.
 
-# 2026-10-31 — Checkpoint L: vehicle-specific maintenance recommendations and ownership home integration
+# 2026-10-31 â Checkpoint L: vehicle-specific maintenance recommendations and ownership home integration
 
 - Local timestamp: 2026-10-31 12:05 Asia/Tehran.
 - Goal: Connect vehicle catalog recommendations directly to maintenance schedules gated strictly by `isFieldSafeForRecommendation`; integrate ownership management directly with the Maintenance Center.
@@ -249,7 +249,7 @@
   - Lint: 0 errors. Both APK assemblies: passed.
 - Next: Complete master prompt priorities and final continuation verification.
 
-# 2026-10-31 � Checkpoint M: parts and fitment domain foundation, verified catalog, and Parts Center UI
+# 2026-10-31  Checkpoint M: parts and fitment domain foundation, verified catalog, and Parts Center UI
 
 - Local timestamp: 2026-10-31 12:35 Asia/Tehran.
 - Goal: Establish parts and fitment domain foundation, curate initial verified parts catalog, build bilingual Parts & Consumables Center UI, and resolve runtime verification status.
@@ -273,14 +273,14 @@
     - Truthful confidence preservation (VERIFIED_OEM preserved for Renault MR388 Tondar 90 parts; COMMUNITY_CONFIRMED for IKCO/Saipa parts).
     - Initial verified parts dataset:
       - Renault Tondar 90 (K4M 16V): OEM spark plugs \77 00 500 168\ (0.9mm gap), oil filter \77 00 274 177\, air filter \82 00 431 051\, timing belt \13 0C 175 29R\ (132 teeth), front brake pads \41 06 021 92R\.
-      - Peugeot 206 (TU5 16V): OEM spark plugs \5960 F3\ (0.9mm gap), timing belt \ 816 G4\ (134 teeth), oil filter \1109 AL\.
-      - Peugeot 206 (TU3 8V): Spark plugs \5962 5c\ (0.8mm gap), timing belt \ 816 71\ (104/108 teeth, strictly separated from TU5).
+      - Peugeot 206 (TU5 16V): OEM spark plugs \5960 F3\ (0.9mm gap), timing belt \816 G4\ (134 teeth), oil filter \1109 AL\.
+      - Peugeot 206 (TU3 8V): Spark plugs \5962 5c\ (0.8mm gap), timing belt \816 71\ (104/108 teeth, strictly separated from TU5).
       - IKCO Dena / Samand (EF7 NA): Spark plugs \K6RTC\ / \FR8DC+\, timing belt (127 teeth), oil filter.
       - Saipa Quik / Saina (M15): Spark plugs \BPR6ES\, timing belt \410493\ (107 teeth), oil filter.
   - UI in \pp\ (\PartsCenterMvi.kt\ and \PartsCenterScreen.kt\):
     - Bilingual English + Persian RTL.
     - Active vehicle header card showing displayName, trim, year, engine code, and formatted odometer.
-    - Prominent technical disclaimer banner: *Generic technical illustration � verify exact part numbers on vehicle before purchase* / *????? ?????? ??? � ??? ?? ???? ????? ??? ?? ????? ?? ???? ????? ????? ????*.
+    - Prominent technical disclaimer banner: *Generic technical illustration  verify exact part numbers on vehicle before purchase* / *????? ?????? ???  ??? ?? ???? ????? ??? ?? ????? ?? ???? ????? ????? ????*.
     - Search bar across part names, OEM numbers, and aftermarket brands.
     - Category filter chips with 24x24 automotive vector assets.
     - Compatible part cards showcasing safety-critical badge, confidence badge, primary OEM number with copy-to-clipboard button, alternative OEM numbers, aftermarket brand pills, technical specifications, and safety/fitment warnings.
@@ -292,7 +292,7 @@
   - Lint: **0 errors**. Duplicate class check: **passed**.
   - Both APK assemblies: \ssembleDebug\ and \ssembleDebugAndroidTest\ **passed**.
 
-# 2026-10-31 � Checkpoint UI-0: VehicleSpecSheet runtime crash repair and Koin Compose context cleanup
+# 2026-10-31  Checkpoint UI-0: VehicleSpecSheet runtime crash repair and Koin Compose context cleanup
 
 - Local timestamp: 2026-10-31 14:15 Asia/Tehran.
 - Goal: Fix confirmed runtime \NoSuchMethodError\ on \VehicleSpecSheet.<init>(...)\ constructor from \IranianCarSpecsDatabase.<clinit>\ and \MaintenanceViewModel\; clean up Koin Compose context warnings.
@@ -305,3 +305,21 @@
   - Wrapped \MainActivity.kt\'s Compose root in \org.koin.compose.KoinContext { ... }\.
   - Added \IranianCarSpecsDatabaseTest.kt\ verifying that \IranianCarSpecsDatabase.<clinit>\ loads cleanly and that all constructor overloads instantiate without errors.
   - Executed \:app:clean :core:model:clean :app:assembleDebug\ to completely purge stale DEX/class artifacts.
+
+### Checkpoint UI-1: Canonical Design System, Reusable Shared Components, Ownership Home, and Automotive Guide
+- Commit: à713e- Scope & Implementation:
+  - Canonical design system tokens in \CarObdDesignSystem.kt\ (Spacing, CornerRadius, Elevation, SemanticColors, CarObdSizes).
+  - Reusable automotive components in \SharedCarObdComponents.kt\ (CarObdTopBar, VehicleContextHeader, SectionHeader, PrimaryFeatureCard, SecondaryActionCard, CompactStat, StatusChip, EmptyState, ErrorState, CarObdCard, CarObdPrimaryButton, CarObdSecondaryButton, ProvenanceBadge).
+  - Ownership Home experience in \HomeMvi.kt\ and \HomeScreen.kt\ emphasizing My Vehicle, Maintenance, and Parts with truthful empty states (UNSCHEDULED, never fake OK).
+  - Automotive User Guide & Encyclopedia in \DefaultGuideRepository.kt\ and \GuideScreen.kt\ with bilingual topics, safety notices, and search.
+  - Verification: Full suite 520 JVM unit tests passed, 0 failures, verified on attached Samsung phone.
+
+### Checkpoint UI-2: Dashboard Layout & Gauge Reconstruction, Trip Screen Clearance, Guided Connection Center, Disconnected Diagnostics Recovery, Simulator Polish & First-Run 3-Step Onboarding
+- Scope & Implementation:
+  - Dashboard Reconstruction (\DashboardScreen.kt\, \CircularGauge.kt\, \DigitalMetricCard.kt\, \HorizontalBarGauge.kt\): Eliminated 1-character-per-line vertical text collapse on 360dp screens by moving gauge titles outside/above dials and constraining readouts; grouped custom widgets into paired 2-column rows for MEDIUM/SMALL sizes and full width for LARGE; removed raw unstyled debug text; streamlined widget management into compact controls.
+  - Trip Screen Clearance (\TripScreen.kt\): Wrapped loose unstyled warnings into structured info cards; added bottom clearance spacer to prevent bottom navigation bar overlap on real phone hardware.
+  - Connection Center Rebuild (\ConnectionCenterScreen.kt\): Added prominent 100% Read-Only Safety Guarantee card; multi-step connection progress visualizer; explicit profile editor wizard with educational transport descriptions (Bluetooth Classic, BLE, Wi-Fi TCP with 192.168.0.10:35000 defaults, Simulator, USB Serial).
+  - Diagnostics Disconnected Recovery (\DiagnosticsScreen.kt\): Added guided recovery state when disconnected with one-tap action buttons (Connect Adapter, Use Simulator, Learn OBD-II & DTC Guide) and alert dialog when tapping scan while disconnected.
+  - Simulator Experience Polish (\SimulatorSelectorScreen.kt\): Added prominent synthetic diagnostic simulation explanation banner and inline connection controls.
+  - First-Run Onboarding & Animated Splash (\AutomotiveSplashScreen.kt\, \OnboardingScreen.kt\, \MainActivity.kt\): Fast automotive headlights illumination reveal splash sequence; progressive 3-step onboarding (Overview, Iranian Vehicle Selection, Safety & Diagnostic Options) with smooth transition into Home.
+  - Verification: 520 JVM unit tests passed (exit 0); full APK assembled and installed on attached device \9889db474842494948\; verified live on phone across onboarding, Home, Diagnostics, and Connection Center with 0 crashes.

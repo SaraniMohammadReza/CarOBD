@@ -32,6 +32,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -57,10 +60,39 @@ fun DiagnosticsScreen(
     viewModel: DiagnosticsViewModel,
     modifier: Modifier = Modifier,
     onEvidence: (() -> Unit)? = null,
+    onNavigateToConnect: () -> Unit = {},
+    onNavigateToSimulator: () -> Unit = {},
+    onNavigateToGuide: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     val historyWarning by org.koin.compose.koinInject<com.sarani.carobd.domain.repository.ObdRepository>().historyWarning.collectAsState()
     val connection by org.koin.compose.koinInject<com.sarani.carobd.domain.repository.ObdRepository>().connectionState.collectAsState()
+    var showDisconnectedAlert by remember { mutableStateOf(false) }
+
+    if (showDisconnectedAlert) {
+        AlertDialog(
+            onDismissRequest = { showDisconnectedAlert = false },
+            title = { Text(stringResource(R.string.diag_disconnected_title), color = TextPrimary) },
+            text = { Text(stringResource(R.string.diag_scan_no_adapter_alert), color = TextMuted) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDisconnectedAlert = false
+                        onNavigateToConnect()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan)
+                ) {
+                    Text(stringResource(R.string.diag_connect_adapter_btn), color = DarkBg)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisconnectedAlert = false }) {
+                    Text(stringResource(R.string.cancel), color = TextMuted)
+                }
+            },
+            containerColor = DarkCardBg
+        )
+    }
 
     Box(
         modifier = modifier
@@ -83,7 +115,13 @@ fun DiagnosticsScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Button(
-                    onClick = { viewModel.onIntent(DiagnosticsIntent.ScanCodes) },
+                    onClick = {
+                        if (connection is com.sarani.carobd.core.model.ConnectionState.Connected) {
+                            viewModel.onIntent(DiagnosticsIntent.ScanCodes)
+                        } else {
+                            showDisconnectedAlert = true
+                        }
+                    },
                     enabled = !state.isScanning && !state.isClearing,
                     colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                     shape = RoundedCornerShape(12.dp),
@@ -146,36 +184,106 @@ fun DiagnosticsScreen(
             }
             // Results List
             if (state.troubleCodes.isEmpty()) {
-                // Truthful empty state (§28): a green "no codes" confirmation is shown
-                // ONLY after a completed, successful scan that returned zero codes.
-                // Idle and failed scans must NOT look successful.
                 val noCodesConfirmed = state.scanCompletedSuccessfully
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = if (noCodesConfirmed) NeonGreen else TextMuted,
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = if (noCodesConfirmed) stringResource(R.string.dtc_no_codes) else stringResource(com.sarani.carobd.R.string.s5_scan_wait),
-                            color = if (noCodesConfirmed) TextPrimary else TextMuted,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = stringResource(com.sarani.carobd.R.string.s5_scan_help),
-                            color = TextMuted,
-                            fontSize = 12.sp
-                        )
+                val isConnected = connection is com.sarani.carobd.core.model.ConnectionState.Connected
+
+                if (!isConnected && !noCodesConfirmed) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(DarkCardBg, RoundedCornerShape(16.dp))
+                                .border(1.dp, DarkCardBorder, RoundedCornerShape(16.dp))
+                                .padding(20.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = NeonAmber,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Text(
+                                    text = stringResource(R.string.diag_disconnected_title),
+                                    color = TextPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Text(
+                                    text = stringResource(R.string.diag_disconnected_desc),
+                                    color = TextMuted,
+                                    fontSize = 12.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    lineHeight = 17.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Button(
+                                    onClick = onNavigateToConnect,
+                                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.diag_connect_adapter_btn),
+                                        color = DarkBg,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = onNavigateToSimulator,
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonAmber),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(text = stringResource(R.string.diag_use_simulator_btn))
+                                }
+                                TextButton(onClick = onNavigateToGuide) {
+                                    Text(
+                                        text = stringResource(R.string.diag_learn_guide_btn),
+                                        color = TextMuted,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = if (noCodesConfirmed) NeonGreen else TextMuted,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = if (noCodesConfirmed) stringResource(R.string.dtc_no_codes) else stringResource(com.sarani.carobd.R.string.s5_scan_wait),
+                                color = if (noCodesConfirmed) TextPrimary else TextMuted,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = stringResource(com.sarani.carobd.R.string.s5_scan_help),
+                                color = TextMuted,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
             } else {
