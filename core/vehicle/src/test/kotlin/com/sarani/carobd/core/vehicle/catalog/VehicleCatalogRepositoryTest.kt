@@ -194,4 +194,60 @@ class VehicleCatalogRepositoryTest {
         assertEquals(0.75f, denaNaSpecs.sparkPlugGapMm!!, 0.01f)
         assertEquals(0.70f, denaTurboSpecs.sparkPlugGapMm!!, 0.01f)
     }
+
+    @Test
+    fun testFieldLevelProvenanceIsolation() {
+        // Tondar 90 has genuine MR388 OEM manual for K4M
+        val tondar = repo.getVariantById("var_tondar90_e2")!!
+        val tondarSpecs = tondar.specifications!!
+
+        val oilProv = tondarSpecs.getFieldProvenance<Float>("engineOilCapacityLiters")
+        assertNotNull("Tondar oil capacity must have field provenance", oilProv)
+        assertTrue("Tondar oil capacity with MR388 manual is OEM verified", oilProv!!.isOemVerified())
+        assertEquals(ConfidenceLevel.VERIFIED_OEM, oilProv.confidence)
+        assertEquals("MR388", oilProv.source?.urlOrDocument)
+        assertTrue(oilProv.isSafeForAutomaticRecommendation)
+
+        // 206 Type 5 has community data
+        val tu5 = repo.getVariantById("var_206_type5")!!
+        val tu5Specs = tu5.specifications!!
+
+        val tu5OilProv = tu5Specs.getFieldProvenance<Float>("engineOilCapacityLiters")
+        assertNotNull("TU5 oil capacity must have field provenance", tu5OilProv)
+        org.junit.Assert.assertFalse("TU5 oil capacity is not OEM verified", tu5OilProv!!.isOemVerified())
+        assertEquals(ConfidenceLevel.COMMUNITY_CONFIRMED, tu5OilProv.confidence)
+
+        // One field having an OEM source on Tondar 90 must not promote a missing field
+        assertNull(tondarSpecs.getFieldProvenance<String>("tireFront"))
+        org.junit.Assert.assertFalse(tondarSpecs.isFieldSafeForRecommendation("tireFront"))
+        assertEquals(ConfidenceLevel.UNKNOWN, tondarSpecs.getFieldConfidence("tireFront"))
+    }
+
+    @Test
+    fun testCommunityDataCannotTriggerOemLabel() {
+        val dena = repo.getVariantById("var_dena_ef7_na")!!
+        val denaSpecs = dena.specifications!!
+
+        val beltIntervalProv = denaSpecs.getFieldProvenance<Int>("timingBeltIntervalKm")
+        assertNotNull(beltIntervalProv)
+        org.junit.Assert.assertFalse("Community interval must never be OEM verified", beltIntervalProv!!.isOemVerified())
+        assertNotEquals(ConfidenceLevel.VERIFIED_OEM, beltIntervalProv.confidence)
+        assertEquals(ConfidenceLevel.COMMUNITY_CONFIRMED, beltIntervalProv.confidence)
+    }
+
+    @Test
+    fun testUncertainIntervalCannotBeMandatoryOemSchedule() {
+        val shahin = repo.getVariantById("var_shahin_g")!!
+        val shahinSpecs = shahin.specifications!!
+
+        val beltProv = shahinSpecs.getFieldProvenance<Int>("timingBeltIntervalKm")
+        assertNotNull(beltProv)
+        org.junit.Assert.assertFalse("Uncertain community interval cannot be marked safe for automatic mandatory recommendation",
+            beltProv!!.isSafeForAutomaticRecommendation)
+
+        // But physical verified tooth count can be trusted for part verification
+        val teethProv = shahinSpecs.getFieldProvenance<Int>("timingBeltTeeth")
+        assertNotNull(teethProv)
+        assertTrue(teethProv!!.isSafeForAutomaticRecommendation)
+    }
 }

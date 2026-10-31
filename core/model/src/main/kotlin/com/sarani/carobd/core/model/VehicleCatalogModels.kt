@@ -111,8 +111,19 @@ data class VehicleSpecification(
     val batterySpec: String? = null,
     val fuelTankCapacityLiters: Float? = null,
     val sources: List<DataSourceReference> = emptyList(),
-    val confidence: ConfidenceLevel = ConfidenceLevel.VERIFIED_OEM
-)
+    val confidence: ConfidenceLevel = ConfidenceLevel.COMMUNITY_CONFIRMED,
+    val fieldProvenance: Map<String, FieldProvenance<*>> = emptyMap()
+) {
+    @Suppress("UNCHECKED_CAST")
+    fun <T> getFieldProvenance(field: String): FieldProvenance<T>? =
+        fieldProvenance[field] as? FieldProvenance<T>
+
+    fun isFieldSafeForRecommendation(field: String): Boolean =
+        fieldProvenance[field]?.isSafeForAutomaticRecommendation == true
+
+    fun getFieldConfidence(field: String): ConfidenceLevel =
+        fieldProvenance[field]?.confidence ?: ConfidenceLevel.UNKNOWN
+}
 
 data class VehicleVariant(
     val id: String,

@@ -111,4 +111,23 @@
     - `deleteSchedulePreservesExistingServiceHistory`
   - Total full suite across all 6 modules: 489 JVM tests (app 158, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 10), 0 failures, 0 errors, 0 skipped.
   - Lint: 0 errors. Duplicate class check: passed. Both APK assemblies (`assembleDebug` and `assembleDebugAndroidTest`): passed.
-- Next: Service item imagery foundation (safe vectors/illustrations) and reminder engine foundation (WorkManager/alarms).
+- Next: Field-level vehicle catalog provenance hardening (Checkpoint H) followed by Maintenance Reminder Engine (Checkpoint I).
+
+# 2026-10-31 — Checkpoint H: field-level and auditable vehicle data provenance
+
+- Local timestamp: 2026-10-31 11:15 Asia/Tehran.
+- Goal: Make vehicle catalog data provenance field-level and auditable; ensure each technical value independently tracks its source, confidence, inference status, verification date, and safety for automatic recommendations.
+- Changes:
+  - `Provenance.kt`: Added `ProvenanceSourceType` enum (`OEM_MANUAL`, `OEM_PARTS_CATALOG`, `AUTHORIZED_SERVICE_BULLETIN`, `RELIABLE_WORKSHOP_SECONDARY`, `COMMUNITY_DATA`, `USER_INPUT`, `UNKNOWN`) and `FieldProvenance<T>` data class with factory helpers (`oemVerified`, `communityConfirmed`, `unverified`) and `isOemVerified()`.
+  - `VehicleCatalogModels.kt`: Extended `VehicleSpecification` with `fieldProvenance: Map<String, FieldProvenance<*>>` and typed query helpers `getFieldProvenance<T>(field)`, `isFieldSafeForRecommendation(field)`, `getFieldConfidence(field)`.
+  - `DefaultVehicleCatalogRepository.kt`: Populated explicit `fieldProvenance` maps across variants:
+    - Tondar 90 (K4M): fields backed by Renault Logan MR388 manual are `FieldProvenance.oemVerified(...)` with `isOemVerified() == true` and `isSafeForAutomaticRecommendation = true`.
+    - Iranian platforms (206 TU3, 206 TU5, Dena EF7 NA, Dena+ EF7 TC, Shahin M15TC): community data mapped as `FieldProvenance.communityConfirmed(...)`; uncertain replacement intervals have `isSafeForAutomaticRecommendation = false` preventing default mandatory scheduling.
+    - Missing specifications (tires, battery spec, brake fluid) remain strictly `null` and absent from provenance maps.
+- Regressions & Tests:
+  - Added 3 new unit tests in `VehicleCatalogRepositoryTest`:
+    - `testFieldLevelProvenanceIsolation`: asserts that OEM verification on one field does not promote missing or community fields.
+    - `testCommunityDataCannotTriggerOemLabel`: asserts community intervals cannot claim OEM verification.
+    - `testUncertainIntervalCannotBeMandatoryOemSchedule`: asserts uncertain intervals cannot be marked safe for automatic mandatory recommendations while physical parts facts (tooth counts) are verified.
+  - Total full suite across all 6 modules: 492 JVM tests (app 158, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
+- Next: Maintenance Reminder Engine foundation (WorkManager, per-vehicle schedule isolation, date/mileage triggers).

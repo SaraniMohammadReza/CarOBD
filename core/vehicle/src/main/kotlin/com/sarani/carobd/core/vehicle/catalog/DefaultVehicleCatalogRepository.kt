@@ -5,7 +5,9 @@ import com.sarani.carobd.core.model.ConfidenceLevel
 import com.sarani.carobd.core.model.DataSourceReference
 import com.sarani.carobd.core.model.DriveLayout
 import com.sarani.carobd.core.model.EngineVariant
+import com.sarani.carobd.core.model.FieldProvenance
 import com.sarani.carobd.core.model.FuelType
+import com.sarani.carobd.core.model.ProvenanceSourceType
 import com.sarani.carobd.core.model.ResolvedVehicleMatch
 import com.sarani.carobd.core.model.TransmissionType
 import com.sarani.carobd.core.model.TransmissionVariant
@@ -364,7 +366,19 @@ class DefaultVehicleCatalogRepository(
                     timingBeltIntervalKm = 60000,
                     timingBeltTeeth = 108,
                     coolantCapacityLiters = 5.5f,
-                    fuelTankCapacityLiters = 50.0f
+                    fuelTankCapacityLiters = 50.0f,
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED,
+                    fieldProvenance = mapOf(
+                        "engineOilGrade" to FieldProvenance.communityConfirmed("20W-50 / 10W-40 API SL"),
+                        "engineOilCapacityLiters" to FieldProvenance.communityConfirmed(3.25f),
+                        "gearboxOilGrade" to FieldProvenance.communityConfirmed("75W-80 GL-4+"),
+                        "gearboxCapacityLiters" to FieldProvenance.communityConfirmed(2.0f),
+                        "sparkPlugGapMm" to FieldProvenance.communityConfirmed(0.9f),
+                        "timingBeltIntervalKm" to FieldProvenance.communityConfirmed(60000, safeForRecommendation = false),
+                        "timingBeltTeeth" to FieldProvenance.communityConfirmed(108, safeForRecommendation = true),
+                        "coolantCapacityLiters" to FieldProvenance.communityConfirmed(5.5f),
+                        "fuelTankCapacityLiters" to FieldProvenance.communityConfirmed(50.0f)
+                    )
                 ),
                 aliases = listOf("تیپ ۲", "تیپ 2", "Type 2", "TU3"),
                 confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
@@ -389,7 +403,18 @@ class DefaultVehicleCatalogRepository(
                     timingBeltTeeth = 134,
                     coolantCapacityLiters = 6.0f,
                     fuelTankCapacityLiters = 50.0f,
-                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED,
+                    fieldProvenance = mapOf(
+                        "engineOilGrade" to FieldProvenance.communityConfirmed("10W-40 API SL/SM/SN"),
+                        "engineOilCapacityLiters" to FieldProvenance.communityConfirmed(3.75f),
+                        "gearboxOilGrade" to FieldProvenance.communityConfirmed("75W-80 GL-4+", safeForRecommendation = true),
+                        "gearboxCapacityLiters" to FieldProvenance.communityConfirmed(2.0f),
+                        "sparkPlugGapMm" to FieldProvenance.communityConfirmed(0.9f),
+                        "timingBeltIntervalKm" to FieldProvenance.communityConfirmed(60000, safeForRecommendation = false),
+                        "timingBeltTeeth" to FieldProvenance.communityConfirmed(134, safeForRecommendation = true),
+                        "coolantCapacityLiters" to FieldProvenance.communityConfirmed(6.0f),
+                        "fuelTankCapacityLiters" to FieldProvenance.communityConfirmed(50.0f)
+                    )
                 ),
                 aliases = listOf("تیپ ۵", "تیپ 5", "Type 5", "TU5"),
                 confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
@@ -414,7 +439,18 @@ class DefaultVehicleCatalogRepository(
                     timingBeltTeeth = 127,
                     coolantCapacityLiters = 7.5f,
                     fuelTankCapacityLiters = 60.0f,
-                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED,
+                    fieldProvenance = mapOf(
+                        "engineOilGrade" to FieldProvenance.communityConfirmed("10W-40 API SL/SM/SN"),
+                        "engineOilCapacityLiters" to FieldProvenance.communityConfirmed(5.25f),
+                        "gearboxOilGrade" to FieldProvenance.communityConfirmed("75W-80 GL-5"),
+                        "gearboxCapacityLiters" to FieldProvenance.communityConfirmed(1.9f),
+                        "sparkPlugGapMm" to FieldProvenance.communityConfirmed(0.75f),
+                        "timingBeltIntervalKm" to FieldProvenance.communityConfirmed(60000, safeForRecommendation = false),
+                        "timingBeltTeeth" to FieldProvenance.communityConfirmed(127, safeForRecommendation = true),
+                        "coolantCapacityLiters" to FieldProvenance.communityConfirmed(7.5f),
+                        "fuelTankCapacityLiters" to FieldProvenance.communityConfirmed(60.0f)
+                    )
                 ),
                 aliases = listOf("دنا معمولی", "دنا EF7", "Dena EF7"),
                 confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
@@ -439,7 +475,18 @@ class DefaultVehicleCatalogRepository(
                     timingBeltTeeth = 127,
                     coolantCapacityLiters = 7.8f,
                     fuelTankCapacityLiters = 60.0f,
-                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED,
+                    fieldProvenance = mapOf(
+                        "engineOilGrade" to FieldProvenance.communityConfirmed("5W-40 / 10W-40 API SN/SP"),
+                        "engineOilCapacityLiters" to FieldProvenance.communityConfirmed(5.25f),
+                        "gearboxOilGrade" to FieldProvenance.communityConfirmed("ATF AW-1"),
+                        "gearboxCapacityLiters" to FieldProvenance.communityConfirmed(5.5f),
+                        "sparkPlugGapMm" to FieldProvenance.communityConfirmed(0.70f),
+                        "timingBeltIntervalKm" to FieldProvenance.communityConfirmed(50000, safeForRecommendation = false),
+                        "timingBeltTeeth" to FieldProvenance.communityConfirmed(127, safeForRecommendation = true),
+                        "coolantCapacityLiters" to FieldProvenance.communityConfirmed(7.8f),
+                        "fuelTankCapacityLiters" to FieldProvenance.communityConfirmed(60.0f)
+                    )
                 ),
                 aliases = listOf("دنا پلاس توربو اتوماتیک", "دنا پلاس اتومات", "Dena Turbo Auto"),
                 confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
@@ -464,7 +511,18 @@ class DefaultVehicleCatalogRepository(
                     timingBeltTeeth = 114,
                     coolantCapacityLiters = 6.5f,
                     fuelTankCapacityLiters = 47.0f,
-                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
+                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED,
+                    fieldProvenance = mapOf(
+                        "engineOilGrade" to FieldProvenance.communityConfirmed("10W-40 API SN"),
+                        "engineOilCapacityLiters" to FieldProvenance.communityConfirmed(4.0f),
+                        "gearboxOilGrade" to FieldProvenance.communityConfirmed("75W-80 GL-4"),
+                        "gearboxCapacityLiters" to FieldProvenance.communityConfirmed(2.5f),
+                        "sparkPlugGapMm" to FieldProvenance.communityConfirmed(0.75f),
+                        "timingBeltIntervalKm" to FieldProvenance.communityConfirmed(60000, safeForRecommendation = false),
+                        "timingBeltTeeth" to FieldProvenance.communityConfirmed(114, safeForRecommendation = true),
+                        "coolantCapacityLiters" to FieldProvenance.communityConfirmed(6.5f),
+                        "fuelTankCapacityLiters" to FieldProvenance.communityConfirmed(47.0f)
+                    )
                 ),
                 aliases = listOf("شاهین G", "شاهین دنده‌ای", "Shahin G"),
                 confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
@@ -479,20 +537,35 @@ class DefaultVehicleCatalogRepository(
                 engineId = "eng_k4m",
                 transmissionId = "trans_jh3_5m",
                 driveLayout = DriveLayout.FRONT_WHEEL_DRIVE_FWD,
-                specifications = VehicleSpecification(
-                    engineOilGrade = "10W-40 API SL/SM/SN",
-                    engineOilCapacityLiters = 4.8f,
-                    gearboxOilGrade = "75W-80 GL-4+ (ELF Tranself)",
-                    gearboxCapacityLiters = 2.8f,
-                    sparkPlugGapMm = 0.9f,
-                    timingBeltIntervalKm = 60000,
-                    timingBeltTeeth = 132,
-                    coolantCapacityLiters = 5.5f,
-                    fuelTankCapacityLiters = 50.0f,
-                    confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
-                ),
+                specifications = run {
+                    val mr388 = DataSourceReference("Renault Logan Workshop Manual", "MR388", "Renault")
+                    VehicleSpecification(
+                        engineOilGrade = "10W-40 API SL/SM/SN",
+                        engineOilCapacityLiters = 4.8f,
+                        gearboxOilGrade = "75W-80 GL-4+ (ELF Tranself)",
+                        gearboxCapacityLiters = 2.8f,
+                        sparkPlugGapMm = 0.9f,
+                        timingBeltIntervalKm = 60000,
+                        timingBeltTeeth = 132,
+                        coolantCapacityLiters = 5.5f,
+                        fuelTankCapacityLiters = 50.0f,
+                        sources = listOf(mr388),
+                        confidence = ConfidenceLevel.VERIFIED_OEM,
+                        fieldProvenance = mapOf(
+                            "engineOilGrade" to FieldProvenance.oemVerified("10W-40 API SL/SM/SN", mr388),
+                            "engineOilCapacityLiters" to FieldProvenance.oemVerified(4.8f, mr388),
+                            "gearboxOilGrade" to FieldProvenance.oemVerified("75W-80 GL-4+ (ELF Tranself)", mr388),
+                            "gearboxCapacityLiters" to FieldProvenance.oemVerified(2.8f, mr388),
+                            "sparkPlugGapMm" to FieldProvenance.oemVerified(0.9f, mr388),
+                            "timingBeltIntervalKm" to FieldProvenance.oemVerified(60000, mr388),
+                            "timingBeltTeeth" to FieldProvenance.oemVerified(132, mr388),
+                            "coolantCapacityLiters" to FieldProvenance.oemVerified(5.5f, mr388),
+                            "fuelTankCapacityLiters" to FieldProvenance.oemVerified(50.0f, mr388)
+                        )
+                    )
+                },
                 aliases = listOf("تندر ۹۰ E2", "تندر E2", "ال۹۰ E2", "L90 E2"),
-                confidence = ConfidenceLevel.COMMUNITY_CONFIRMED
+                confidence = ConfidenceLevel.VERIFIED_OEM
             )
         )
     }
