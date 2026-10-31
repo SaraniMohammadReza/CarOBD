@@ -18,4 +18,5 @@
 - Added additive SQLite v5 `owned_vehicles` and nullable active selection. No legacy `garage_vehicles`, history or diagnostic row is copied or reassigned.
 - Added persistence CRUD/selection and `OwnedVehicleRepository`; ECU-routing `ActiveVehicleRepository` remains untouched.
 - Verification: model tests, app JVM tests and Android-test APK assembly passed. Android SQLite test compiled but was not executed.
+- Source checkpoint pushed: `5753ec848738e1ce1974941949e1ba9771d023ae`.
 - Next: bilingual ownership management UI and navigation.
