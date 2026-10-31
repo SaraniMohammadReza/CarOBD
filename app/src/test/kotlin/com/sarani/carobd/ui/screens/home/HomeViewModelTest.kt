@@ -55,7 +55,7 @@ class HomeViewModelTest {
         model: String = "Tondar 90",
         year: Int = 2012,
         engineCode: String = "K4M",
-        odo: Long = 100_000L
+        odo: Long? = 100_000L
     ) = OwnedVehicle(
         id = id,
         displayName = displayName,
@@ -77,16 +77,17 @@ class HomeViewModelTest {
     )
 
     private class FakeOwnedVehicles(
-        initialList: List<OwnedVehicle> = emptyList(),
-        activeId: String? = null
+        private val initialList: List<OwnedVehicle> = emptyList(),
+        private val activeId: String? = null,
+        private val hydrateOnRefresh: Boolean = false
     ) : OwnedVehicleRepository {
-        private val _vehicles = MutableStateFlow(initialList)
+        private val _vehicles = MutableStateFlow(if (hydrateOnRefresh) emptyList() else initialList)
         override val vehicles: StateFlow<List<OwnedVehicle>> = _vehicles.asStateFlow()
 
-        private val _activeVehicleId = MutableStateFlow(activeId)
+        private val _activeVehicleId = MutableStateFlow(if (hydrateOnRefresh) null else activeId)
         override val activeVehicleId: StateFlow<String?> = _activeVehicleId.asStateFlow()
 
-        override suspend fun refresh() {}
+        override suspend fun refresh() { if(hydrateOnRefresh) { _vehicles.value=initialList; _activeVehicleId.value=activeId } }
         override suspend fun select(id: String?): Boolean {
             _activeVehicleId.value = id
             return true
@@ -342,5 +343,23 @@ class HomeViewModelTest {
         advanceUntilIdle()
 
         assertEquals(connected, vm.uiState.value.connectionState)
+    }
+
+    @Test fun coldStartHydratesPersistedSelectionAndNeverInventsOdometer() = runWithMain {
+        for(odo in listOf<Long?>(null,0L,80_000L)) {
+            val vehicle=testVehicle(odo=odo)
+            val owners=FakeOwnedVehicles(listOf(vehicle), "v1", hydrateOnRefresh=true)
+            val schedule=MaintenanceSchedule("s","v1","oil","Oil","روغن",nextDueKm=90_000L)
+            val vm=HomeViewModel(owners,FakeMaintenanceRepository(mutableListOf(schedule)),DefaultPartsRepository(),DefaultVehicleCatalogRepository(),FakeObdRepository())
+            advanceUntilIdle()
+            assertEquals(vehicle,vm.uiState.value.activeVehicle)
+            assertEquals(odo,vm.uiState.value.activeVehicle!!.currentOdometerKm)
+            if(odo==null) assertNull(vm.uiState.value.nextServiceRemainingKm)
+            else assertEquals(90_000L-odo,vm.uiState.value.nextServiceRemainingKm)
+        }
+    }
+    @Test fun clearedSelectionDoesNotSilentlyChooseAnotherVehicle() = runWithMain {
+        val vm=HomeViewModel(FakeOwnedVehicles(listOf(testVehicle())),FakeMaintenanceRepository(),DefaultPartsRepository(),DefaultVehicleCatalogRepository(),FakeObdRepository())
+        advanceUntilIdle();assertNull(vm.uiState.value.activeVehicle)
     }
 }

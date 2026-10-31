@@ -141,17 +141,9 @@ fun MainAppScaffold(appPreferencesManager: AppPreferencesManager) {
         return
     }
 
+    if (isOnboardingDone == null) return
     if (isOnboardingDone == false) {
-        com.sarani.carobd.ui.screens.onboarding.OnboardingScreen(
-            onFinish = { setup ->
-                scope.launch {
-                    if (setup != null) {
-                        appPreferencesManager.saveVehicleSetup(setup)
-                    }
-                    appPreferencesManager.setOnboardingDone(true)
-                }
-            }
-        )
+        com.sarani.carobd.ui.screens.onboarding.OnboardingScreen(koinViewModel())
         return
     }
 

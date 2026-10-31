@@ -48,13 +48,14 @@ class PartsCenterViewModel(
 ) : MviViewModel<PartsCenterState, PartsCenterIntent, PartsCenterEffect>(PartsCenterState()) {
 
     init {
+        viewModelScope.launch { ownedVehicleRepository.refresh() }
         setState { copy(categories = partsRepository.getCategories()) }
         viewModelScope.launch {
             combine(
                 ownedVehicleRepository.vehicles,
                 ownedVehicleRepository.activeVehicleId
             ) { vehicles, activeId ->
-                val selected = vehicles.firstOrNull { it.id == activeId } ?: vehicles.firstOrNull()
+                val selected = vehicles.firstOrNull { it.id == activeId }
                 vehicles to selected
             }.collectLatest { (vehicles, selected) ->
                 handleVehicleSelection(vehicles, selected)

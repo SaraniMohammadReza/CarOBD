@@ -30,6 +30,10 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
+    viewModel {
+        val preferences = get<AppPreferencesManager>()
+        com.sarani.carobd.ui.screens.onboarding.OnboardingViewModel(get()) { preferences.setOnboardingDone(true) }
+    }
     single { com.sarani.carobd.data.recording.RecordingController(com.sarani.carobd.core.adapter.transport.FileTranscriptStore(java.io.File(androidContext().filesDir, "diagnostic-transcripts"))) }
     // Repositories, Loggers, Scanners & Storage
     single { val p = get<com.sarani.carobd.core.storage.AppPreferencesManager>(); ActiveVehicleRepository(p.activeVehicleId, { p.setActiveVehicleId(it) }, { p.clearActiveVehicleId() }) }

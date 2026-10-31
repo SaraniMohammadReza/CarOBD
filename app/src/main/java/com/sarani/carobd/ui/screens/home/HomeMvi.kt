@@ -53,6 +53,7 @@ class HomeViewModel(
 ) : MviViewModel<HomeState, HomeIntent, HomeEffect>(HomeState()) {
 
     init {
+        viewModelScope.launch { ownedVehicleRepository.refresh() }
         viewModelScope.launch {
             obdRepository.connectionState.collectLatest { conn ->
                 setState { copy(connectionState = conn) }
@@ -62,9 +63,10 @@ class HomeViewModel(
         viewModelScope.launch {
             combine(
                 ownedVehicleRepository.vehicles,
-                ownedVehicleRepository.activeVehicleId
-            ) { vehicles, activeId ->
-                val selected = vehicles.firstOrNull { it.id == activeId } ?: vehicles.firstOrNull()
+                ownedVehicleRepository.activeVehicleId,
+                maintenanceRepository.changes
+            ) { vehicles, activeId, _ ->
+                val selected = vehicles.firstOrNull { it.id == activeId }
                 vehicles to selected
             }.collectLatest { (vehicles, selected) ->
                 handleVehicleChanged(vehicles, selected)
@@ -75,9 +77,10 @@ class HomeViewModel(
     override fun onIntent(intent: HomeIntent) {
         when (intent) {
             is HomeIntent.Refresh -> viewModelScope.launch {
+                ownedVehicleRepository.refresh()
                 val vehicles = ownedVehicleRepository.vehicles.value
                 val activeId = ownedVehicleRepository.activeVehicleId.value
-                val selected = vehicles.firstOrNull { it.id == activeId } ?: vehicles.firstOrNull()
+                val selected = vehicles.firstOrNull { it.id == activeId }
                 handleVehicleChanged(vehicles, selected)
             }
             is HomeIntent.SelectVehicle -> viewModelScope.launch {
@@ -112,17 +115,17 @@ class HomeViewModel(
         }
 
         // 1. Maintenance Status Calculation
-        val currentOdo = selected.currentOdometerKm ?: 0L
+        val currentOdo = selected.currentOdometerKm
         val schedules = maintenanceRepository.getSchedules(selected.id, currentOdo)
         val overdue = schedules.count { it.dueState == DueState.OVERDUE }
         val dueSoon = schedules.count { it.dueState == DueState.DUE_SOON || it.dueState == DueState.DUE }
 
         val upcoming = schedules
-            .filter { (it.nextDueKm ?: 0L) > currentOdo }
-            .minByOrNull { (it.nextDueKm ?: Long.MAX_VALUE) - currentOdo }
+            .filter { currentOdo != null && it.nextDueKm?.let { km -> km > currentOdo } == true }
+            .minByOrNull { it.nextDueKm ?: Long.MAX_VALUE }
 
         val nextTitle = upcoming?.let { it.titleFa.ifBlank { it.titleEn } }
-        val remainingKm = upcoming?.nextDueKm?.minus(currentOdo)
+        val remainingKm = currentOdo?.let { upcoming?.nextDueKm?.minus(it) }
 
         // 2. Parts Compatibility Calculation
         val make = selected.manufacturer

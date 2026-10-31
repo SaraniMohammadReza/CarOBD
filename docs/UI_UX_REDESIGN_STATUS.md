@@ -108,3 +108,9 @@ Normal reminder reconciliation respects persisted snooze across reload/recreatio
 Deletion policy: archive owner, clear selection, retain schedules/history under the original owner id, delete snooze metadata, cancel tagged work and visible schedule notifications. Archived vehicles cannot be selected or resurrected by stale edits; workers ignore them. Deleting a schedule unlinks retained history rather than guessing another association.
 
 Validation: targeted Reminder/Maintenance JVM PASS; Android API37 emulator actual SQLite/repository/migration/WorkManager tests 11/11 PASS, exit0. Final follow-up reran 5 stabilization Android tests plus targeted JVM, exit0. Localization 619 entries PASS; diff check PASS. No physical adapter/vehicle operation.
+
+## HOME-R4 — canonical onboarding and cold-start ownership
+
+First-run setup now saves/selects canonical OwnedVehicleRepository only; it never writes legacy UserVehicleSetup or supplies sample engine/mileage/tank/fuel/price. Skip creates nothing. Shared draft parsing is used by both My Vehicle and onboarding; invalid supplied numbers fail, localized real zero remains zero, optional blanks remain null. Saved draft identity is stable across retries/recreation. Persistence failure cannot complete onboarding.
+
+Home hydrates persistence as its first entry point, passes nullable odometer through unchanged, suppresses invented remaining mileage, observes maintenance revisions, and respects explicitly cleared selection. Maintenance and Parts also hydrate independently. Targeted Home/Onboarding/OwnedVehicle/Maintenance/Parts JVM PASS, exit0; UI runtime verification follows in R6. No physical diagnostic behavior changed.

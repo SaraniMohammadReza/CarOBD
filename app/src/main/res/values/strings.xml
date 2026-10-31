@@ -456,7 +456,7 @@
     <string name="my_vehicle_unknown_details">Details not entered</string>
     <string name="my_vehicle_add">Add vehicle</string>
     <string name="my_vehicle_edit">Edit vehicle</string>
-    <string name="my_vehicle_delete_title">Delete vehicle?</string>
+    <string name="my_vehicle_delete_title">Archive vehicle?</string>
     <string name="my_vehicle_delete_message">Archive %1$s? It will be hidden and its reminders stopped. Service history is retained on this device.</string>
     <string name="my_vehicle_name">Vehicle name</string>
     <string name="my_vehicle_manufacturer">Manufacturer (optional)</string>
@@ -621,7 +621,7 @@
     <string name="onboarding_feature_parts_title">Parts &amp; Automotive Guide</string>
     <string name="onboarding_feature_parts_desc">Verified compatible parts with OEM part numbers and comprehensive automotive engineering encyclopedia.</string>
     <string name="onboarding_feature_diag_title">Read-only diagnostics</string>
-    <string name="onboarding_feature_diag_desc">Connect an ELM327 Bluetooth/Wi-Fi adapter or explore with the simulator. Completely read-only with zero vehicle risk.</string>
+    <string name="onboarding_feature_diag_desc">Diagnostics use a restricted read-only policy. Adapter and vehicle compatibility require separate validation.</string>
     <string name="onboarding_step_intro">Overview</string>
     <string name="onboarding_step_vehicle">My Car</string>
     <string name="onboarding_step_safety">Safety &amp; OBD</string>
@@ -632,4 +632,6 @@
     <string name="onboarding_btn_skip">Skip Setup</string>
     <string name="splash_app_tagline">Smart Automotive Intelligence</string>
     <string name="vehicle_exact_match_required">Select a known engine and variant in My Vehicle before using catalog recommendations. You can still create a custom schedule.</string>
+    <string name="onboarding_add_owned_vehicle">Add an owned vehicle (optional)</string>
+    <string name="onboarding_back">Back</string>
 </resources>

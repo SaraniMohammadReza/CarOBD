@@ -152,12 +152,13 @@ class MaintenanceViewModel(
 ) : MviViewModel<MaintenanceState, MaintenanceIntent, MaintenanceEffect>(MaintenanceState()) {
 
     init {
+        viewModelScope.launch { ownedVehicleRepository.refresh() }
         viewModelScope.launch {
             combine(
                 ownedVehicleRepository.vehicles,
                 ownedVehicleRepository.activeVehicleId
             ) { vehicles, activeId ->
-                val selected = vehicles.firstOrNull { it.id == activeId } ?: vehicles.firstOrNull()
+                val selected = vehicles.firstOrNull { it.id == activeId }
                 vehicles to selected
             }.collectLatest { (vehicles, selected) ->
                 loadDataForVehicle(vehicles, selected)

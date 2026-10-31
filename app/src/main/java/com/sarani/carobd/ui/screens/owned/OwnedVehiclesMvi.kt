@@ -82,20 +82,8 @@ class OwnedVehiclesViewModel(
 
     fun save() {
         val d = editor.value ?: return
-        val year = if (d.year.isBlank()) null else VehicleSetupNumbers.modelYear(d.year).also {
-            if (it == null) { fail(OwnedVehicleEditorError.YEAR_INVALID); return }
-        }
-        val odometer = if (d.odometer.isBlank()) null else VehicleSetupNumbers.odometerKm(d.odometer)?.toLong().also {
-            if (it == null) { fail(OwnedVehicleEditorError.ODOMETER_INVALID); return }
-        }
-        val tank = if (d.tankCapacity.isBlank()) null else VehicleSetupNumbers.tankLitres(d.tankCapacity)?.toDouble().also {
-            if (it == null) { fail(OwnedVehicleEditorError.TANK_INVALID); return }
-        }
-        if (d.displayName.isBlank()) { error.value = OwnedVehicleEditorError.NAME_REQUIRED; return }
-        val now = System.currentTimeMillis()
-        val vehicle = OwnedVehicle(d.id ?: UUID.randomUUID().toString(), d.displayName, d.manufacturer, d.model,
-            d.generation, year, d.variant, d.engine, d.engineCode, d.transmission, d.fuelType, d.market, d.vin,
-            d.licensePlate, odometer, tank, d.notes, d.createdAtMs ?: now, now).normalized()
+        val parsed = d.parse()
+        val vehicle = parsed.vehicle ?: run { error.value = parsed.error; return }
         viewModelScope.launch {
             repository.save(vehicle).onSuccess { editor.value = null; error.value = null }
                 .onFailure { error.value = OwnedVehicleEditorError.SAVE_FAILED }
