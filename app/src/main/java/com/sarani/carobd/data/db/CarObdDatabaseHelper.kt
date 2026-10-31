@@ -24,7 +24,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
 
     companion object {
         const val DATABASE_NAME = "car_obd_automotive.db"
-        const val DATABASE_VERSION = 6
+        const val DATABASE_VERSION = 7
 
         // Tables
         const val TABLE_GARAGE = "garage_vehicles"
@@ -32,6 +32,8 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         const val TABLE_DTC_RECORDS = "dtc_records"
         const val TABLE_TRIP_RECORDS = "trip_records"
         const val TABLE_MAINTENANCE = "maintenance_records"
+        const val TABLE_VEHICLE_MAINTENANCE_SCHEDULES = "vehicle_maintenance_schedules"
+        const val TABLE_VEHICLE_MAINTENANCE_RECORDS = "vehicle_maintenance_records"
     }
 
     override fun onCreate(db: SQLiteDatabase) {
@@ -136,6 +138,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         DiagnosticReportMigration.version4.forEach(db::execSQL)
         OwnedVehicleMigration.version5.forEach(db::execSQL)
         OwnedVehicleDetailsMigration.version6.forEach(db::execSQL)
+        MaintenanceFoundationMigration.version7.forEach(db::execSQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -144,6 +147,7 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
         if (oldVersion < 4 && newVersion >= 4) DiagnosticReportMigration.version4.forEach(db::execSQL)
         if (oldVersion < 5 && newVersion >= 5) OwnedVehicleMigration.version5.forEach(db::execSQL)
         if (oldVersion < 6 && newVersion >= 6) OwnedVehicleDetailsMigration.version6.forEach(db::execSQL)
+        if (oldVersion < 7 && newVersion >= 7) MaintenanceFoundationMigration.version7.forEach(db::execSQL)
     }
 
     fun saveOwnedVehicle(vehicle: OwnedVehicle) {
@@ -496,4 +500,157 @@ class CarObdDatabaseHelper(context: Context, databaseName: String = DATABASE_NAM
     }
     fun saveDiagnosticReport(report: com.sarani.carobd.core.model.DiagnosticSessionReport) = DiagnosticReportStore.save(writableDatabase, report)
     fun recentDiagnosticReports(): List<com.sarani.carobd.core.model.DiagnosticSessionReport> = DiagnosticReportStore.recent(readableDatabase)
+
+    // -------------------------------------------------------------
+    // NORMALIZED MAINTENANCE FOUNDATION OPERATIONS
+    // -------------------------------------------------------------
+
+    fun saveMaintenanceSchedule(schedule: MaintenanceSchedule) {
+        val cv = ContentValues().apply {
+            put("id", schedule.id)
+            put("vehicle_id", schedule.vehicleId)
+            put("item_key", schedule.itemKey)
+            put("title_en", schedule.titleEn)
+            put("title_fa", schedule.titleFa)
+            put("action_type", schedule.actionType.name)
+            put("interval_km", schedule.intervalKm)
+            put("interval_months", schedule.intervalMonths)
+            put("last_service_km", schedule.lastServiceKm)
+            put("last_service_date", schedule.lastServiceDateMs)
+            put("next_due_km", schedule.nextDueKm)
+            put("next_due_date", schedule.nextDueDateMs)
+            put("provenance", schedule.provenance.name)
+            put("is_custom", if (schedule.isCustom) 1 else 0)
+            put("created_at", schedule.createdAtMs)
+            put("updated_at", schedule.updatedAtMs)
+        }
+        writableDatabase.insertWithOnConflict(TABLE_VEHICLE_MAINTENANCE_SCHEDULES, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun getMaintenanceSchedulesForVehicle(
+        vehicleId: String,
+        currentOdometerKm: Long? = null,
+        currentDateMs: Long = System.currentTimeMillis()
+    ): List<MaintenanceSchedule> {
+        val list = mutableListOf<MaintenanceSchedule>()
+        val cursor = readableDatabase.query(
+            TABLE_VEHICLE_MAINTENANCE_SCHEDULES,
+            null,
+            "vehicle_id = ?",
+            arrayOf(vehicleId),
+            null,
+            null,
+            "created_at ASC"
+        )
+        cursor.use { c ->
+            fun Cursor.nullLong(col: String): Long? = getColumnIndexOrThrow(col).let { if (isNull(it)) null else getLong(it) }
+            fun Cursor.nullInt(col: String): Int? = getColumnIndexOrThrow(col).let { if (isNull(it)) null else getInt(it) }
+
+            while (c.moveToNext()) {
+                val actionType = runCatching { MaintenanceActionType.valueOf(c.getString(c.getColumnIndexOrThrow("action_type"))) }.getOrDefault(MaintenanceActionType.REPLACE)
+                val prov = runCatching { MaintenanceIntervalProvenance.valueOf(c.getString(c.getColumnIndexOrThrow("provenance"))) }.getOrDefault(MaintenanceIntervalProvenance.OEM_RECOMMENDED)
+                val intervalKm = c.nullInt("interval_km")
+                val intervalMonths = c.nullInt("interval_months")
+                val lastKm = c.nullLong("last_service_km")
+                val lastDate = c.nullLong("last_service_date")
+
+                val due = MaintenanceDueEngine.calculateDueState(
+                    currentKm = currentOdometerKm,
+                    currentDateMs = currentDateMs,
+                    lastKm = lastKm,
+                    lastDateMs = lastDate,
+                    intervalKm = intervalKm,
+                    intervalMonths = intervalMonths
+                )
+
+                list.add(
+                    MaintenanceSchedule(
+                        id = c.getString(c.getColumnIndexOrThrow("id")),
+                        vehicleId = c.getString(c.getColumnIndexOrThrow("vehicle_id")),
+                        itemKey = c.getString(c.getColumnIndexOrThrow("item_key")),
+                        titleEn = c.getString(c.getColumnIndexOrThrow("title_en")),
+                        titleFa = c.getString(c.getColumnIndexOrThrow("title_fa")),
+                        actionType = actionType,
+                        intervalKm = intervalKm,
+                        intervalMonths = intervalMonths,
+                        lastServiceKm = lastKm,
+                        lastServiceDateMs = lastDate,
+                        nextDueKm = due.nextDueKm,
+                        nextDueDateMs = due.nextDueDateMs,
+                        provenance = prov,
+                        dueState = due.state,
+                        isCustom = c.getInt(c.getColumnIndexOrThrow("is_custom")) == 1,
+                        createdAtMs = c.getLong(c.getColumnIndexOrThrow("created_at")),
+                        updatedAtMs = c.getLong(c.getColumnIndexOrThrow("updated_at"))
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun deleteMaintenanceSchedule(scheduleId: String): Boolean {
+        return writableDatabase.delete(TABLE_VEHICLE_MAINTENANCE_SCHEDULES, "id = ?", arrayOf(scheduleId)) > 0
+    }
+
+    fun saveVehicleMaintenanceRecord(record: VehicleMaintenanceRecord) {
+        val cv = ContentValues().apply {
+            put("id", record.id)
+            put("vehicle_id", record.vehicleId)
+            put("item_key", record.itemKey)
+            put("performed_km", record.performedKm)
+            put("performed_date", record.performedDateMs)
+            put("cost_tomans", record.costTomans)
+            put("service_center", record.serviceCenter)
+            put("parts_brand", record.partsBrand)
+            put("part_number", record.partNumber)
+            put("notes", record.notes)
+            put("receipt_uri", record.receiptUri)
+            put("provenance", record.provenance.name)
+            put("created_at", record.createdAtMs)
+        }
+        writableDatabase.insertWithOnConflict(TABLE_VEHICLE_MAINTENANCE_RECORDS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun getVehicleMaintenanceRecords(vehicleId: String): List<VehicleMaintenanceRecord> {
+        val list = mutableListOf<VehicleMaintenanceRecord>()
+        val cursor = readableDatabase.query(
+            TABLE_VEHICLE_MAINTENANCE_RECORDS,
+            null,
+            "vehicle_id = ?",
+            arrayOf(vehicleId),
+            null,
+            null,
+            "performed_km DESC, performed_date DESC"
+        )
+        cursor.use { c ->
+            fun Cursor.nullText(col: String): String? = getColumnIndexOrThrow(col).let { if (isNull(it)) null else getString(it) }
+
+            while (c.moveToNext()) {
+                val prov = runCatching { MaintenanceIntervalProvenance.valueOf(c.getString(c.getColumnIndexOrThrow("provenance"))) }.getOrDefault(MaintenanceIntervalProvenance.USER_CUSTOM)
+                list.add(
+                    VehicleMaintenanceRecord(
+                        id = c.getString(c.getColumnIndexOrThrow("id")),
+                        vehicleId = c.getString(c.getColumnIndexOrThrow("vehicle_id")),
+                        itemKey = c.getString(c.getColumnIndexOrThrow("item_key")),
+                        performedKm = c.getLong(c.getColumnIndexOrThrow("performed_km")),
+                        performedDateMs = c.getLong(c.getColumnIndexOrThrow("performed_date")),
+                        costTomans = c.getLong(c.getColumnIndexOrThrow("cost_tomans")),
+                        serviceCenter = c.nullText("service_center"),
+                        partsBrand = c.nullText("parts_brand"),
+                        partNumber = c.nullText("part_number"),
+                        notes = c.nullText("notes"),
+                        receiptUri = c.nullText("receipt_uri"),
+                        provenance = prov,
+                        createdAtMs = c.getLong(c.getColumnIndexOrThrow("created_at"))
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun deleteVehicleMaintenanceRecord(recordId: String): Boolean {
+        return writableDatabase.delete(TABLE_VEHICLE_MAINTENANCE_RECORDS, "id = ?", arrayOf(recordId)) > 0
+    }
 }

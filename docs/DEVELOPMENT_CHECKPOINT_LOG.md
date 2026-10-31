@@ -48,3 +48,21 @@
   - Total full suite across all 6 modules: 477 JVM tests (app 152, core:adapter 115, core:model 59, core:protocol 125, core:telemetry 19, core:vehicle 7), 0 failures, 0 errors, 0 skipped.
   - Lint: 0 errors, 99 warnings. Duplicate class check: passed. Both APK assemblies: passed.
 - Next: Maintenance Center data model, per-vehicle service schedules, and provenance-backed intervals.
+
+# 2026-10-31 — Checkpoint E: maintenance foundation, due engine, and additive SQLite v7
+
+- Local timestamp: 2026-10-31 10:28 Asia/Tehran.
+- Goal: Implement normalized maintenance foundation, time/mileage due calculation engine, per-vehicle schedule/history isolation, and additive SQLite v7 persistence.
+- Implementation:
+  - Canonical models in `core:model`: `MaintenanceCategory`, `MaintenanceActionType`, `MaintenanceIntervalProvenance`, `DueState`, `MaintenanceItemDefinition`, `MaintenanceSchedule`, `VehicleMaintenanceRecord`, and `DueCalculationResult`.
+  - Built `MaintenanceDueEngine` with conservative worst-evidence calculation: mileage-based lead window (default 1,000 km) and date-based lead window (default 30 days); missing last-service facts remain `DueState.UNKNOWN` without fabricating good or overdue health.
+  - Published v6 remains immutable; created additive `MaintenanceFoundationMigration` v7 introducing `vehicle_maintenance_schedules` and `vehicle_maintenance_records` tables with vehicle foreign-key indexes.
+  - Updated `CarObdDatabaseHelper` to DATABASE_VERSION = 7; added CRUD operations and dynamic due state calculation.
+  - Implemented `MaintenanceRepository` and `SQLiteMaintenanceRepository` with atomic `recordCompletedService` that writes immutable history, advances schedule intervals, and updates next-due mileage/date.
+  - Registered `MaintenanceRepository` in `AppModule`.
+- Regressions & Tests:
+  - 3 new JVM regressions in `MaintenanceDueEngineTest` covering unknown initial states, mileage lifecycle (OK -> DUE_SOON -> DUE -> OVERDUE), and multi-evidence worst-state prioritization.
+  - New Android test `MaintenancePersistenceInstrumentedTest` testing schema v7, vehicle isolation, dynamic due transitions, service completion lifecycle, and untouched legacy tables.
+  - Total full suite across all 6 modules: 480 JVM tests (app 152, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 7), 0 failures, 0 errors, 0 skipped.
+  - Lint: 0 errors, 99 warnings. Duplicate class check: passed. Both APK assemblies: passed.
+- Next: Maintenance Center UI and per-vehicle service reminder management.

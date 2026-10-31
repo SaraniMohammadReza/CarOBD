@@ -42,6 +42,9 @@ val appModule = module {
     single<com.sarani.carobd.core.vehicle.catalog.VehicleCatalogRepository> {
         com.sarani.carobd.core.vehicle.catalog.DefaultVehicleCatalogRepository()
     }
+    single<com.sarani.carobd.data.repository.MaintenanceRepository> {
+        com.sarani.carobd.data.repository.SQLiteMaintenanceRepository(get())
+    }
     single { BluetoothDeviceScanner(androidContext()) }
     single { TripLogger() }
     single { AppPreferencesManager(androidContext()) }
