@@ -1,3 +1,7 @@
+# Current HOME stabilization status — 2026-10-31
+
+Ownership/onboarding/Home/Parts truthfulness is now stabilized; see HOME_STABILIZATION.md final evidence. EN smoke and FA/RTL360dp/font130 selected suite pass on API37 emulator. Unknown odometer is —, unknown engine requires selection, unknown service history never becomes a green up-to-date claim. This does not certify all screens, a real adapter or a vehicle. Dashboard136dp/adaptive320dp review is deferred; no new full splash/encyclopedia/education work. Older device claims and roadmap entries below are historical.
+
 # CAROBD — UI/UX RECONSTRUCTION STATUS
 
 ## 1. Executive Summary & Defect Remediation

@@ -63,3 +63,31 @@ Resolution now also rejects ambiguous family prefixes (M15 does not imply M15 TC
 ## HOME-R6 follow-up — unknown is visible
 
 Home no longer labels schedules with missing service evidence as up-to-date. Unknown parts context displays selection-required rather than a measured zero; Parts uses the same explanation. Vehicle header displays unknown odometer as — and preserves actual zero. Home targeted tests, English actual UI assertions and lint PASS (exit0, 1m06s); localization624 and diff check PASS. This completes visible truthfulness alongside nullable domain facts.
+
+## Final HOME stabilization evidence — 2026-10-31
+
+Verified application source: `cdfe14f355b596bddb8edb7d0ea222a208d1cd9a`. This publication changes documentation only; obtain delivery HEAD with git rev-parse HEAD. Development root is `/home/mohammad/Desktop/CarOBD/CarOBD-home-dev` on feat/car-obd-development. The original `/home/mohammad/Desktop/CarOBD/CarOBD` is intentionally on LOCAL ONLY home/ownership-preservation (`73e0dd8`); do not open that preserved draft as the active product or push that branch. report.md remains unchanged/untracked.
+
+P1-A through P1-I are implemented: field-authoritative intervals, explicit engine resolution, vehicle-scoped parts search, durable revision-bound snooze, future time warnings without invented mileage, canonical optional onboarding, cold persistence hydration/visible unknowns, transactional linked history reconciliation, and archive plus reminder cancellation. Old history remains unlinked; manual baseline is retained as fallback.
+
+Final exact offline full gate on the verified source: exit0,26s,102 tasks (3 executed/99 up-to-date); JVM549/0 failures/0 errors/0 skips: app199, model62, adapter115, protocol125, telemetry19, vehicle29. Lint0 errors/120 warnings; duplicate check and app/test APK assembly PASS. Localization624 unique matching resources PASS; existing host SQL checker PASS; diff check across d8b1f2d..source PASS. No lint baseline/suppression or dependency version change.
+
+Actual selected Android suite12/12 PASS on emulator-5554, model sdk_gphone16k_x86_64, Android17/API37. Final run FA/RTL360dp/font130. English ownership smoke also passed; exact earlier source run included12/12 EN tests. A direct runner repeat of current-source ownership smoke passed1/1 FA, then actual am force-stop + am start reported COLD and XML confirmed persisted QA owner and unknown odometer after splash. UTP removes APKs after its run, so the exact built app/test APKs were explicitly installed for that final direct-run/cold-process check. No phone/adapter/vehicle operation. The broad legacy RuntimeNavigation fixture is not claimed freshly verified; it retains pre-redesign UI assumptions and needs separate modernization.
+
+Debug APK: `/home/mohammad/Desktop/CarOBD/CarOBD-home-dev/app/build/outputs/apk/debug/app-debug.apk`; 24092041 bytes; SHA256 `a8aa0c3f32417d39432d450f17b6c5d10e0f5e8606d71b72e2ec5ba2f0156671`; apksigner PASS, v2 signature. APKs/cache/screenshots are not in Git. Reproducible new tests: OwnershipRuntimeSmokeTest and OwnershipMaintenanceStabilizationTest. Evidence logs are machine-local /tmp/carobd-home-final-full-gate.log and /tmp/carobd-home-direct-runtime.log; screenshots/XML under /home/mohammad/.local/share/carobd-build/home-stabilization-qa. Application has no dependency on these artifacts.
+
+GRADLE_USER_HOME: /home/mohammad/.gradle
+GRADLE_JDK: /home/mohammad/.local/share/carobd-build/jdks/jdk-24.0.2+12 (Temurin24.0.2+12; JVM target17)
+ANDROID_SDK: /home/mohammad/Android/Sdk (android-37.0/build-tools37.0.0)
+WRAPPER_CACHED: YES,9.8.1
+PLUGIN_DEPENDENCIES_CACHED: YES
+PROJECT_DEPENDENCIES_CACHED: YES,133 artifact configurations/2403 occurrences/56 metadata buckets,0 failures
+OFFLINE_HELP_STATUS: PASS
+OFFLINE_BUILD_STATUS: PASS including lint
+ANDROID_STUDIO_SYNC_READY: environment PREPARED; no new GUI Sync claimed
+REPOSITORY_ROUTING_USED: existing persistent ~/.gradle/init.d/carobd-repositories.gradle; inherited by CLI/Studio, no CLI-only init argument
+MISSING_ARTIFACTS: NONE
+
+Open the DEVELOPMENT root in Android Studio. In Settings > Build, Execution, Deployment > Build Tools > Gradle, select the Temurin24 path above as Gradle JDK; keep normal user Gradle home. Use the SDK path above. Daemon criteria also pin24. Do not confuse runtime24 with target17. Caches were populated by Gradle itself, never copied manually.
+
+Remaining scope: independent Hermes review, broad legacy navigation-test modernization, calendar-aware maintenance intervals, notification delivery/permission bench behavior, catalog source quality, and adaptive Dashboard visual QA at320/360dp. The legacy app/core/model/MaintenanceModels.kt remains because tests reference it; no active compatibility code was deleted. Learn Your Car/encyclopedia/catalog expansion/new protocols are deferred. Physical command authorization/adapter/protocol/session/transport/telemetry/foreground source paths are unchanged from company base. No shutdown/suspend is part of this mission.

@@ -2,17 +2,19 @@
 
 This is the canonical, agent-independent continuation record. Read it before analysis. Historical reports remain intact; this file records the actual continuation and distinguishes verified source from work in progress. Never reset to an old report's HEAD.
 
+## Current authoritative checkpoint — HOME stabilization
+
+Verified application source `cdfe14f355b596bddb8edb7d0ea222a208d1cd9a`. HOME stabilization P1-A…I is complete within software/emulator scope; full offline gate549 JVM/12 selected Android/zero lint errors passes. See HOME_STABILIZATION.md final evidence for exact commands, limitations, APK hash and machine environment. The following historical reports are not current development instructions.
+
+Active development root: `/home/mohammad/Desktop/CarOBD/CarOBD-home-dev`; branch feat/car-obd-development. Original home checkout is the local-only preservation branch73e0dd8; do not overwrite/push it. No shutdown or suspend requested. Next step: independent Hermes review of this stabilization checkpoint; no feature expansion before review.
+
 ## 1. Project Identity
 
 CarOBD; `git@github.com:SaraniMohammadReza/CarOBD.git`; branch **feat/car-obd-development** only. Android/Kotlin/Compose application package `com.sarani.carobd`. Gradle modules `app`, `core:model`, `core:adapter`, `core:protocol`, `core:telemetry`, `core:vehicle`. Existing MVI/ViewModel/use-case/repository/session architecture; serialized typed adapter dispatch and one shared telemetry producer. No AGENTS.md found in the project/parent checkout on this inspection. Do not delegate this active mission to another agent.
 
 ## 2. Current Git State
 
-Verified source snapshot: `1f327633e3375e1ea20d7d324c0f93f772694703`, equal to origin after push. Branch `feat/car-obd-development` only. Later commits containing this document necessarily sit above the sampled source hash; inspect actual HEAD rather than resetting to this snapshot.
-
-Localized numeric input is verified and pushed; final integration is recorded in section4. Final documentation is published in ARCHITECTURE.md, OBD_SUPPORT_MATRIX.md, COMPETITOR_FEATURE_MATRIX.md, COMPETITOR_GAP_DEVELOPMENT.md, ANDROID_STUDIO_OFFLINE_SETUP.md and the safety/gaps documents. Staging is explicit per checkpoint.
-
-Pre-existing untracked `report.md` must remain unchanged and uncommitted. SHA256 `cc39511e9fccbc8f31fcb15fcf84e1927d85695058e1af72fe8810cc58cf4325` verified repeatedly. No dependency on it; no caches/SDK/JDK/APK enter Git. No master modification or force push.
+Tested source `cdfe14f355b596bddb8edb7d0ea222a208d1cd9a` is pushed to origin/feat/car-obd-development; documentation-only publication follows it. Read actual HEAD/remote before continuing. Local preservation73e0dd8 is not a release and is intentionally not pushed. Current evidence/decisions are in HOME_STABILIZATION.md. report.md remains unchanged/untracked.
 
 ## 3. Completed Engineering Work
 
@@ -117,7 +119,7 @@ Persistent machine cache `/home/mohammad/.gradle` (GRADLE_USER_HOME unset, norma
 
 SDK `/home/mohammad/Android/Sdk`; compile/target37, min24; actual package platforms;android-37.0, build-tools37.0.0. Persistent user init `/home/mohammad/.gradle/init.d/carobd-repositories.gradle` scopes same-coordinate Aliyun Google routing to CarObd and keeps Central/portal fallback; no CLI-only --init-script needed. Do not commit machine caches/JDK/SDK/credentials or change versions. Actual Studio offline imports succeeded earlier at14:38:40 and16:35:12 on Oct30. No new GUI sync is inferred from CLI success. Final all-config warm-up/offline help will be rerun after current work.
 
-## 9. Test Evidence
+## 9. Historical test evidence — Oct30 (current results in HOME_STABILIZATION.md)
 
 Exact fresh offline gate (run after final source changes):
 
@@ -143,13 +145,10 @@ Combined report readiness/MIL/02/09/06 absent; no diagnostic health verdict; cod
 
 ## 11. Exact Next Actions
 
-1. Fetch/switch/pull safely as section12; inspect actual HEAD/status and this document. No source task is half-implemented. Do not reset to a historical hash or rerun successful gates absent a change/environment issue.
-2. Add one combined report scope through existing typed readiness/MIL/02/09/06 readers in ObdRepositoryImpl and the existing DiagnosticSession generation owner. Capture expected token before any read; preserve returned per-service partial outcomes, nullable identities/raw evidence, and explicit unread services. Do not auto-retry or manufacture completeness. Extend core model/store/UI/export schema intentionally and add cancellation/replacement/partial-failure regressions before exposing the scope.
-3. Optimize DiagnosticReportStore.recent: currently reads up to100 full records plus raw evidence. Introduce lightweight summaries and lazy selected detail loading, keeping old records/export exact; test archive bounds/recreation/error paths.
-4. Add editing of existing dashboard widget style using DashboardLayoutCodec and existing shared telemetry; preserve conservative decoder/support gating and 24-widget bound. No new producer or arbitrary polling.
-5. Physical phone/adapter bench validation remains REQUIRES_DEVICE/ADAPTER; no vehicle action authorized by this handoff. Follow SPRINT5_BENCH_CHECKLIST.md only with explicit authorization. Preserve typed safety invariants and do not expand physical capability from software PASS.
-
-After every coherent verified checkpoint: review diff, relevant tests, git diff --check, inspect status, explicit intended staging, commit and immediate push origin feat/car-obd-development. Never master/force. Update this file and preserve report.md. Full app backup, broader fuel/maintenance provenance and alerts remain later gaps.
+1. Use the sibling DEVELOPMENT root above; inspect status/fetch/HEAD equality. Preserve local-only home branch and report.md.
+2. Hermes independent review: exact engine/alias resolution, field-level provenance, linked-history migration/rollback, archive policy and snooze/future-trigger lifecycle. Do not relax read-only authorization.
+3. Reproduce targeted emulator tests when reviewing changes; see HOME_STABILIZATION.md for final gates. Legacy broad navigation fixture still needs adaptation to company UI redesign, separately from verified ownership smoke.
+4. Later work: calendar-aware due dates, adaptive Dashboard and broader product scope after this checkpoint is reviewed. No real adapter/vehicle testing is authorized here.
 
 ## 12. Morning Resume Instructions
 
@@ -164,7 +163,9 @@ git rev-parse HEAD origin/feat/car-obd-development
 ```
 Do not discard local changes to switch/pull. Open the Git root directory in Android Studio; use compatible Temurin24.0.2+12 for Gradle, Java/Kotlin target17, default persistent user Gradle home and installed SDK37/build-tools37.0.0. Install/resolve dependencies on that machine; no cache is in Git. See existing [Studio setup](ANDROID_STUDIO_OFFLINE_SETUP.md). Read active task and latest evidence before any refactor.
 
-## 13. Last Updated
+## 13. Historical Oct30 delivery — superseded
+
+The following timing/power instructions record the prior session, not current authorization. This stabilization mission performs no shutdown or suspend.
 
 2026-10-30 23:50 +03:30, Asia/Tehran. Requested window ends2026-10-31 07:00 or actual execution budget/blocker first; no artificial waiting. Final native sleep is authorized only after final report/source push, remote equality and completed builds/tests. No sleep has been invoked.
 
