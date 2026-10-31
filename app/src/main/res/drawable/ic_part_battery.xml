@@ -1,0 +1,21 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Terminal Posts -->
+    <path
+        android:fillColor="#FF00E5FF"
+        android:pathData="M6,4h3v2H6zM15,4h3v2h-3z"/>
+    <!-- Battery Casing -->
+    <path
+        android:fillColor="#FF00E5FF"
+        android:pathData="M4,6c-0.6,0 -1,0.4 -1,1v12c0,0.6 0.4,1 1,1h16c0.6,0 1,-0.4 1,-1V7c0,-0.6 -0.4,-1 -1,-1H4zm15,12H5V8h14v10z"/>
+    <!-- Plus and Minus Symbols -->
+    <path
+        android:fillColor="#FF00E5FF"
+        android:pathData="M7,12h3v1.5H7zM15.25,10.25h1.5v5h-1.5z"/>
+    <path
+        android:fillColor="#FF00E5FF"
+        android:pathData="M13.5,12h5v1.5h-5z"/>
+</vector>

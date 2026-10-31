@@ -168,3 +168,36 @@
   - Total full suite across all 6 modules: 502 JVM tests (app 168, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
   - Lint: 0 errors. Both APK assemblies (`assembleDebug` and `assembleDebugAndroidTest`): passed.
 - Next: Priority 3 Service Item Imagery Foundation and visual asset integration.
+
+# 2026-10-31 — Checkpoint J: service item imagery foundation and automotive vector assets
+
+- Local timestamp: 2026-10-31 11:45 Asia/Tehran.
+- Goal: Implement dedicated service item imagery foundation with safe original vector illustrations for automotive parts and categories, wire into Maintenance UI schedule and history views.
+- Changes:
+  - Created 11 crisp, safe, original 24x24 Android vector drawables in `app/src/main/res/drawable/`:
+    - `ic_part_oil_can.xml` (Engine oil, general fluids)
+    - `ic_part_oil_filter.xml` (Canister oil filter)
+    - `ic_part_air_filter.xml` (Intake air filter panel)
+    - `ic_part_cabin_filter.xml` (Cabin ventilation filter)
+    - `ic_part_fuel_filter.xml` (Inline fuel filter)
+    - `ic_part_spark_plug.xml` (Spark plug with electrode and insulator)
+    - `ic_part_timing_belt.xml` (Pulleys and toothed timing belt)
+    - `ic_part_brake_disc.xml` (Brake rotor disc and caliper)
+    - `ic_part_battery.xml` (12V automotive battery with posts)
+    - `ic_part_coolant.xml` (Radiator and coolant thermometer)
+    - `ic_part_transmission.xml` (Gearbox transmission cogs)
+  - `MaintenanceIconResolver.kt`:
+    - Item key keyword matching (`oil_filter`, `air_filter`, `cabin_filter`, `fuel_filter`, `spark_plugs`, `timing_belt`, `brake_pads`, `battery`, `coolant`, `transmission`, `engine_oil`).
+    - Fallback matching for `MaintenanceCategory` (`ENGINE`, `TRANSMISSION`, `BRAKES`, `FILTERS`, `FLUIDS`, `IGNITION`, `ELECTRICAL`).
+    - Safe default fallback to oil can icon.
+  - `MaintenanceScreen.kt`:
+    - Updated `ScheduleCard` with a 38dp container showcasing the item vector drawable.
+    - Updated `HistoryRecordCard` with a 32dp container showcasing the item vector drawable.
+- Regressions & Tests:
+  - Created `MaintenanceIconResolverTest.kt` with 3 unit tests verifying:
+    - `testResolvesSpecificMaintenanceItemKeys`
+    - `testResolvesCategoryFallbacksWhenItemKeyIsGeneric`
+    - `testResolvesDefaultDrawableWhenUnknownAndNoCategory`
+  - Total full suite across all 6 modules: 505 JVM tests (app 171, core:adapter 115, core:model 62, core:protocol 125, core:telemetry 19, core:vehicle 13), 0 failures, 0 errors, 0 skipped.
+  - Lint: 0 errors. Both APK assemblies: passed.
+- Next: Priority 4 Service History UX improvements (edit/delete records, audit timestamps, export) followed by Priority 5 Ownership Home integration & catalog recommendations.

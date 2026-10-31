@@ -59,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -624,48 +625,65 @@ fun ScheduleCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = schedule.titleFa.ifBlank { schedule.titleEn },
-                            color = TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
+                Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(DarkBg, RoundedCornerShape(10.dp))
+                            .border(1.dp, DarkCardBorder, RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(MaintenanceIconResolver.getDrawableRes(schedule.itemKey)),
+                            contentDescription = null,
+                            tint = NeonCyan,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Box(
-                            modifier = Modifier
-                                .background(badgeColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                .border(1.dp, badgeColor.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = badgeText,
-                                color = badgeColor,
-                                fontSize = 10.sp,
+                                text = schedule.titleFa.ifBlank { schedule.titleEn },
+                                color = TextPrimary,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(badgeColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                    .border(1.dp, badgeColor.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = badgeText,
+                                    color = badgeColor,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
-                    }
 
-                    // Interval description
-                    val intervalText = buildString {
-                        if (intervalKm != null && intervalKm > 0) {
-                            val dist = UnitConverter.formatDistance(intervalKm.toDouble(), unitSystem)
-                            append("${dist.first} ${dist.second}")
+                        // Interval description
+                        val intervalText = buildString {
+                            if (intervalKm != null && intervalKm > 0) {
+                                val dist = UnitConverter.formatDistance(intervalKm.toDouble(), unitSystem)
+                                append("${dist.first} ${dist.second}")
+                            }
+                            if (intervalMonths != null && intervalMonths > 0) {
+                                if (isNotEmpty()) append(" / ")
+                                append("$intervalMonths mo")
+                            }
                         }
-                        if (intervalMonths != null && intervalMonths > 0) {
-                            if (isNotEmpty()) append(" / ")
-                            append("$intervalMonths mo")
+                        if (intervalText.isNotBlank()) {
+                            Text(
+                                text = intervalText,
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
                         }
-                    }
-                    if (intervalText.isNotBlank()) {
-                        Text(
-                            text = intervalText,
-                            color = TextMuted,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
                     }
                 }
 
@@ -863,12 +881,20 @@ fun HistoryRecordCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = NeonGreen,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(DarkBg, RoundedCornerShape(8.dp))
+                            .border(1.dp, DarkCardBorder, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(MaintenanceIconResolver.getDrawableRes(record.itemKey)),
+                            contentDescription = null,
+                            tint = NeonGreen,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = record.itemKey.replace("_", " ").uppercase(),
