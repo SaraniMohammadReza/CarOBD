@@ -34,7 +34,15 @@ All listed source checkpoints were tested and pushed immediately:
 
 Full details/path explanations: [overnight engineering record](OVERNIGHT_DEVELOPMENT_HANDOFF.md), [full development report](COMPETITOR_GAP_DEVELOPMENT.md), [previous runtime QA](RUNTIME_QA_CONTINUATION.md). The final report qualifies historical results separately from the current source gate; this file is the continuation authority.
 
-## 4. Current Active Task
+## Active mission — 2026-10-31
+
+Actual recovered starting local/remote HEAD: `14f924ea60d3ff350537fae143faf334ecf79691`, development branch. Only pre-existing report.md is untracked. Prior464 JVM/10EN/10FA results below are historical, not new test results. No AGENTS.md found. New mandatory product scope: ownership-first multiple manual vehicles, normalized catalog/fitment provenance, per-vehicle maintenance/history/reminders, offline bilingual guide and efficient skippable intro. Preserve all diagnostic safety. SQLiteOpenHelper is the actual database; do not invent Room/DAOs or replace storage unnecessarily.
+
+Checkpoint A reassessment: see [implementation report](SPRINT_4_IMPLEMENTATION_REPORT.md), [append-only log](DEVELOPMENT_CHECKPOINT_LOG.md), [new test evidence](SPRINT_4_TEST_EVIDENCE.md), [current final handoff](SPRINT_4_FINAL_HANDOFF.md). Current task is additive ownership persistence and real offline vehicle management. Existing ECU routing profile is not a uniquely owned vehicle; do not change physical routing on owner-vehicle selection. Preserve old garage/preferences/diagnostic rows; unassigned historical data must not be guessed into a new vehicle.
+
+New mission supersedes prior suspend instruction: final full native poweroff only after all completed work/reports pushed, fetched remote equality, clean tracked tree, unchanged report.md and no active builds/tests. Never shut down with unpushed important work. Do not claim mission/product completion while major scope remains incomplete.
+
+## 4. Previous Verified Checkpoint
 
 **VERIFIED source; next report scope NOT_STARTED.** Localized numeric metadata input is complete. VehicleSetupNumbers normalizes English/Persian/Arabic digits and Arabic decimal separator; rejects ambiguous grouping, exponent/nonfinite/overflow/fractional odometer input; blank stays null. VehicleOnboardingModal uses exactly the same parsed values for validation/save and highlights errors. Four parser regressions passed in app147/0failure/error/skip, exit0,3s (`/tmp/carobd-overnight-numeric-unit.log`). Complete FA/RTL900×2000/font130 instrumentation passed: Android10/10, zero failures/errors/skips, exit0,3m22s (`/tmp/carobd-overnight-numeric-fa-ui.log`). Android test sets Persian decimal, rejects grouping and clears back to optional blank.
 
